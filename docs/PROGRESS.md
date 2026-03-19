@@ -294,23 +294,82 @@ $ npm test -- --run
 
 ---
 
-## 下一步：Phase 6 - Rollback & Rebase
+## Phase 6 - Rollback & CLI ✅ 已完成
+
+### 已完成的工作
+
+#### 1. Rollback 命令 (`src/cli/commands/rollback.ts`)
+- ✅ 回滚到指定 revision - `sea skills rollback <skill> --to <revision>`
+- ✅ 回滚到 snapshot - `sea skills rollback <skill> --snapshot`
+- ✅ 回滚到初始版本 - `sea skills rollback <skill> --initial`
+- ✅ 显示可用 snapshots - 无参数时列出所有可用版本
+
+#### 2. Status 命令 (`src/cli/commands/status.ts`)
+- ✅ 列出所有 shadow skills - `sea skills status`
+- ✅ 显示特定 skill 详细状态 - `sea skills status --skill <id>`
+
+#### 3. CLI 主入口 (`src/cli/index.ts`)
+- ✅ Commander.js 集成
+- ✅ Skills 子命令组
+
+### 验证结果
+
+#### TypeScript 类型检查
+```bash
+$ npm run typecheck
+✅ 通过 - 无错误
+```
+
+#### 项目构建
+```bash
+$ npm run build
+✅ 通过 - 成功编译
+```
+
+#### 单元测试
+```bash
+$ npm test -- --run
+✅ 通过 - 6 个测试全部通过
+```
+
+### CLI 命令示例
+
+```bash
+# 查看所有 shadow skills 状态
+sea skills status
+
+# 查看特定 skill 详细状态
+sea skills status --skill my-skill
+
+# 回滚到指定 revision
+sea skills rollback my-skill --to 5
+
+# 回滚到最新 snapshot
+sea skills rollback my-skill --snapshot
+
+# 回滚到初始版本
+sea skills rollback my-skill --initial
+
+# 查看可用的 snapshots
+sea skills rollback my-skill
+```
+
+---
+
+## 下一步：Phase 7 - CLI 完善 & 集成
 
 ### 目标
-实现回滚和 origin 同步
+完善所有 CLI 命令
 
 ### 任务清单
-- [ ] Rollback 功能
-  - [ ] 回滚到指定 revision
-  - [ ] 回滚到 snapshot
-  - [ ] 回滚到初始版本
-- [ ] Origin 更新检测
-- [ ] Rebase 策略
-  - [ ] 差异检测
-  - [ ] Patch 重放
-  - [ ] 冲突处理
-- [ ] `sea skills rollback` 命令
-- [ ] `sea skills rebase` 命令
+- [ ] `sea skills status` 完善
+- [ ] `sea skills log` 命令
+- [ ] `sea skills diff` 命令
+- [ ] `sea skills freeze/unfreeze` 命令
+- [ ] `sea optimize` 命令
+- [ ] 输出格式化
+- [ ] 交互式提示
+- [ ] 错误处理和用户友好提示
 
 ### 预计工期
 1.5 周

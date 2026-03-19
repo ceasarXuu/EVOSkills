@@ -3,6 +3,9 @@
 import { Command } from 'commander';
 import { createStatusCommand } from './commands/status.js';
 import { createRollbackCommand } from './commands/rollback.js';
+import { createLogCommand } from './commands/log.js';
+import { createDiffCommand } from './commands/diff.js';
+import { createFreezeCommand, createUnfreezeCommand } from './commands/freeze.js';
 
 const program = new Command();
 
@@ -17,6 +20,10 @@ const skills = new Command('skills')
 
 skills.addCommand(createStatusCommand());
 skills.addCommand(createRollbackCommand());
+skills.addCommand(createLogCommand());
+skills.addCommand(createDiffCommand());
+skills.addCommand(createFreezeCommand());
+skills.addCommand(createUnfreezeCommand());
 
 program.addCommand(skills);
 

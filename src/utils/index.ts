@@ -1,0 +1,8 @@
+/**
+ * 工具函数库入口
+ */
+
+export * from './hash.js';
+export * from './diff.js';
+export * from './path.js';
+export * from './logger.js';

@@ -205,6 +205,65 @@ ornn skills unfreeze coding-standards
 - 基于观察到的模式自动优化 shadow skill
 - 原始的全局 skill 不会被修改
 
+### Trace-Skill 映射
+
+OrnnSkills 的核心功能是将 AI Agent 的执行 trace 映射到对应的 skill。系统使用 6 种策略进行映射：
+
+1. **文件读取检测** (置信度 0.95)
+   - 当 AI 读取 skill 文件时，直接映射到该 skill
+   - 例如：`read_file` 操作读取 `~/.skills/my-skill/current.md`
+
+2. **工具调用推断** (置信度 0.85)
+   - 从工具参数中推断 skill 信息
+   - 例如：执行命令中包含 skill 名称
+
+3. **文件变化检测** (置信度 0.9)
+   - 当 skill 文件被修改时，映射到该 skill
+   - 例如：编辑 `.ornn/skills/coding-standards/current.md`
+
+4. **元数据标识** (置信度 0.98)
+   - trace 中显式包含 skill_id 元数据
+   - 最可靠的映射方式
+
+5. **输出内容推断** (置信度 0.6)
+   - 从 AI 输出中识别 skill 引用
+   - 例如：输出中提到 "according to coding-standards"
+
+6. **用户输入推断** (置信度 0.5)
+   - 从用户输入中识别 skill 请求
+   - 例如：用户说 "use coding-standards"
+
+### 自动优化闭环
+
+系统实现了完整的自动优化闭环：
+
+```
+1. Trace 采集
+   ↓
+2. Trace-Skill 映射
+   ↓
+3. 模式分析与评估
+   ↓
+4. 生成优化任务
+   ↓
+5. 应用补丁到 shadow skill
+   ↓
+6. 记录演化日志
+```
+
+**示例场景**：
+
+假设你经常在使用 `coding-standards` skill 后手动补充 "run linter" 步骤：
+
+1. **采集**: OrnnSkills 采集到多个 trace，其中包含你手动补充 "run linter" 的操作
+2. **映射**: 这些 trace 被映射到 `coding-standards` skill
+3. **评估**: 系统发现你在 3 个不同 session 中都手动补充了这个步骤
+4. **生成**: 系统生成一个 `add_fallback` 类型的优化任务
+5. **执行**: 系统自动在 shadow skill 中添加 "run linter" 步骤
+6. **记录**: 保存演化日志，记录这次优化
+
+之后，当你再次使用这个 skill 时，AI Agent 会自动包含 "run linter" 步骤，无需你手动补充。
+
 ### 自动优化的类型
 
 OrnnSkills 支持以下几种自动优化：
@@ -234,6 +293,7 @@ OrnnSkills 支持以下几种自动优化：
 - 只允许小步修改，不会大幅重写
 - 不会修改全局的 origin skill
 - 所有修改都可以回滚
+- 低于 50% 置信度的 trace 不会被用于优化
 
 ---
 
@@ -272,10 +332,24 @@ your-project/
 [origin_paths]
 paths = ["~/.skills", "~/.claude/skills"]
 
+[observer]
+enabled_runtimes = ["codex", "opencode", "claude"]
+trace_retention_days = 30
+buffer_size = 10            # 缓冲区大小
+flush_interval = 5000       # 定时刷新间隔（毫秒）
+
 [evaluator]
 min_signal_count = 3        # 至少出现 3 次信号才触发优化
 min_source_sessions = 2     # 至少来自 2 个不同的 session
 min_confidence = 0.7        # 置信度至少 70%
+
+[mapper]
+min_confidence = 0.5        # trace 映射的最低置信度阈值
+persist_mappings = true     # 是否保存映射关系到数据库
+
+[pipeline]
+auto_optimize = true        # 是否启用自动优化
+min_confidence = 0.7        # 优化任务的最低置信度
 
 [patch]
 allowed_types = ["append_context", "add_fallback", "prune_noise"]
@@ -297,7 +371,42 @@ auto_optimize = false  # 冻结这个 skill
 
 [skills.api-design]
 allowed_patch_types = ["append_context"]  # 只允许补充上下文
+
+[mapper]
+min_confidence = 0.6  # 项目特定的映射置信度阈值
 ```
+
+### 配置说明
+
+#### Mapper 配置
+
+- `min_confidence`: trace 映射的最低置信度阈值。低于此值的 trace 不会被映射到 skill。
+  - 建议值：0.5（默认）
+  - 更高的值会减少误报，但可能漏掉一些有效的映射
+
+- `persist_mappings`: 是否将映射关系保存到数据库
+  - 默认值：true
+  - 设为 false 可以节省存储空间，但会丢失映射历史
+
+#### Observer 配置
+
+- `buffer_size`: 缓冲区大小，达到此数量时触发刷新
+  - 建议值：10（默认）
+  - 更小的值会更快触发评估，但可能增加处理开销
+
+- `flush_interval`: 定时刷新间隔（毫秒）
+  - 默认值：5000（5 秒）
+  - 更小的值会更快响应，但可能增加 CPU 使用
+
+#### Pipeline 配置
+
+- `auto_optimize`: 是否启用自动优化
+  - 默认值：true
+  - 设为 false 可以禁用自动优化，只进行 trace 采集和映射
+
+- `min_confidence`: 优化任务的最低置信度
+  - 默认值：0.7
+  - 更高的值会减少误优化，但可能错过一些有价值的优化机会
 
 ---
 
@@ -349,6 +458,56 @@ A: 目前只能通过 CLI 查看状态和回滚，自动优化是在后台进行
 
 A: Shadow skill 是从原始 skill 复制过来的，然后被自动优化。原始 skill 不会被修改。如果你想把 shadow skill 的优化同步回原始 skill，需要手动操作。
 
+### Q: Trace-Skill 映射是什么？为什么我的 trace 没有被映射到 skill？
+
+A: Trace-Skill 映射是系统将 AI Agent 的执行 trace 识别并关联到对应 skill 的过程。如果你的 trace 没有被映射，可能是因为：
+
+1. **置信度太低**: trace 的映射置信度低于配置的阈值（默认 0.5）
+2. **skill 未注册**: 系统不知道这个 skill
+3. **trace 不包含 skill 信息**: trace 中没有明确指向任何 skill 的信息
+
+解决方法：
+- 检查 `~/.ornn/settings.toml` 中的 `mapper.min_confidence` 设置
+- 确保 skill 文件在正确的路径下（`.skills/`、`.claude/skills/`、`.ornn/skills/`）
+- 查看演化日志了解映射详情
+
+### Q: 如何查看 trace 映射的统计信息？
+
+A: 目前可以通过 API 获取映射统计，CLI 命令尚未实现。你可以使用以下代码：
+
+```typescript
+import { createTraceSkillMapper } from 'ornn-skills';
+
+const mapper = createTraceSkillMapper('/path/to/project');
+await mapper.init();
+
+const stats = await mapper.getMappingStats();
+console.log(stats);
+// 输出: { total_mappings: 100, by_skill: { 'my-skill': 50 }, avg_confidence: 0.85 }
+```
+
+### Q: 自动优化的触发条件是什么？
+
+A: 自动优化需要满足以下条件：
+
+1. **trace 数量**: 至少有 `evaluator.min_signal_count`（默认 3）个相关 trace
+2. **session 来源**: 至少来自 `evaluator.min_source_sessions`（默认 2）个不同的 session
+3. **置信度**: 评估结果的置信度至少为 `evaluator.min_confidence`（默认 0.7）
+4. **skill 状态**: skill 未被冻结（`status !== 'frozen'`）
+5. **冷却时间**: 距离上次优化至少 `patch.cooldown_hours`（默认 24）小时
+6. **每日限制**: 当天优化次数未超过 `patch.max_patches_per_day`（默认 3）
+
+### Q: 如何禁用自动优化但保留 trace 采集？
+
+A: 在配置文件中设置：
+
+```toml
+[pipeline]
+auto_optimize = false  # 禁用自动优化
+```
+
+这样系统仍会采集和映射 trace，但不会自动执行优化。你可以手动检查演化日志，决定是否手动应用优化。
+
 ---
 
 ## 最佳实践
@@ -379,4 +538,4 @@ https://github.com/ceasarXuu/OrnnSkills/issues
 
 ---
 
-*最后更新：2026-03-20*
+*最后更新：2026-03-21*

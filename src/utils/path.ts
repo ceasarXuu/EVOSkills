@@ -13,59 +13,87 @@ export function expandHome(path: string): string {
 }
 
 /**
- * 获取项目的 .evo 目录路径
+ * 获取项目的 .ornn 目录路径
  */
 export function getEvoDir(projectRoot: string): string {
-  return join(projectRoot, '.evo');
+  return join(projectRoot, '.ornn');
 }
 
 /**
  * 获取项目的 skills 目录路径
  */
 export function getSkillsDir(projectRoot: string): string {
-  return join(projectRoot, '.evo', 'skills');
+  return join(projectRoot, '.ornn', 'skills');
 }
 
 /**
  * 获取项目的 state 目录路径
  */
 export function getStateDir(projectRoot: string): string {
-  return join(projectRoot, '.evo', 'state');
+  return join(projectRoot, '.ornn', 'state');
 }
 
 /**
  * 获取项目的 config 目录路径
  */
 export function getConfigDir(projectRoot: string): string {
-  return join(projectRoot, '.evo', 'config');
+  return join(projectRoot, '.ornn', 'config');
 }
 
 /**
- * 获取 shadow skill 的路径
+ * 获取某个 skill 的 current.md 路径
+ */
+export function getSkillCurrentPath(projectRoot: string, skillId: string): string {
+  return join(projectRoot, '.ornn', 'skills', skillId, 'current.md');
+}
+
+/**
+ * 获取某个 skill 的 meta.json 路径
+ */
+export function getSkillMetaPath(projectRoot: string, skillId: string): string {
+  return join(projectRoot, '.ornn', 'skills', skillId, 'meta.json');
+}
+
+/**
+ * 获取某个 skill 的 journal.ndjson 路径
+ */
+export function getSkillJournalPath(projectRoot: string, skillId: string): string {
+  return join(projectRoot, '.ornn', 'skills', skillId, 'journal.ndjson');
+}
+
+/**
+ * 获取某个 skill 的 snapshots 目录路径
+ */
+export function getSkillSnapshotsDir(projectRoot: string, skillId: string): string {
+  return join(projectRoot, '.ornn', 'skills', skillId, 'snapshots');
+}
+
+/**
+ * 获取 shadow skill 的路径（别名）
  */
 export function getShadowSkillPath(projectRoot: string, skillId: string): string {
-  return join(projectRoot, '.evo', 'skills', skillId, 'current.md');
+  return getSkillCurrentPath(projectRoot, skillId);
 }
 
 /**
- * 获取 shadow skill 的 meta.json 路径
+ * 获取 shadow meta 的路径（别名）
  */
 export function getShadowMetaPath(projectRoot: string, skillId: string): string {
-  return join(projectRoot, '.evo', 'skills', skillId, 'meta.json');
+  return getSkillMetaPath(projectRoot, skillId);
 }
 
 /**
- * 获取 shadow skill 的 journal 路径
+ * 获取 shadow journal 的路径（别名）
  */
 export function getShadowJournalPath(projectRoot: string, skillId: string): string {
-  return join(projectRoot, '.evo', 'skills', skillId, 'journal.ndjson');
+  return getSkillJournalPath(projectRoot, skillId);
 }
 
 /**
- * 获取 shadow skill 的 snapshots 目录路径
+ * 获取 snapshots 目录（别名）
  */
 export function getSnapshotsDir(projectRoot: string, skillId: string): string {
-  return join(projectRoot, '.evo', 'skills', skillId, 'snapshots');
+  return getSkillSnapshotsDir(projectRoot, skillId);
 }
 
 /**

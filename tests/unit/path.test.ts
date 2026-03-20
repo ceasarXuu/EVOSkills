@@ -32,58 +32,58 @@ describe('Path Utils', () => {
   });
 
   describe('getEvoDir', () => {
-    it('should return .evo directory path', () => {
+    it('should return .ornn directory path', () => {
       const result = getEvoDir('/project');
-      expect(result).toBe('/project/.evo');
+      expect(result).toBe('/project/.ornn');
     });
   });
 
   describe('getSkillsDir', () => {
-    it('should return .evo/skills directory path', () => {
+    it('should return .ornn/skills directory path', () => {
       const result = getSkillsDir('/project');
-      expect(result).toBe('/project/.evo/skills');
+      expect(result).toBe('/project/.ornn/skills');
     });
   });
 
   describe('getStateDir', () => {
-    it('should return .evo/state directory path', () => {
+    it('should return .ornn/state directory path', () => {
       const result = getStateDir('/project');
-      expect(result).toBe('/project/.evo/state');
+      expect(result).toBe('/project/.ornn/state');
     });
   });
 
   describe('getConfigDir', () => {
-    it('should return .evo/config directory path', () => {
+    it('should return .ornn/config directory path', () => {
       const result = getConfigDir('/project');
-      expect(result).toBe('/project/.evo/config');
+      expect(result).toBe('/project/.ornn/config');
     });
   });
 
   describe('getShadowSkillPath', () => {
     it('should return shadow skill path', () => {
       const result = getShadowSkillPath('/project', 'my-skill');
-      expect(result).toBe('/project/.evo/skills/my-skill/current.md');
+      expect(result).toBe('/project/.ornn/skills/my-skill/current.md');
     });
   });
 
   describe('getShadowMetaPath', () => {
     it('should return shadow meta path', () => {
       const result = getShadowMetaPath('/project', 'my-skill');
-      expect(result).toBe('/project/.evo/skills/my-skill/meta.json');
+      expect(result).toBe('/project/.ornn/skills/my-skill/meta.json');
     });
   });
 
   describe('getShadowJournalPath', () => {
     it('should return shadow journal path', () => {
       const result = getShadowJournalPath('/project', 'my-skill');
-      expect(result).toBe('/project/.evo/skills/my-skill/journal.ndjson');
+      expect(result).toBe('/project/.ornn/skills/my-skill/journal.ndjson');
     });
   });
 
   describe('getSnapshotsDir', () => {
     it('should return snapshots directory path', () => {
       const result = getSnapshotsDir('/project', 'my-skill');
-      expect(result).toBe('/project/.evo/skills/my-skill/snapshots');
+      expect(result).toBe('/project/.ornn/skills/my-skill/snapshots');
     });
   });
 });

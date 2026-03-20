@@ -1,10 +1,10 @@
-# EVOSkills - Skill Evolution Agent
+# OrnnSkills - Skill Evolution Agent
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 
-EVOSkills 是一个后台常驻的元 Agent，它不会替代主 Agent 执行任务，而是持续观察主 Agent 的真实执行，并为每个项目维护一份来自全局 Skill 的影子副本（Shadow Skill），再基于 trace 对这份影子副本做小步、自动、可回滚的持续优化。
+OrnnSkills 是一个后台常驻的元 Agent，它不会替代主 Agent 执行任务，而是持续观察主 Agent 的真实执行，并为每个项目维护一份来自全局 Skill 的影子副本（Shadow Skill），再基于 trace 对这份影子副本做小步、自动、可回滚的持续优化。
 
 ## 核心特性
 
@@ -17,7 +17,7 @@ EVOSkills 是一个后台常驻的元 Agent，它不会替代主 Agent 执行任
 ## 安装
 
 ```bash
-npm install -g evo
+npm install -g ornn-skills
 ```
 
 ## 快速开始
@@ -25,32 +25,32 @@ npm install -g evo
 ### 1. 初始化配置
 
 ```bash
-evo init
+ornn init
 ```
 
 ### 2. 查看项目 shadow skills 状态
 
 ```bash
-evo skills status
+ornn skills status
 ```
 
 ### 3. 查看某个 skill 的演化日志
 
 ```bash
-evo skills log <skill-id>
+ornn skills log <skill-id>
 ```
 
 ### 4. 回滚到指定版本
 
 ```bash
-evo skills rollback <skill-id> --to rev_8
+ornn skills rollback <skill-id> --to rev_8
 ```
 
 ### 5. 冻结/解冻自动优化
 
 ```bash
-evo skills freeze <skill-id>
-evo skills unfreeze <skill-id>
+ornn skills freeze <skill-id>
+ornn skills unfreeze <skill-id>
 ```
 
 ## 架构概览
@@ -69,14 +69,14 @@ Main Agent Runtime (Codex/OpenCode/Claude)
         ├─ Patch Generator (补丁生成)
         └─ Journal Manager (演化日志)
         ↓
-    Project Shadow Skills (.sea/skills/*)
+    Project Shadow Skills (.ornn/skills/*)
 ```
 
 ## 项目结构
 
 ```
 your-project/
-└── .evo/
+└── .ornn/
     ├── skills/
     │   └── <skill-id>/
     │       ├── current.md      # 当前 shadow skill 内容
@@ -97,15 +97,15 @@ your-project/
 
 | 命令 | 描述 |
 |------|------|
-| `evo init` | 初始化配置 |
-| `evo skills status` | 查看当前项目 shadow skills 状态 |
-| `evo skills log <skill>` | 查看某个 skill 的演化日志 |
-| `evo skills diff <skill>` | 查看当前内容与 origin 的 diff |
-| `evo skills rollback <skill> --to <rev>` | 回滚到指定 revision |
-| `evo skills freeze <skill>` | 暂停某个 skill 的自动优化 |
-| `evo skills unfreeze <skill>` | 恢复自动优化 |
-| `evo optimize <skill>` | 手动触发一次优化评估 |
-| `evo skills rebase <skill>` | 重新同步 origin |
+| `ornn init` | 初始化配置 |
+| `ornn skills status` | 查看当前项目 shadow skills 状态 |
+| `ornn skills log <skill>` | 查看某个 skill 的演化日志 |
+| `ornn skills diff <skill>` | 查看当前内容与 origin 的 diff |
+| `ornn skills rollback <skill> --to <rev>` | 回滚到指定 revision |
+| `ornn skills freeze <skill>` | 暂停某个 skill 的自动优化 |
+| `ornn skills unfreeze <skill>` | 恢复自动优化 |
+| `ornn optimize <skill>` | 手动触发一次优化评估 |
+| `ornn skills rebase <skill>` | 重新同步 origin |
 
 ## 自动优化策略
 
@@ -125,7 +125,7 @@ your-project/
 
 ## 配置
 
-### 全局配置 (~/.evo/settings.toml)
+### 全局配置 (~/.ornn/settings.toml)
 
 ```toml
 [origin_paths]
@@ -154,7 +154,7 @@ auto_start = true
 log_level = "info"
 ```
 
-### 项目配置 (.evo/config/settings.toml)
+### 项目配置 (.ornn/config/settings.toml)
 
 ```toml
 [project]
@@ -224,4 +224,4 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 
 ## 支持
 
-如有问题或建议，请提交 [Issue](https://github.com/ceasarXuu/EVOSkills/issues)
+如有问题或建议，请提交 [Issue](https://github.com/ceasarXuu/OrnnSkills/issues)

@@ -19,7 +19,7 @@ export class ShadowRegistry {
 
   constructor(projectRoot: string) {
     this.projectRoot = projectRoot;
-    const dbPath = join(projectRoot, '.evo', 'state', 'sessions.db');
+    const dbPath = join(projectRoot, '.ornn', 'state', 'sessions.db');
     this.db = createSQLiteStorage(dbPath);
   }
 
@@ -52,7 +52,7 @@ export class ShadowRegistry {
     const now = new Date().toISOString();
 
     // 创建 shadow 目录结构
-    const shadowDir = join(this.projectRoot, '.evo', 'skills', origin.skill_id);
+    const shadowDir = join(this.projectRoot, '.ornn', 'skills', origin.skill_id);
     const snapshotsDir = join(shadowDir, 'snapshots');
 
     if (!existsSync(shadowDir)) {
@@ -170,7 +170,7 @@ export class ShadowRegistry {
    * 确保项目 .evo 目录结构存在
    */
   async ensureProjectStructure(): Promise<void> {
-    const evoDir = join(this.projectRoot, '.evo');
+    const evoDir = join(this.projectRoot, '.ornn');
     const dirs = [
       join(evoDir, 'skills'),
       join(evoDir, 'state'),

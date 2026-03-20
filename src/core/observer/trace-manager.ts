@@ -20,11 +20,11 @@ export class TraceManager {
     this.projectRoot = projectRoot;
 
     // 初始化数据库
-    const dbPath = join(projectRoot, '.evo', 'state', 'sessions.db');
+    const dbPath = join(projectRoot, '.ornn', 'state', 'sessions.db');
     this.db = createSQLiteStorage(dbPath);
 
     // 初始化 NDJSON trace store
-    const tracesDir = join(projectRoot, '.evo', 'state');
+    const tracesDir = join(projectRoot, '.ornn', 'state');
     this.traceStore = createTraceStore(tracesDir, 'default');
   }
 
@@ -53,7 +53,7 @@ export class TraceManager {
     });
 
     // 更新 trace store 的 session ID
-    const tracesDir = join(this.projectRoot, '.evo', 'state');
+    const tracesDir = join(this.projectRoot, '.ornn', 'state');
     this.traceStore = createTraceStore(tracesDir, sessionId);
 
     logger.info(`Session set: ${sessionId}`, { runtime, projectId });

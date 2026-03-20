@@ -1,7 +1,7 @@
-EVO Skills 设计文档 v2
+OrnnSkills 设计文档 v2
 0. 一句话定义
 
-EVO Skills 是一个后台常驻的元 Agent。它不会替代主 Agent 执行任务，而是持续观察主 Agent 的真实执行，并为每个项目维护一份来自全局 Skill 的影子副本（Shadow Skill），再基于 trace 对这份影子副本做小步、自动、可回滚的持续优化。
+OrnnSkills 是一个后台常驻的元 Agent。它不会替代主 Agent 执行任务，而是持续观察主 Agent 的真实执行，并为每个项目维护一份来自全局 Skill 的影子副本（Shadow Skill），再基于 trace 对这份影子副本做小步、自动、可回滚的持续优化。
 
 1. 设计目标
 1.1 产品目标
@@ -84,9 +84,9 @@ Origin Skill 是用户本机已有的、全局安装的 skill。
   C/
 2.2 Project Shadow Skill
 
-当某个项目第一次实际使用到全局 skill A 时，EVO Skills 会自动在该项目下创建一个影子副本：
+当某个项目第一次实际使用到全局 skill A 时，OrnnSkills 会自动在该项目下创建一个影子副本：
 
-repo-x/.evo/skills/A/
+repo-x/.ornn/skills/A/
 
 这个项目内副本就是 A'。
 
@@ -128,7 +128,7 @@ A (origin)
 3. 用户体验设计
 3.1 默认行为
 
-用户启动主 Agent 后，EVO Skills 在后台运行。
+用户启动主 Agent 后，OrnnSkills 在后台运行。
 默认情况下用户不需要主动操作。
 
 它会自动完成：
@@ -155,7 +155,7 @@ V1 不需要复杂 UI。
 只需要最小的几个交互：
 
 查看当前项目有哪些 shadow skills
-evo skills status
+ornn skills status
 查看某个 shadow skill 的最近优化记录
 evo skills log A
 回滚某个 shadow skill 到某个 revision / checkpoint

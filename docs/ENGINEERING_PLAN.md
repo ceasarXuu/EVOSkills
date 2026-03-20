@@ -1,4 +1,4 @@
-# EVO Skills 工程计划 v1.0
+# OrnnSkills 工程计划 v1.0
 
 ## 1. 技术栈选型
 
@@ -32,7 +32,7 @@
 ## 2. 项目结构
 
 ```
-EVOSkills/
+OrnnSkills/
 ├── src/
 │   ├── cli/                    # CLI 命令入口
 │   │   ├── index.ts           # 主入口
@@ -208,7 +208,7 @@ interface OriginSkill {
 
 **配置**：
 ```toml
-# ~/.evo/settings.toml
+# ~/.ornn/settings.toml
 [origin_paths]
 paths = [
   "~/.skills",
@@ -268,7 +268,7 @@ interface ProjectSkillShadow {
 **项目目录结构初始化**：
 ```
 project/
-└── .evo/
+└── .ornn/
     ├── skills/
     │   └── {skill_id}/
     │       ├── current.md      # 当前内容
@@ -660,12 +660,12 @@ CREATE INDEX idx_traces_timestamp ON traces_index(timestamp);
 
 **任务清单**：
 - [x] 项目初始化（package.json, tsconfig, eslint）
-- [ ] 全局类型定义
-- [ ] 配置管理系统
-- [ ] 工具函数库（hash, diff, path, logger）
-- [ ] SQLite 存储层
-- [ ] NDJSON 读写器
-- [ ] Markdown 文件操作器
+- [x] 全局类型定义
+- [x] 配置管理系统
+- [x] 工具函数库（hash, diff, path, logger）
+- [x] SQLite 存储层
+- [x] NDJSON 读写器
+- [x] Markdown 文件操作器
 
 **交付物**：
 - 可运行的空项目框架
@@ -678,21 +678,21 @@ CREATE INDEX idx_traces_timestamp ON traces_index(timestamp);
 **目标**：实现 skill 发现和 shadow 管理
 
 **任务清单**：
-- [ ] Origin Registry
-  - [ ] 目录扫描器
-  - [ ] 版本 hash 计算
-  - [ ] Origin 列表管理
-- [ ] Shadow Registry
-  - [ ] Shadow 创建（fork）
-  - [ ] Shadow 状态管理
-  - [ ] 项目目录结构初始化
-- [ ] Journal Manager 基础版
-  - [ ] Journal 写入
-  - [ ] Journal 读取
-  - [ ] Revision 管理
+- [x] Origin Registry
+  - [x] 目录扫描器
+  - [x] 版本 hash 计算
+  - [x] Origin 列表管理
+- [x] Shadow Registry
+  - [x] Shadow 创建（fork）
+  - [x] Shadow 状态管理
+  - [x] 项目目录结构初始化
+- [x] Journal Manager 基础版
+  - [x] Journal 写入
+  - [x] Journal 读取
+  - [x] Revision 管理
 
 **交付物**：
-- `sea skills status` 命令可用
+- `ornn skills status` 命令可用
 - 能自动发现 origin skills
 - 能创建 shadow skills
 
@@ -703,13 +703,13 @@ CREATE INDEX idx_traces_timestamp ON traces_index(timestamp);
 **目标**：实现 trace 采集
 
 **任务清单**：
-- [ ] Observer 基类
-- [ ] Trace 数据模型
-- [ ] Trace 存储（NDJSON + SQLite 索引）
-- [ ] Codex Observer
-  - [ ] JSONL 事件流解析
-  - [ ] Session 日志读取
-- [ ] 文件变化检测
+- [x] Observer 基类
+- [x] Trace 数据模型
+- [x] Trace 存储（NDJSON + SQLite 索引）
+- [x] Codex Observer
+  - [x] JSONL 事件流解析
+  - [x] Session 日志读取
+- [x] 文件变化检测
 
 **交付物**：
 - 能从 Codex 采集 trace
@@ -722,19 +722,19 @@ CREATE INDEX idx_traces_timestamp ON traces_index(timestamp);
 **目标**：实现自动优化核心逻辑
 
 **任务清单**：
-- [ ] Evaluator 框架
-  - [ ] Repeated Manual Fix 规则
-  - [ ] Repeated Drift 规则
-  - [ ] Overly Broad Trigger 规则
-  - [ ] Noisy Redundancy 规则
-- [ ] Patch Generator 框架
-  - [ ] AppendContext 策略
-  - [ ] AddFallback 策略
-  - [ ] TightenTrigger 策略
-  - [ ] PruneNoise 策略
-  - [ ] RewriteSection 策略
-- [ ] Patch 应用器
-- [ ] Unified Diff 生成器
+- [x] Evaluator 框架
+  - [x] Repeated Manual Fix 规则
+  - [x] Repeated Drift 规则
+  - [x] Overly Broad Trigger 规则
+  - [x] Noisy Redundancy 规则
+- [x] Patch Generator 框架
+  - [x] AppendContext 策略
+  - [x] AddFallback 策略
+  - [x] TightenTrigger 策略
+  - [x] PruneNoise 策略
+  - [x] RewriteSection 策略
+- [x] Patch 应用器
+- [x] Unified Diff 生成器
 
 **交付物**：
 - 能自动评估是否需要优化
@@ -747,20 +747,20 @@ CREATE INDEX idx_traces_timestamp ON traces_index(timestamp);
 **目标**：实现完整的自动演化循环
 
 **任务清单**：
-- [ ] Shadow Manager 编排器
-  - [ ] Trace 处理流程
-  - [ ] 评估触发逻辑
-  - [ ] Patch 执行流程
-- [ ] 自动优化策略
-  - [ ] 信号计数
-  - [ ] 冷却窗口
-  - [ ] 置信度阈值
-- [ ] Snapshot 管理
-  - [ ] 自动 snapshot
-  - [ ] Snapshot 创建
-- [ ] 后台守护进程
-  - [ ] 文件监听
-  - [ ] 定时任务
+- [x] Shadow Manager 编排器
+  - [x] Trace 处理流程
+  - [x] 评估触发逻辑
+  - [x] Patch 执行流程
+- [x] 自动优化策略
+  - [x] 信号计数
+  - [x] 冷却窗口
+  - [x] 置信度阈值
+- [x] Snapshot 管理
+  - [x] 自动 snapshot
+  - [x] Snapshot 创建
+- [x] 后台守护进程
+  - [x] 文件监听
+  - [x] 定时任务
 
 **交付物**：
 - 完整的 Observe → Evaluate → Patch → Journal 循环
@@ -773,17 +773,17 @@ CREATE INDEX idx_traces_timestamp ON traces_index(timestamp);
 **目标**：实现回滚和 origin 同步
 
 **任务清单**：
-- [ ] Rollback 功能
-  - [ ] 回滚到指定 revision
-  - [ ] 回滚到 snapshot
-  - [ ] 回滚到初始版本
-- [ ] Origin 更新检测
-- [ ] Rebase 策略
-  - [ ] 差异检测
-  - [ ] Patch 重放
-  - [ ] 冲突处理
-- [ ] `sea skills rollback` 命令
-- [ ] `sea skills rebase` 命令
+- [x] Rollback 功能
+  - [x] 回滚到指定 revision
+  - [x] 回滚到 snapshot
+  - [x] 回滚到初始版本
+- [x] Origin 更新检测
+- [x] Rebase 策略
+  - [x] 差异检测
+  - [x] Patch 重放
+  - [x] 冲突处理
+- [x] `ornn skills rollback` 命令
+- [x] `ornn skills rebase` 命令
 
 **交付物**：
 - 完整的回滚能力
@@ -796,14 +796,14 @@ CREATE INDEX idx_traces_timestamp ON traces_index(timestamp);
 **目标**：完善所有 CLI 命令
 
 **任务清单**：
-- [ ] `sea skills status` 完善
-- [ ] `sea skills log` 命令
-- [ ] `sea skills diff` 命令
-- [ ] `sea skills freeze/unfreeze` 命令
-- [ ] `sea optimize` 命令
-- [ ] 输出格式化
-- [ ] 交互式提示
-- [ ] 错误处理和用户友好提示
+- [x] `ornn skills status` 完善
+- [x] `ornn skills log` 命令
+- [x] `ornn skills diff` 命令
+- [x] `ornn skills freeze/unfreeze` 命令
+- [x] `ornn optimize` 命令
+- [x] 输出格式化
+- [x] 交互式提示
+- [x] 错误处理和用户友好提示
 
 **交付物**：
 - 所有 CLI 命令可用
@@ -816,25 +816,25 @@ CREATE INDEX idx_traces_timestamp ON traces_index(timestamp);
 **目标**：全面测试和发布准备
 
 **任务清单**：
-- [ ] 单元测试补全
-  - [ ] 所有核心模块 >= 80% 覆盖率
-- [ ] 集成测试
-  - [ ] 完整演化周期测试
-  - [ ] Rollback 测试
-  - [ ] 并发场景测试
-- [ ] E2E 测试
-  - [ ] 真实项目场景测试
-- [ ] 性能测试
-  - [ ] 大量 trace 处理
-  - [ ] 长时间运行稳定性
-- [ ] 打包和分发
-  - [ ] npm 包配置
-  - [ ] 二进制打包（可选）
-  - [ ] 安装脚本
-- [ ] 文档完善
-  - [ ] 用户使用手册
-  - [ ] API 文档
-  - [ ] 开发者指南
+- [x] 单元测试补全
+  - [x] 所有核心模块 >= 80% 覆盖率
+- [x] 集成测试
+  - [x] 完整演化周期测试
+  - [x] Rollback 测试
+  - [x] 并发场景测试
+- [x] E2E 测试
+  - [x] 真实项目场景测试
+- [x] 性能测试
+  - [x] 大量 trace 处理
+  - [x] 长时间运行稳定性
+- [x] 打包和分发
+  - [x] npm 包配置
+  - [x] 二进制打包（可选）
+  - [x] 安装脚本
+- [x] 文档完善
+  - [x] 用户使用手册
+  - [x] API 文档
+  - [x] 开发者指南
 
 **交付物**：
 - 可发布的 npm 包
@@ -876,7 +876,7 @@ CREATE INDEX idx_traces_timestamp ON traces_index(timestamp);
 
 ## 7. 配置系统设计
 
-### 7.1 全局配置（~/.evo/settings.toml）
+### 7.1 全局配置（~/.ornn/settings.toml）
 
 ```toml
 [origin_paths]
@@ -905,7 +905,7 @@ auto_start = true
 log_level = "info"
 ```
 
-### 7.2 项目配置（.evo/config/settings.toml）
+### 7.2 项目配置（.ornn/config/settings.toml）
 
 ```toml
 [project]
@@ -1061,5 +1061,5 @@ MVP 完成后应满足：
 ---
 
 *文档版本：v1.0*
-*最后更新：2026-03-19*
-*作者：Engineering Team*
+*最后更新：2026-03-21*
+*作者：OrnnSkills Team*

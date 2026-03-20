@@ -5,8 +5,8 @@ import { join, resolve } from 'node:path';
 import type { EVOConfig, ProjectConfig } from '../types/index.js';
 import { DEFAULT_CONFIG } from './defaults.js';
 
-const MODULE_NAME = 'evo';
-const GLOBAL_CONFIG_DIR = join(homedir(), '.evo');
+const MODULE_NAME = 'ornn';
+const GLOBAL_CONFIG_DIR = join(homedir(), '.ornn');
 const GLOBAL_CONFIG_FILE = join(GLOBAL_CONFIG_DIR, 'settings.toml');
 
 /**
@@ -66,7 +66,7 @@ export class ConfigManager {
   private async loadProjectConfig(): Promise<void> {
     if (!this.projectRoot) return;
 
-    const projectConfigPath = join(this.projectRoot, '.evo', 'config', 'settings.toml');
+    const projectConfigPath = join(this.projectRoot, '.ornn', 'config', 'settings.toml');
     const explorer = cosmiconfig(MODULE_NAME, {
       searchPlaces: [projectConfigPath],
     });

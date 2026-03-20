@@ -1,10 +1,10 @@
 {
-  "name": "evo-skills",
+  "name": "ornn-skills",
   "version": "0.1.2",
   "description": "Skill Evolution Agent - Background meta-agent for automatic skill optimization",
   "main": "dist/index.js",
   "bin": {
-    "evo": "dist/cli/index.js"
+    "ornn": "dist/cli/index.js"
   },
   "type": "module",
   "scripts": {
@@ -25,7 +25,7 @@
     "cli",
     "automation"
   ],
-  "author": "EVOSkills Team",
+  "author": "OrnnSkills Team",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"

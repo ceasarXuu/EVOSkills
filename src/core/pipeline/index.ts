@@ -56,7 +56,7 @@ const DEFAULT_TIMEOUT_MS = 30000; // 30秒
 /**
  * OptimizationPipeline
  * 自动优化闭环的核心编排模块
- * 
+ *
  * 流程: Trace采集 -> Trace-Skill映射 -> 评估 -> 生成优化任务
  */
 export class OptimizationPipeline {
@@ -87,13 +87,13 @@ export class OptimizationPipeline {
   async init(): Promise<void> {
     await this.traceManager.init();
     await this.traceSkillMapper.init();
-    await this.shadowRegistry.init();
+    this.shadowRegistry.init();
     logger.info('OptimizationPipeline initialized', { projectRoot: this.config.projectRoot });
   }
 
   /**
    * 执行一次完整的 pipeline 循环
-   * 
+   *
    * @returns 生成的优化任务列表
    */
   async runOnce(timeoutMs: number = DEFAULT_TIMEOUT_MS): Promise<OptimizationTask[]> {
@@ -119,7 +119,7 @@ export class OptimizationPipeline {
    */
   private async withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | null = null;
-    
+
     const timeoutPromise = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
         reject(new Error(`Pipeline run timed out after ${timeoutMs}ms`));
@@ -254,7 +254,10 @@ export class OptimizationPipeline {
   /**
    * 带超时控制的评估
    */
-  private async evaluateWithTimeout(traces: Trace[], timeoutMs: number): Promise<EvaluationResult | null> {
+  private async evaluateWithTimeout(
+    traces: Trace[],
+    timeoutMs: number
+  ): Promise<EvaluationResult | null> {
     const evaluatePromise = new Promise<EvaluationResult | null>((resolve) => {
       try {
         const result = evaluator.evaluate(traces);
@@ -282,7 +285,7 @@ export class OptimizationPipeline {
     logger.info('Starting background pipeline loop', { intervalMs });
 
     const timer = setInterval(() => {
-      void (async () => {
+      void (async (): Promise<void> => {
         try {
           if (this.config.autoOptimize) {
             await this.runOnce();
@@ -306,7 +309,11 @@ export class OptimizationPipeline {
   /**
    * 获取映射统计
    */
-  getMappingStats() {
+  getMappingStats(): {
+    total_mappings: number;
+    by_skill: Record<string, number>;
+    avg_confidence: number;
+  } {
     return this.traceSkillMapper.getMappingStats();
   }
 

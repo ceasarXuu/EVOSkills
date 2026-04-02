@@ -108,23 +108,25 @@ function formatTraces(traces: Trace[]): string {
   const formatted = limitedTraces
     .map((trace, index) => {
       const parts: string[] = [`### Trace ${index + 1}`];
-      
+
       if (trace.user_input) {
         parts.push(`**User**: ${truncate(trace.user_input, MAX_TRACE_LENGTH)}`);
       }
-      
+
       if (trace.assistant_output) {
         parts.push(`**Assistant**: ${truncate(trace.assistant_output, MAX_TRACE_LENGTH)}`);
       }
-      
+
       if (trace.tool_name) {
         parts.push(`**Tool**: ${trace.tool_name}`);
         if (trace.tool_result !== undefined) {
-          parts.push(`**Result**: ${truncate(JSON.stringify(trace.tool_result), MAX_TRACE_LENGTH)}`);
+          parts.push(
+            `**Result**: ${truncate(JSON.stringify(trace.tool_result), MAX_TRACE_LENGTH)}`
+          );
         }
       }
-      
-      if (trace.metadata?.projectPath) {
+
+      if (typeof trace.metadata?.projectPath === 'string') {
         parts.push(`**Context**: ${trace.metadata.projectPath}`);
       }
 
@@ -158,7 +160,7 @@ function formatPreviousVersions(versions?: PromptContext['previousVersions']): s
   }
 
   const parts = ['## Previous Optimization History\n'];
-  
+
   for (const version of versions.slice(-3)) {
     parts.push(`### v${version.version}`);
     parts.push(`**Reason**: ${version.reason}`);
@@ -177,7 +179,7 @@ export function buildIncrementalPrompt(
   previousAnalysis: string
 ): AnalysisPrompt {
   const basePrompt = buildAnalysisPrompt(context);
-  
+
   const incrementalInstructions = `
 
 ## Previous Analysis

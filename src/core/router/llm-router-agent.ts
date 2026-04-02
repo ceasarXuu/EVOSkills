@@ -73,10 +73,13 @@ export class LLMRouterAgent {
     let llmReasoning = '';
     let confidence = explicitRefs.length > 0 ? 0.9 : 0.5;
 
-    if (this.options.enableImplicitRecognition && (explicitRefs.length === 0 || contextTraces.length > 0)) {
+    if (
+      this.options.enableImplicitRecognition &&
+      (explicitRefs.length === 0 || contextTraces.length > 0)
+    ) {
       try {
         const llmResult = await this.callLLMForImplicitRefs(trace, contextTraces);
-        implicitRefs = llmResult.skillIds.filter(id => !explicitRefs.includes(id));
+        implicitRefs = llmResult.skillIds.filter((id) => !explicitRefs.includes(id));
         llmReasoning = llmResult.reasoning;
         confidence = llmResult.confidence;
         logger.debug(`Implicit refs found: ${implicitRefs.join(', ') || 'none'}`);
@@ -97,7 +100,9 @@ export class LLMRouterAgent {
       reasoning: this.generateReasoning(explicitRefs, implicitRefs, llmReasoning),
     };
 
-    logger.info(`Trace ${trace.trace_id} associated with skills: ${allSkillIds.join(', ') || 'none'}`);
+    logger.info(
+      `Trace ${trace.trace_id} associated with skills: ${allSkillIds.join(', ') || 'none'}`
+    );
     return result;
   }
 
@@ -137,11 +142,15 @@ export class LLMRouterAgent {
    * Build prompt for LLM
    */
   private buildPrompt(trace: Trace, contextTraces: Trace[]): string {
-    const context = contextTraces.length > 0
-      ? `Previous context:\n${contextTraces.slice(-3).map(t =>
-          `- ${t.event_type}: ${t.user_input || t.assistant_output || ''}`.slice(0, 200)
-        ).join('\n')}`
-      : 'No previous context.';
+    const context =
+      contextTraces.length > 0
+        ? `Previous context:\n${contextTraces
+            .slice(-3)
+            .map((t) =>
+              `- ${t.event_type}: ${t.user_input || t.assistant_output || ''}`.slice(0, 200)
+            )
+            .join('\n')}`
+        : 'No previous context.';
 
     return `You are a skill routing analyzer. Your task is to identify which skills are implicitly associated with the current trace.
 
@@ -175,7 +184,11 @@ If no skills are implicitly associated, return: {"skillIds": [], "confidence": 0
   /**
    * Parse LLM response
    */
-  private parseLLMResponse(response: string): { skillIds: string[]; confidence: number; reasoning: string } {
+  private parseLLMResponse(response: string): {
+    skillIds: string[];
+    confidence: number;
+    reasoning: string;
+  } {
     try {
       // Try to extract JSON from response
       const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -183,10 +196,10 @@ If no skills are implicitly associated, return: {"skillIds": [], "confidence": 0
         throw new Error('No JSON found in response');
       }
 
-      const parsed = JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
 
       return {
-        skillIds: Array.isArray(parsed.skillIds) ? parsed.skillIds : [],
+        skillIds: Array.isArray(parsed.skillIds) ? (parsed.skillIds as string[]) : [],
         confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0,
         reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
       };
@@ -203,7 +216,11 @@ If no skills are implicitly associated, return: {"skillIds": [], "confidence": 0
   /**
    * Generate human-readable reasoning
    */
-  private generateReasoning(explicitRefs: string[], implicitRefs: string[], llmReasoning: string): string {
+  private generateReasoning(
+    explicitRefs: string[],
+    implicitRefs: string[],
+    llmReasoning: string
+  ): string {
     const parts: string[] = [];
 
     if (explicitRefs.length > 0) {

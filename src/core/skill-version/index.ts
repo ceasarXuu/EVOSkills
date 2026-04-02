@@ -5,7 +5,19 @@
  * 版本结构：.ornn/skills/{skill-id}/versions/v{N}/
  */
 
-import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, renameSync, rmdirSync, symlinkSync, unlinkSync, lstatSync } from 'node:fs';
+import {
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  existsSync,
+  readdirSync,
+  renameSync,
+  rmdirSync,
+  symlinkSync,
+  unlinkSync,
+  lstatSync,
+  readlinkSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { createChildLogger } from '../../utils/logger.js';
 import { hashContent } from '../../utils/hash.js';
@@ -56,13 +68,7 @@ export class SkillVersionManager {
 
   constructor(options: VersionManagerOptions) {
     this.options = options;
-    this.versionsDir = join(
-      options.projectPath,
-      '.ornn',
-      'skills',
-      options.skillId,
-      'versions'
-    );
+    this.versionsDir = join(options.projectPath, '.ornn', 'skills', options.skillId, 'versions');
 
     // Ensure versions directory exists
     this.ensureDirectory();
@@ -167,7 +173,9 @@ export class SkillVersionManager {
       }
 
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to create version v${newVersion} for ${this.options.skillId}: ${errorMsg}`);
+      logger.error(
+        `Failed to create version v${newVersion} for ${this.options.skillId}: ${errorMsg}`
+      );
       throw new Error(`Failed to create version: ${errorMsg}`);
     }
   }
@@ -220,13 +228,12 @@ export class SkillVersionManager {
 
       // Read the symlink target to get version number
       // Note: readlinkSync returns the target path (e.g., "v5")
-      const fs = require('fs');
-      const target = fs.readlinkSync(latestLink);
+      const target = readlinkSync(latestLink);
       const versionMatch = target.match(/v(\d+)/);
 
       if (versionMatch) {
-        const version = parseInt(versionMatch[1], 10);
-        return this.getVersion(version);
+        const versionNum = parseInt(versionMatch[1], 10);
+        return this.getVersion(versionNum);
       }
 
       return null;
@@ -255,7 +262,7 @@ export class SkillVersionManager {
       }
 
       const content = readFileSync(contentPath, 'utf-8');
-      const metadata: VersionMetadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
+      const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8')) as VersionMetadata;
 
       return {
         version,
@@ -345,8 +352,6 @@ export class SkillVersionManager {
 /**
  * Create a SkillVersionManager instance
  */
-export function createSkillVersionManager(
-  options: VersionManagerOptions
-): SkillVersionManager {
+export function createSkillVersionManager(options: VersionManagerOptions): SkillVersionManager {
   return new SkillVersionManager(options);
 }

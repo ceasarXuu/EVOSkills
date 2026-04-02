@@ -16,8 +16,6 @@ interface CodexRawEvent {
   payload: Record<string, unknown>;
 }
 
-
-
 /**
  * Codex Observer
  *
@@ -73,7 +71,7 @@ export class CodexObserver extends BaseObserver {
     }
 
     this.isRunning = true;
-    logger.info('Starting Codex observer', { sessionsDir: this.sessionsDir });
+    logger.debug('Starting Codex observer', { sessionsDir: this.sessionsDir });
 
     // 监听 sessions 目录下的所有 JSONL 文件（递归监听 YYYY/MM/DD 子目录）
     const watchPattern = join(this.sessionsDir, '**', '*.jsonl');
@@ -81,7 +79,7 @@ export class CodexObserver extends BaseObserver {
       persistent: true,
       ignoreInitial: false,
       awaitWriteFinish: {
-        stabilityThreshold: 500,  // 文件写入完成需要一定时间
+        stabilityThreshold: 500, // 文件写入完成需要一定时间
         pollInterval: 100,
       },
     });
@@ -89,7 +87,7 @@ export class CodexObserver extends BaseObserver {
     this.watcher.on('add', (path) => this.handleFileAdd(path));
     this.watcher.on('change', (path) => this.handleFileChange(path));
 
-    logger.info('Codex observer started', { watchPattern });
+    logger.debug('Codex observer started', { watchPattern });
   }
 
   /**
@@ -127,7 +125,7 @@ export class CodexObserver extends BaseObserver {
     const sessionId = this.extractSessionId(path);
     this.currentSessionId = sessionId;
 
-    logger.info(`New session detected: ${sessionId}`, { path });
+    logger.debug(`New session detected: ${sessionId}`, { path });
 
     // 读取整个文件
     this.processSessionFileInternal(path);
@@ -198,9 +196,10 @@ export class CodexObserver extends BaseObserver {
         // 从 base_instructions 中提取激活的 skills
         // base_instructions 可能是字符串或 {text: string} 对象
         const baseInstructionsRaw = event.payload.base_instructions;
-        const baseInstructions = typeof baseInstructionsRaw === 'string'
-          ? baseInstructionsRaw
-          : (baseInstructionsRaw as { text?: string })?.text || '';
+        const baseInstructions =
+          typeof baseInstructionsRaw === 'string'
+            ? baseInstructionsRaw
+            : (baseInstructionsRaw as { text?: string })?.text || '';
         const activatedSkills = this.extractSkillReferences(baseInstructions);
 
         return {
@@ -233,7 +232,8 @@ export class CodexObserver extends BaseObserver {
           turnId,
           timestamp: event.timestamp,
           eventType: 'status',
-          content: event.payload,
+          content:
+            typeof event.payload === 'string' ? event.payload : JSON.stringify(event.payload),
           metadata: {
             originalType: 'event_msg',
           },
@@ -246,7 +246,8 @@ export class CodexObserver extends BaseObserver {
           turnId,
           timestamp: event.timestamp,
           eventType: 'status',
-          content: event.payload,
+          content:
+            typeof event.payload === 'string' ? event.payload : JSON.stringify(event.payload),
           metadata: {
             originalType: 'turn_context',
           },
@@ -308,7 +309,9 @@ export class CodexObserver extends BaseObserver {
       }
 
       case 'function_call': {
-        const toolName = (payload.name as string) || ((payload.function as Record<string, unknown>)?.name as string);
+        const toolName =
+          (payload.name as string) ||
+          ((payload.function as Record<string, unknown>)?.name as string);
         const args = payload.arguments as Record<string, unknown>;
 
         return {
@@ -355,13 +358,16 @@ export class CodexObserver extends BaseObserver {
     if (Array.isArray(content)) {
       // 处理多模态内容数组
       const textParts: string[] = [];
-      for (const part of content) {
+      for (const part of content as Array<string | { type?: string; text?: unknown }>) {
         if (typeof part === 'string') {
           textParts.push(part);
-        } else if (part?.type === 'input_text' || part?.type === 'output_text') {
-          textParts.push(part.text || '');
-        } else if (part?.type === 'text') {
-          textParts.push(part.text || '');
+        } else if (
+          (part?.type === 'input_text' || part?.type === 'output_text') &&
+          typeof part.text === 'string'
+        ) {
+          textParts.push(part.text);
+        } else if (part?.type === 'text' && typeof part.text === 'string') {
+          textParts.push(part.text);
         }
       }
       return textParts.join('\n');
@@ -378,7 +384,7 @@ export class CodexObserver extends BaseObserver {
     const matches = text.match(/\[\$([^\]]+)\]/g);
     if (!matches) return [];
 
-    return matches.map(match => match.slice(2, -1));  // 去掉 [$ 和 ]
+    return matches.map((match) => match.slice(2, -1)); // 去掉 [$ 和 ]
   }
 
   /**
@@ -392,7 +398,7 @@ export class CodexObserver extends BaseObserver {
     for (const trace of traces) {
       typeCount.set(trace.eventType, (typeCount.get(trace.eventType) || 0) + 1);
       if (trace.skillRefs) {
-        trace.skillRefs.forEach(ref => skillRefs.add(ref));
+        trace.skillRefs.forEach((ref) => skillRefs.add(ref));
       }
 
       // 转换为标准 Trace 格式并发射
@@ -418,7 +424,7 @@ export class CodexObserver extends BaseObserver {
       turn_id: preprocessed.turnId,
       event_type: preprocessed.eventType,
       timestamp: preprocessed.timestamp,
-      skill_refs: preprocessed.skillRefs,  // 添加 skill_refs
+      skill_refs: preprocessed.skillRefs, // 添加 skill_refs
       status: 'success' as TraceStatus,
     };
 
@@ -528,13 +534,15 @@ export class CodexObserver extends BaseObserver {
       const content = readFileSync(this.sessionIndexPath, 'utf-8');
       const lines = content.split('\n').filter((line) => line.trim());
 
-      return lines.map((line) => {
-        try {
-          return JSON.parse(line);
-        } catch {
-          return null;
-        }
-      }).filter(Boolean) as Array<{ id: string; thread_name: string; updated_at: string }>;
+      return lines
+        .map((line): { id: string; thread_name: string; updated_at: string } | null => {
+          try {
+            return JSON.parse(line) as { id: string; thread_name: string; updated_at: string };
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean) as Array<{ id: string; thread_name: string; updated_at: string }>;
     } catch (error) {
       logger.warn('Failed to read session index', { error });
       return [];

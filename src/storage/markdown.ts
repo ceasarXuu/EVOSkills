@@ -1,4 +1,11 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from 'node:fs';
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  unlinkSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createChildLogger } from '../utils/logger.js';
 import { hashString } from '../utils/hash.js';
@@ -39,7 +46,7 @@ export class MarkdownSkill {
 
     // 使用临时文件实现原子写入
     const tempPath = join(dir, `.tmp_${Date.now()}_${Math.random().toString(36).slice(2)}.md`);
-    
+
     try {
       writeFileSync(tempPath, content, 'utf-8');
       renameSync(tempPath, this.filePath); // 原子替换
@@ -133,7 +140,7 @@ export class MarkdownSkill {
     if (lines[0]?.trim() !== '---') {
       // 没有 frontmatter，添加一个
       const newFrontmatter = Object.entries(updates)
-        .map(([k, v]) => `${k}: ${v}`)
+        .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
         .join('\n');
       const newContent = `---\n${newFrontmatter}\n---\n\n${this.content}`;
       this.write(newContent);
@@ -158,15 +165,12 @@ export class MarkdownSkill {
 
     // 重建 frontmatter
     const newFrontmatterLines = Object.entries(mergedFrontmatter).map(
-      ([k, v]) => `${k}: ${v}`
+      ([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`
     );
 
-    const newContent = [
-      '---',
-      ...newFrontmatterLines,
-      '---',
-      ...lines.slice(endIndex + 1),
-    ].join('\n');
+    const newContent = ['---', ...newFrontmatterLines, '---', ...lines.slice(endIndex + 1)].join(
+      '\n'
+    );
 
     this.write(newContent);
     return newContent;
@@ -253,13 +257,7 @@ export class MarkdownSkill {
     }
 
     const lines = this.content.split('\n');
-    const newLines = [
-      ...lines.slice(0, section.end),
-      '',
-      content,
-      '',
-      ...lines.slice(section.end),
-    ];
+    const newLines = [...lines.slice(0, section.end), '', content, '', ...lines.slice(section.end)];
 
     const result = newLines.join('\n');
     this.write(result);
@@ -300,7 +298,10 @@ export class MarkdownSkill {
     const currentContent = this.read();
 
     // 使用临时文件实现原子写入
-    const tempPath = join(originDir, `.tmp_${Date.now()}_${Math.random().toString(36).slice(2)}.md`);
+    const tempPath = join(
+      originDir,
+      `.tmp_${Date.now()}_${Math.random().toString(36).slice(2)}.md`
+    );
 
     try {
       writeFileSync(tempPath, currentContent, 'utf-8');

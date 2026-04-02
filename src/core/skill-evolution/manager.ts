@@ -58,7 +58,7 @@ export class SkillEvolutionManager {
       skillId,
       originPath,
       runtime,
-      onTrigger: (state) => {
+      onTrigger: (state: SkillEvolutionState): void => {
         this.handleTrigger(skillId, state);
       },
     });
@@ -191,7 +191,7 @@ export class SkillEvolutionManager {
       status: string;
     }>;
   } {
-    const skills = Array.from(this.threads.values()).map(tracked => {
+    const skills = Array.from(this.threads.values()).map((tracked) => {
       const stats = tracked.thread.getStats();
       return {
         skillId: tracked.skillId,
@@ -257,6 +257,8 @@ export class SkillEvolutionManager {
 /**
  * Create a SkillEvolutionManager instance
  */
-export function createSkillEvolutionManager(options: SkillEvolutionManagerOptions): SkillEvolutionManager {
+export function createSkillEvolutionManager(
+  options: SkillEvolutionManagerOptions
+): SkillEvolutionManager {
   return new SkillEvolutionManager(options);
 }

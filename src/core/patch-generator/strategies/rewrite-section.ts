@@ -8,11 +8,7 @@ import type { PatchResult } from '../../../types/index.ts';
  */
 export class RewriteSectionStrategy extends BaseStrategy {
   constructor() {
-    super(
-      'rewrite-section',
-      'Rewrite a specific section of the skill file',
-      'rewrite_section'
-    );
+    super('rewrite-section', 'Rewrite a specific section of the skill file', 'rewrite_section');
   }
 
   generate(currentContent: string, context: Record<string, unknown>): PatchResult {
@@ -23,20 +19,16 @@ export class RewriteSectionStrategy extends BaseStrategy {
 
       // 解析文件结构
       const lines = currentContent.split('\n');
-      
+
       // 查找问题段落
       const problemSection = this.identifyProblemSection(lines, pattern, section);
-      
+
       if (!problemSection.found) {
         return this.createFailureResult('Could not identify problem section');
       }
 
       // 生成改进版本
-      const improvedContent = this.generateImprovedVersion(
-        problemSection.content,
-        pattern,
-        reason
-      );
+      const improvedContent = this.generateImprovedVersion(problemSection.content, pattern, reason);
 
       // 替换原有段落
       const newLines = [
@@ -50,7 +42,9 @@ export class RewriteSectionStrategy extends BaseStrategy {
 
       return this.createSuccessResult(patch, newContent);
     } catch (error) {
-      return this.createFailureResult(`Failed to generate patch: ${error}`);
+      return this.createFailureResult(
+        `Failed to generate patch: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -168,7 +162,7 @@ export class RewriteSectionStrategy extends BaseStrategy {
     // 处理原有内容
     for (let i = 1; i < originalContent.length; i++) {
       const line = originalContent[i];
-      
+
       // 跳过包含问题模式的行
       if (line.includes(problemPattern)) {
         // 添加改进后的版本
@@ -196,10 +190,7 @@ export class RewriteSectionStrategy extends BaseStrategy {
    */
   private improveLine(line: string, pattern: string): string {
     // 简单的改进逻辑：添加更明确的说明
-    const improved = line.replace(
-      pattern,
-      `${pattern} (with explicit validation)`
-    );
+    const improved = line.replace(pattern, `${pattern} (with explicit validation)`);
     return improved;
   }
 }

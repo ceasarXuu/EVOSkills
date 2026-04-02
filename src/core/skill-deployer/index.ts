@@ -85,16 +85,16 @@ export class SkillDeployer {
       case 'codex':
         return join(homedir(), '.codex', 'skills', `${skillId}.md`);
 
-      case 'claude':
-        // Claude uses project-specific skills directory
+      case 'claude': {
         const projectName = this.options.projectPath.replace(/\//g, '-');
         return join(homedir(), '.claude', 'projects', projectName, 'skills', `${skillId}.md`);
+      }
 
       case 'opencode':
         return join(homedir(), '.opencode', 'skills', `${skillId}.md`);
 
       default:
-        throw new Error(`Unsupported runtime: ${this.options.runtime}`);
+        throw new Error(`Unsupported runtime: ${String(this.options.runtime)}`);
     }
   }
 
@@ -152,13 +152,7 @@ export class SkillDeployer {
         return null;
       }
 
-      const backupDir = join(
-        this.options.projectPath,
-        '.ornn',
-        'skills',
-        skillId,
-        'backup'
-      );
+      const backupDir = join(this.options.projectPath, '.ornn', 'skills', skillId, 'backup');
       mkdirSync(backupDir, { recursive: true });
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');

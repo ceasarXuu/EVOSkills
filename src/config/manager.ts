@@ -1,0 +1,259 @@
+/**
+ * Configuration Manager
+ * Manages multi-provider configuration with append/override logic
+ */
+
+import { join } from "node:path";
+import { readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { parse } from "smol-toml";
+import { logger } from "../utils/logger.js";
+
+export interface ProviderConfig {
+  provider: string;
+  modelName: string;
+  apiKeyEnvVar: string;
+}
+
+export interface OrnnConfig {
+  ornn?: {
+    version?: string;
+    log_level?: string;
+    project_path?: string;
+  };
+  llm?: {
+    default_provider?: string;
+  };
+  providers?: Record<string, ProviderConfig>;
+  tracking?: {
+    auto_optimize?: boolean;
+    user_confirm?: boolean;
+  };
+}
+
+const DEFAULT_LOG_LEVEL = "info";
+
+/**
+ * Read existing config file
+ */
+export async function readConfig(projectPath: string): Promise<OrnnConfig | null> {
+  const configPath = join(projectPath, ".ornn", "config", "settings.toml");
+  
+  if (!existsSync(configPath)) {
+    return null;
+  }
+
+  try {
+    const content = await readFile(configPath, "utf-8");
+    return parse(content) as OrnnConfig;
+  } catch (error) {
+    logger.warn("Failed to read existing config:", error);
+    return null;
+  }
+}
+
+/**
+ * Generate config.toml content with multi-provider support
+ */
+export function generateConfigContent(
+  projectPath: string,
+  providers: ProviderConfig[],
+  defaultProvider?: string,
+  logLevel: string = DEFAULT_LOG_LEVEL
+): string {
+  let config = `[ornn]
+version = "0.1.9"
+log_level = "${logLevel}"
+project_path = "${projectPath}"
+`;
+
+  if (providers.length > 0) {
+    const defaultProv = defaultProvider || providers[0].provider;
+    config += `
+[llm]
+default_provider = "${defaultProv}"
+`;
+
+    // Add each provider configuration
+    for (const provider of providers) {
+      config += `
+[providers.${provider.provider}]
+provider = "${provider.provider}"
+model_name = "${provider.modelName}"
+api_key_env_var = "${provider.apiKeyEnvVar}"
+`;
+    }
+  }
+
+  config += `
+[tracking]
+auto_optimize = true
+user_confirm = false
+`;
+
+  return config.trim();
+}
+
+/**
+ * Write config file with multi-provider support
+ */
+export async function writeConfig(
+  projectPath: string,
+  newProvider: ProviderConfig,
+  setAsDefault: boolean = false
+): Promise<void> {
+  const configDir = join(projectPath, ".ornn", "config");
+  const configPath = join(configDir, "settings.toml");
+
+  // Read existing config
+  const existingConfig = await readConfig(projectPath);
+  
+  // Merge providers
+  const existingProviders = existingConfig?.providers || {};
+  
+  // Add or update the new provider
+  existingProviders[newProvider.provider] = newProvider;
+  
+  // Convert to array for generation
+  const providersArray = Object.values(existingProviders);
+  
+  // Determine default provider
+  const defaultProvider = setAsDefault 
+    ? newProvider.provider 
+    : (existingConfig?.llm?.default_provider || newProvider.provider);
+
+  // Generate and write config
+  const content = generateConfigContent(
+    projectPath,
+    providersArray,
+    defaultProvider,
+    existingConfig?.ornn?.log_level || DEFAULT_LOG_LEVEL
+  );
+
+  await writeFile(configPath, content);
+}
+
+/**
+ * Generate .env.local content for API keys
+ * Appends new provider API key to existing file
+ */
+export async function generateEnvContent(
+  projectPath: string,
+  provider: string,
+  apiKey: string
+): Promise<string> {
+  const envPath = join(projectPath, ".env.local");
+  
+  let existingContent = "";
+  try {
+    if (existsSync(envPath)) {
+      existingContent = await readFile(envPath, "utf-8");
+    }
+  } catch {
+    // File doesn't exist or can't be read
+  }
+
+  const envVarName = getProviderEnvVarName(provider);
+  
+  // Check if this provider already exists in the file
+  const providerRegex = new RegExp(`^${envVarName}=.*$`, "m");
+  const newLine = `${envVarName}=${apiKey}`;
+  
+  let newContent: string;
+  if (providerRegex.test(existingContent)) {
+    // Update existing line
+    newContent = existingContent.replace(providerRegex, newLine);
+  } else {
+    // Append new line
+    const header = existingContent.includes("# Ornn Skills Environment Configuration")
+      ? ""
+      : `# Ornn Skills Environment Configuration\n# Generated on ${new Date().toISOString()}\n\n# LLM Provider API Keys\n`;
+    
+    newContent = existingContent + (existingContent.endsWith("\n") || existingContent === "" ? "" : "\n") + 
+      (header ? header : "") + 
+      `${newLine}\n`;
+  }
+
+  return newContent;
+}
+
+/**
+ * Write or append API key to .env.local
+ */
+export async function writeEnvFile(
+  projectPath: string,
+  provider: string,
+  apiKey: string
+): Promise<void> {
+  const envPath = join(projectPath, ".env.local");
+  const content = await generateEnvContent(projectPath, provider, apiKey);
+  await writeFile(envPath, content);
+}
+
+/**
+ * Get environment variable name for a provider
+ */
+export function getProviderEnvVarName(provider: string): string {
+  const providerUpper = provider.toUpperCase().replace(/[^A-Z0-9]/g, "_");
+  return `ORNN_${providerUpper}_API_KEY`;
+}
+
+/**
+ * List all configured providers
+ */
+export async function listConfiguredProviders(projectPath: string): Promise<ProviderConfig[]> {
+  const config = await readConfig(projectPath);
+  if (!config?.providers) {
+    return [];
+  }
+  // Map snake_case TOML fields to camelCase TypeScript properties
+  return Object.values(config.providers).map((provider: unknown) => {
+    const p = provider as Record<string, string>;
+    return {
+      provider: p.provider,
+      modelName: p.model_name || p.modelName,
+      apiKeyEnvVar: p.api_key_env_var || p.apiKeyEnvVar,
+    };
+  });
+}
+
+/**
+ * Get default provider
+ */
+export async function getDefaultProvider(projectPath: string): Promise<string | null> {
+  const config = await readConfig(projectPath);
+  return config?.llm?.default_provider || null;
+}
+
+/**
+ * Set default provider
+ */
+export async function setDefaultProvider(
+  projectPath: string,
+  providerId: string
+): Promise<boolean> {
+  const config = await readConfig(projectPath);
+  if (!config) {
+    return false;
+  }
+
+  // Check if provider exists
+  if (!config.providers?.[providerId]) {
+    logger.error(`Provider "${providerId}" not found in configuration`);
+    return false;
+  }
+
+  // Update config
+  const providersArray = Object.values(config.providers);
+  const content = generateConfigContent(
+    projectPath,
+    providersArray,
+    providerId,
+    config.ornn?.log_level || DEFAULT_LOG_LEVEL
+  );
+
+  const configPath = join(projectPath, ".ornn", "config", "settings.toml");
+  await writeFile(configPath, content);
+  
+  return true;
+}

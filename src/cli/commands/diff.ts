@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { cliInfo } from '../../utils/cli-output.js';
 import { join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { createShadowRegistry } from '../../core/shadow-registry/index.js';
@@ -6,6 +7,7 @@ import { createJournalManager } from '../../core/journal/index.js';
 import { originRegistry } from '../../core/origin-registry/index.js';
 import { createUnifiedDiff } from '../../utils/diff.js';
 import { validateSkillId, validateProjectPath } from '../../utils/path.js';
+import { printErrorAndExit } from '../../utils/error-helper.js';
 
 interface DiffOptions {
   project: string;
@@ -30,8 +32,11 @@ export function createDiffCommand(): Command {
       try {
         // 验证 skill ID 格式
         if (!validateSkillId(skillId)) {
-          console.error(`Error: Invalid skill ID "${skillId}". Skill IDs can only contain letters, numbers, hyphens, underscores, and dots.`);
-          process.exit(1);
+          printErrorAndExit(
+            `Invalid skill ID "${skillId}". Skill IDs can only contain letters, numbers, hyphens, underscores, and dots.`,
+            { operation: 'Validate skill ID', skillId, projectPath: options.project },
+            'INVALID_SKILL_ID'
+          );
         }
 
         // 验证项目路径安全性
@@ -39,36 +44,48 @@ export function createDiffCommand(): Command {
         try {
           projectRoot = validateProjectPath(options.project);
         } catch (error) {
-          console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-          process.exit(1);
+          printErrorAndExit(
+            error instanceof Error ? error.message : String(error),
+            { operation: 'Validate project path', projectPath: options.project },
+            'PATH_TRAVERSAL'
+          );
         }
 
-        // 检查 .sea 目录是否存在
-        const seaDir = join(projectRoot, '.sea');
-        if (!existsSync(seaDir)) {
-          console.error('Error: .sea directory not found. Is this a SEA project?');
-          process.exit(1);
+        // 检查 .ornn 目录是否存在
+        const ornnDir = join(projectRoot, '.ornn');
+        if (!existsSync(ornnDir)) {
+          printErrorAndExit(
+            '.ornn directory not found',
+            { operation: 'Check project initialization', projectPath: projectRoot },
+            'PROJECT_NOT_INITIALIZED'
+          );
         }
 
         // 初始化组件
         const shadowRegistry = createShadowRegistry(projectRoot);
         const journalManager = createJournalManager(projectRoot);
 
-        await shadowRegistry.init();
+        shadowRegistry.init();
         await journalManager.init();
 
         // 检查 shadow 是否存在
         const shadow = shadowRegistry.get(skillId);
         if (!shadow) {
-          console.error(`Error: Shadow skill "${skillId}" not found`);
-          process.exit(1);
+          printErrorAndExit(
+            `Shadow skill "${skillId}" not found`,
+            { operation: 'Show diff', skillId, projectPath: projectRoot },
+            'SKILL_NOT_FOUND'
+          );
         }
 
         // 读取当前内容
         const currentContent = shadowRegistry.readContent(skillId);
         if (!currentContent) {
-          console.error(`Error: Cannot read shadow content for "${skillId}"`);
-          process.exit(1);
+          printErrorAndExit(`Cannot read shadow content for "${skillId}"`, {
+            operation: 'Read shadow content',
+            skillId,
+            projectPath: projectRoot,
+          });
         }
 
         const shadowId = `${skillId}@${projectRoot}`;
@@ -79,14 +96,20 @@ export function createDiffCommand(): Command {
           const origin = originRegistry.get(skillId);
 
           if (!origin) {
-            console.error(`Error: Origin skill "${skillId}" not found`);
-            process.exit(1);
+            printErrorAndExit(
+              `Origin skill "${skillId}" not found`,
+              { operation: 'Show diff', skillId, projectPath: projectRoot },
+              'ORIGIN_NOT_FOUND'
+            );
           }
 
-          const originContent = await originRegistry.readContent(skillId);
+          const originContent = originRegistry.readContent(skillId);
           if (!originContent) {
-            console.error(`Error: Cannot read origin content for "${skillId}"`);
-            process.exit(1);
+            printErrorAndExit(`Cannot read origin content for "${skillId}"`, {
+              operation: 'Read origin content',
+              skillId,
+              projectPath: projectRoot,
+            });
           }
 
           const diffOutput = createUnifiedDiff(
@@ -98,19 +121,30 @@ export function createDiffCommand(): Command {
           );
 
           if (diffOutput) {
-            console.log(`Diff between origin and shadow for "${skillId}":\n`);
-            console.log(diffOutput);
+            cliInfo(`Diff between origin and shadow for "${skillId}":\n`);
+            cliInfo(diffOutput);
           } else {
-            console.log(`No differences found between origin and shadow for "${skillId}"`);
+            cliInfo(`No differences found between origin and shadow for "${skillId}"`);
           }
         } else if (options.revision) {
           // 与指定 revision 比较
           const targetRevision = parseInt(options.revision, 10);
-          const record = await journalManager.getRecordByRevision(shadowId, targetRevision);
+          if (isNaN(targetRevision) || targetRevision < 0) {
+            printErrorAndExit(
+              `Invalid revision number: "${options.revision}". Must be a non-negative integer.`,
+              { operation: 'Validate revision', skillId, projectPath: projectRoot },
+              'INVALID_REVISION'
+            );
+          }
+
+          const record = journalManager.getRecordByRevision(shadowId, targetRevision);
 
           if (!record) {
-            console.error(`Error: Revision ${targetRevision} not found`);
-            process.exit(1);
+            printErrorAndExit(
+              `Revision ${targetRevision} not found`,
+              { operation: 'Find revision', skillId, projectPath: projectRoot },
+              'INVALID_REVISION'
+            );
           }
 
           // 从 snapshot 读取旧内容
@@ -118,8 +152,11 @@ export function createDiffCommand(): Command {
           const snapshot = snapshots.find((s) => s.revision === targetRevision);
 
           if (!snapshot) {
-            console.error(`Error: Snapshot for revision ${targetRevision} not found`);
-            process.exit(1);
+            printErrorAndExit(
+              `Snapshot for revision ${targetRevision} not found`,
+              { operation: 'Find snapshot', skillId, projectPath: projectRoot },
+              'SNAPSHOT_NOT_FOUND'
+            );
           }
 
           const oldContent = readFileSync(snapshot.file_path, 'utf-8');
@@ -132,10 +169,10 @@ export function createDiffCommand(): Command {
           );
 
           if (diffOutput) {
-            console.log(`Diff between revision ${targetRevision} and current for "${skillId}":\n`);
-            console.log(diffOutput);
+            cliInfo(`Diff between revision ${targetRevision} and current for "${skillId}":\n`);
+            cliInfo(diffOutput);
           } else {
-            console.log(`No differences found between revision ${targetRevision} and current`);
+            cliInfo(`No differences found between revision ${targetRevision} and current`);
           }
         } else {
           // 默认显示与 origin 的 diff
@@ -143,9 +180,9 @@ export function createDiffCommand(): Command {
           const origin = originRegistry.get(skillId);
 
           if (!origin) {
-            console.log(`Origin skill "${skillId}" not found, cannot show diff`);
+            cliInfo(`Origin skill "${skillId}" not found, cannot show diff`);
           } else {
-            const originContent = await originRegistry.readContent(skillId);
+            const originContent = originRegistry.readContent(skillId);
             if (originContent) {
               const diffOutput = createUnifiedDiff(
                 `origin/${skillId}`,
@@ -156,10 +193,10 @@ export function createDiffCommand(): Command {
               );
 
               if (diffOutput) {
-                console.log(`Diff between origin and shadow for "${skillId}":\n`);
-                console.log(diffOutput);
+                cliInfo(`Diff between origin and shadow for "${skillId}":\n`);
+                cliInfo(diffOutput);
               } else {
-                console.log(`No differences found between origin and shadow for "${skillId}"`);
+                cliInfo(`No differences found between origin and shadow for "${skillId}"`);
               }
             }
           }
@@ -167,10 +204,13 @@ export function createDiffCommand(): Command {
 
         // 关闭
         shadowRegistry.close();
-        journalManager.close();
+        await journalManager.close();
       } catch (error) {
-        console.error(`Error: ${error}`);
-        process.exit(1);
+        printErrorAndExit(
+          error instanceof Error ? error.message : String(error),
+          { operation: 'Show diff', skillId },
+          undefined
+        );
       }
     });
 

@@ -95,7 +95,18 @@ export function parseAnalysisOutput(response: string): ParseResult {
       };
     }
 
-    const parsed = JSON.parse(jsonContent);
+    const parsed = JSON.parse(jsonContent) as {
+      analysis?: {
+        summary?: string;
+        strengths?: string[];
+        weaknesses?: string[];
+        missingScenarios?: string[];
+        userPainPoints?: string[];
+      };
+      suggestions?: Suggestion[];
+      improvedSkill?: string;
+      confidence?: number;
+    };
 
     // Validate required fields
     const validationError = validateParsedOutput(parsed);
@@ -109,11 +120,11 @@ export function parseAnalysisOutput(response: string): ParseResult {
 
     const result: ParsedAnalysis = {
       analysis: {
-        summary: parsed.analysis.summary || '',
-        strengths: parsed.analysis.strengths || [],
-        weaknesses: parsed.analysis.weaknesses || [],
-        missingScenarios: parsed.analysis.missingScenarios || [],
-        userPainPoints: parsed.analysis.userPainPoints || [],
+        summary: parsed.analysis?.summary || '',
+        strengths: parsed.analysis?.strengths || [],
+        weaknesses: parsed.analysis?.weaknesses || [],
+        missingScenarios: parsed.analysis?.missingScenarios || [],
+        userPainPoints: parsed.analysis?.userPainPoints || [],
       },
       suggestions: parsed.suggestions || [],
       improvedSkill: parsed.improvedSkill || '',
@@ -121,7 +132,9 @@ export function parseAnalysisOutput(response: string): ParseResult {
       rawResponse: response,
     };
 
-    logger.info(`Parsed analysis with ${result.suggestions.length} suggestions, confidence: ${result.confidence}`);
+    logger.info(
+      `Parsed analysis with ${result.suggestions.length} suggestions, confidence: ${result.confidence}`
+    );
     return result;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
@@ -186,7 +199,7 @@ function validateSuggestion(suggestion: Record<string, unknown>, index: number):
   const validPriorities = ['high', 'medium', 'low'];
 
   if (!validTypes.includes(suggestion.type as string)) {
-    return `Suggestion ${index}: invalid type "${suggestion.type}"`;
+    return `Suggestion ${index}: invalid type "${String(suggestion.type)}"`;
   }
 
   if (typeof suggestion.section !== 'string') {
@@ -197,8 +210,12 @@ function validateSuggestion(suggestion: Record<string, unknown>, index: number):
     return `Suggestion ${index}: missing or invalid description`;
   }
 
-  if (suggestion.priority && !validPriorities.includes(suggestion.priority as string)) {
-    return `Suggestion ${index}: invalid priority "${suggestion.priority}"`;
+  const priorityStr =
+    typeof suggestion.priority === 'string'
+      ? suggestion.priority
+      : JSON.stringify(suggestion.priority);
+  if (suggestion.priority && !validPriorities.includes(priorityStr)) {
+    return `Suggestion ${index}: invalid priority "${priorityStr}"`;
   }
 
   return null;

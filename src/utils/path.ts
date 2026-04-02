@@ -32,7 +32,9 @@ export function sanitizeSkillId(skillId: string): string {
  */
 export function assertValidSkillId(skillId: string): void {
   if (!validateSkillId(skillId)) {
-    throw new Error(`Invalid skill ID: "${skillId}". Skill IDs can only contain letters, numbers, hyphens, underscores, and dots.`);
+    throw new Error(
+      `Invalid skill ID: "${skillId}". Skill IDs can only contain letters, numbers, hyphens, underscores, and dots.`
+    );
   }
 }
 
@@ -47,15 +49,15 @@ export function expandHome(path: string): string {
   if (path.startsWith('~/') || path === '~') {
     expanded = path.replace('~', homedir());
   }
-  
+
   // 规范化路径
   const normalized = resolve(expanded);
-  
+
   // 验证路径安全性（防止路径遍历）
   if (normalized.includes('..')) {
     throw new Error('Path traversal detected: path contains ".."');
   }
-  
+
   return normalized;
 }
 
@@ -67,25 +69,25 @@ export function validateProjectPath(projectPath: string): string {
   if (projectPath.includes('..')) {
     throw new Error('Path traversal detected: path contains ".."');
   }
-  
+
   // 解析为绝对路径
   const resolved = resolve(projectPath);
-  
+
   // 解析符号链接获取真实路径
   let realPath: string;
   try {
     realPath = realpathSync(resolved);
-  } catch (error) {
+  } catch {
     throw new Error(`Invalid path: ${projectPath}`);
   }
-  
+
   const cwd = realpathSync(process.cwd());
-  
+
   // 检查真实路径是否在 cwd 下
   if (!realPath.startsWith(cwd + sep) && realPath !== cwd) {
     throw new Error('Project path must be within current directory');
   }
-  
+
   return realPath;
 }
 

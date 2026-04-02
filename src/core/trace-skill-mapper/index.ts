@@ -49,7 +49,7 @@ export class TraceSkillMapper {
     this.db = await createSQLiteStorage(this.dbPath);
     await this.db.init();
     this.loadKnownSkills();
-    logger.info('TraceSkillMapper initialized');
+    logger.debug('TraceSkillMapper initialized');
   }
 
   /**

@@ -6,6 +6,7 @@
  */
 
 import { createChildLogger } from '../../utils/logger.js';
+import { cliInfo } from '../../utils/cli-output.js';
 
 const logger = createChildLogger('user-confirmation');
 
@@ -51,10 +52,7 @@ export class UserConfirmation {
   private options: Required<ConfirmationOptions>;
   private handler: ConfirmationHandler;
 
-  constructor(
-    handler: ConfirmationHandler,
-    options: ConfirmationOptions = {}
-  ) {
+  constructor(handler: ConfirmationHandler, options: ConfirmationOptions = {}) {
     this.handler = handler;
     this.options = {
       autoConfirm: false,
@@ -80,10 +78,7 @@ export class UserConfirmation {
 
     // Use custom handler with timeout
     try {
-      const result = await this.withTimeout(
-        () => this.handler(diff),
-        this.options.timeoutMs
-      );
+      const result = await this.withTimeout(() => this.handler(diff), this.options.timeoutMs);
 
       logger.info(
         `User ${result.confirmed ? 'confirmed' : 'rejected'} optimization for skill: ${diff.skillId}`
@@ -93,7 +88,7 @@ export class UserConfirmation {
         ...result,
         timestamp: new Date().toISOString(),
       };
-    } catch (error) {
+    } catch {
       logger.error(`Confirmation timed out for skill: ${diff.skillId}`);
       return {
         confirmed: false,
@@ -110,9 +105,7 @@ export class UserConfirmation {
   private withTimeout<T>(fn: () => Promise<T>, timeoutMs: number): Promise<T> {
     return Promise.race([
       fn(),
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout')), timeoutMs)
-      ),
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeoutMs)),
     ]);
   }
 
@@ -122,34 +115,43 @@ export class UserConfirmation {
   static createCLIHandler(): ConfirmationHandler {
     return async (diff: SkillDiff): Promise<ConfirmationResult> => {
       // Print diff summary
-      console.log('\n' + '='.repeat(80));
-      console.log(`🔧 Skill Optimization: ${diff.skillName}`);
-      console.log('='.repeat(80));
-      console.log(`\n📊 Analysis Summary:`);
-      console.log(`   ${diff.analysisSummary}`);
-      console.log(`\n🎯 Confidence: ${(diff.confidence * 100).toFixed(1)}%`);
-      console.log(`\n📝 Changes:`);
+      cliInfo('\n' + '='.repeat(80));
+      cliInfo(`🔧 Skill Optimization: ${diff.skillName}`);
+      cliInfo('='.repeat(80));
+      cliInfo(`\n📊 Analysis Summary:`);
+      cliInfo(`   ${diff.analysisSummary}`);
+      cliInfo(`\n🎯 Confidence: ${(diff.confidence * 100).toFixed(1)}%`);
+      cliInfo(`\n📝 Changes:`);
 
       if (diff.changes.length === 0) {
-        console.log('   No significant changes detected');
+        cliInfo('   No significant changes detected');
       } else {
         for (const change of diff.changes.slice(0, 10)) {
           const icon = change.type === 'added' ? '+' : change.type === 'removed' ? '-' : '~';
-          console.log(`   ${icon} Line ${change.line}: ${change.content.slice(0, 50)}...`);
+          cliInfo(`   ${icon} Line ${change.line}: ${change.content.slice(0, 50)}...`);
         }
         if (diff.changes.length > 10) {
-          console.log(`   ... and ${diff.changes.length - 10} more changes`);
+          cliInfo(`   ... and ${diff.changes.length - 10} more changes`);
         }
       }
 
-      console.log('\n' + '-'.repeat(80));
+      cliInfo('\n' + '-'.repeat(80));
 
-      // For now, return auto-confirm (in real implementation, would use inquirer)
-      // This is a placeholder that can be replaced with actual CLI prompts
+      // Use inquirer for real user confirmation
+      const inquirer = await import('inquirer').then((m) => m.default || m);
+      const { confirmed } = await inquirer.prompt<{ confirmed: boolean }>([
+        {
+          type: 'confirm',
+          name: 'confirmed',
+          message: 'Apply this optimization?',
+          default: false,
+        },
+      ]);
+
       return {
-        confirmed: true,
+        confirmed,
         skillId: diff.skillId,
-        reason: 'CLI auto-confirm (placeholder)',
+        reason: confirmed ? 'User approved via CLI' : 'User rejected via CLI',
         timestamp: new Date().toISOString(),
       };
     };
@@ -158,17 +160,14 @@ export class UserConfirmation {
   /**
    * Create a programmatic confirmation handler (for testing)
    */
-  static createProgrammaticHandler(
-    decision: boolean,
-    reason?: string
-  ): ConfirmationHandler {
-    return async (diff: SkillDiff): Promise<ConfirmationResult> => {
-      return {
+  static createProgrammaticHandler(decision: boolean, reason?: string): ConfirmationHandler {
+    return (diff: SkillDiff): Promise<ConfirmationResult> => {
+      return Promise.resolve({
         confirmed: decision,
         skillId: diff.skillId,
         reason: reason || (decision ? 'Programmatic approval' : 'Programmatic rejection'),
         timestamp: new Date().toISOString(),
-      };
+      });
     };
   }
 
@@ -229,9 +228,7 @@ export function createUserConfirmation(
 /**
  * Create a CLI-based user confirmation
  */
-export function createCLIUserConfirmation(
-  options?: ConfirmationOptions
-): UserConfirmation {
+export function createCLIUserConfirmation(options?: ConfirmationOptions): UserConfirmation {
   return new UserConfirmation(UserConfirmation.createCLIHandler(), options);
 }
 

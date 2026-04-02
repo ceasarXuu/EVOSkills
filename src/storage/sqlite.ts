@@ -1,9 +1,22 @@
 import initSqlJs, { type Database } from 'sql.js';
 import { join, resolve } from 'node:path';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  renameSync,
+  unlinkSync,
+} from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { createChildLogger } from '../utils/logger.js';
-import type { ProjectSkillShadow, ShadowStatus, Session, RuntimeType, OriginSkill } from '../types/index.js';
+import type {
+  ProjectSkillShadow,
+  ShadowStatus,
+  Session,
+  RuntimeType,
+  OriginSkill,
+} from '../types/index.js';
 
 const logger = createChildLogger('sqlite');
 
@@ -13,7 +26,7 @@ const logger = createChildLogger('sqlite');
 export class SQLiteStorage {
   private db: Database | null = null;
   private dbPath: string;
-  
+
   // 单例管理：防止多个实例指向同一文件
   private static instances: Map<string, SQLiteStorage> = new Map();
   private static locks: Map<string, Promise<SQLiteStorage>> = new Map();
@@ -28,19 +41,19 @@ export class SQLiteStorage {
    */
   static async getInstance(dbPath: string): Promise<SQLiteStorage> {
     const normalizedPath = resolve(dbPath);
-    
+
     // 如果已有实例，直接返回
     if (SQLiteStorage.instances.has(normalizedPath)) {
       return SQLiteStorage.instances.get(normalizedPath)!;
     }
-    
+
     // 如果正在创建实例，等待完成
     if (SQLiteStorage.locks.has(normalizedPath)) {
       return SQLiteStorage.locks.get(normalizedPath)!;
     }
-    
+
     // 创建新实例的 Promise
-    const createPromise = (async () => {
+    const createPromise = Promise.resolve().then(() => {
       try {
         const instance = new SQLiteStorage(normalizedPath);
         SQLiteStorage.instances.set(normalizedPath, instance);
@@ -48,8 +61,8 @@ export class SQLiteStorage {
       } finally {
         SQLiteStorage.locks.delete(normalizedPath);
       }
-    })();
-    
+    });
+
     SQLiteStorage.locks.set(normalizedPath, createPromise);
     return createPromise;
   }
@@ -88,7 +101,7 @@ export class SQLiteStorage {
 
     this.createTables();
     this.save();
-    logger.info('Database initialized', { path: this.dbPath });
+    logger.debug('Database initialized', { path: this.dbPath });
   }
 
   /**
@@ -98,7 +111,7 @@ export class SQLiteStorage {
     if (!this.db) throw new Error('Database not initialized');
     const data = this.db.export();
     const buffer = Buffer.from(data);
-    
+
     // 使用唯一临时文件实现原子写入（防止多进程并发冲突）
     const uniqueId = randomBytes(8).toString('hex');
     const tempPath = `${this.dbPath}.${process.pid}.${uniqueId}.tmp`;
@@ -148,14 +161,14 @@ export class SQLiteStorage {
    */
   createBackup(backupPath?: string): string {
     if (!this.db) throw new Error('Database not initialized');
-    
+
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupFilePath = backupPath ?? `${this.dbPath}.backup.${timestamp}`;
-    
+
     const data = this.db.export();
     const buffer = Buffer.from(data);
     writeFileSync(backupFilePath, buffer);
-    
+
     logger.info('Database backup created', { path: backupFilePath });
     return backupFilePath;
   }
@@ -170,14 +183,14 @@ export class SQLiteStorage {
 
     const buffer = readFileSync(backupPath);
     const SQL = await initSqlJs();
-    
+
     if (this.db) {
       this.db.close();
     }
-    
+
     this.db = new SQL.Database(buffer);
     this.save();
-    
+
     logger.info('Database restored from backup', { path: backupPath });
   }
 
@@ -283,11 +296,17 @@ export class SQLiteStorage {
 
     // 创建索引
     this.db.run('CREATE INDEX IF NOT EXISTS idx_shadow_project ON shadow_skills(project_id);');
-    this.db.run('CREATE INDEX IF NOT EXISTS idx_evolution_shadow ON evolution_records_index(shadow_id);');
+    this.db.run(
+      'CREATE INDEX IF NOT EXISTS idx_evolution_shadow ON evolution_records_index(shadow_id);'
+    );
     this.db.run('CREATE INDEX IF NOT EXISTS idx_traces_session ON traces_index(session_id);');
     this.db.run('CREATE INDEX IF NOT EXISTS idx_traces_timestamp ON traces_index(timestamp);');
-    this.db.run('CREATE INDEX IF NOT EXISTS idx_trace_skill_skill ON trace_skill_mappings(skill_id);');
-    this.db.run('CREATE INDEX IF NOT EXISTS idx_trace_skill_shadow ON trace_skill_mappings(shadow_id);');
+    this.db.run(
+      'CREATE INDEX IF NOT EXISTS idx_trace_skill_skill ON trace_skill_mappings(skill_id);'
+    );
+    this.db.run(
+      'CREATE INDEX IF NOT EXISTS idx_trace_skill_shadow ON trace_skill_mappings(shadow_id);'
+    );
   }
 
   /**
@@ -373,7 +392,7 @@ export class SQLiteStorage {
    */
   batchOperation<T>(operations: () => T): T {
     if (!this.db) throw new Error('Database not initialized');
-    
+
     this.beginTrans();
     try {
       const result = operations();
@@ -464,7 +483,10 @@ export class SQLiteStorage {
    */
   updateShadowRevision(shadowId: string, revision: number): void {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.run('UPDATE shadow_skills SET current_revision = ? WHERE shadow_id = ?', [revision, shadowId]);
+    this.db.run('UPDATE shadow_skills SET current_revision = ? WHERE shadow_id = ?', [
+      revision,
+      shadowId,
+    ]);
     this.save();
   }
 
@@ -522,7 +544,9 @@ export class SQLiteStorage {
    */
   incrementSessionTraceCount(sessionId: string): void {
     if (!this.db) throw new Error('Database not initialized');
-    this.db.run('UPDATE sessions SET trace_count = trace_count + 1 WHERE session_id = ?', [sessionId]);
+    this.db.run('UPDATE sessions SET trace_count = trace_count + 1 WHERE session_id = ?', [
+      sessionId,
+    ]);
     this.save();
   }
 
@@ -543,7 +567,14 @@ export class SQLiteStorage {
 
     this.db.run(
       'INSERT INTO traces_index (trace_id, session_id, runtime, event_type, timestamp, status) VALUES (?, ?, ?, ?, ?, ?)',
-      [trace.trace_id, trace.session_id, trace.runtime, trace.event_type, trace.timestamp, trace.status]
+      [
+        trace.trace_id,
+        trace.session_id,
+        trace.runtime,
+        trace.event_type,
+        trace.timestamp,
+        trace.status,
+      ]
     );
     this.save();
   }
@@ -551,7 +582,10 @@ export class SQLiteStorage {
   /**
    * 获取 session 的 trace 索引
    */
-  getTraceIndexBySession(sessionId: string, limit = 100): Array<{
+  getTraceIndexBySession(
+    sessionId: string,
+    limit = 100
+  ): Array<{
     trace_id: string;
     event_type: string;
     timestamp: string;
@@ -617,7 +651,10 @@ export class SQLiteStorage {
   /**
    * 获取 shadow 的演化记录索引
    */
-  getEvolutionRecordIndex(shadowId: string, limit = 50): Array<{
+  getEvolutionRecordIndex(
+    shadowId: string,
+    limit = 50
+  ): Array<{
     id: number;
     revision: number;
     timestamp: string;
@@ -673,7 +710,13 @@ export class SQLiteStorage {
 
     this.db.run(
       'INSERT INTO snapshots (shadow_id, revision, timestamp, file_path, content_hash) VALUES (?, ?, ?, ?, ?)',
-      [snapshot.shadow_id, snapshot.revision, snapshot.timestamp, snapshot.file_path, snapshot.content_hash]
+      [
+        snapshot.shadow_id,
+        snapshot.revision,
+        snapshot.timestamp,
+        snapshot.file_path,
+        snapshot.content_hash,
+      ]
     );
     this.save();
   }
@@ -915,9 +958,7 @@ export class SQLiteStorage {
   }> {
     if (!this.db) throw new Error('Database not initialized');
 
-    const stmt = this.db.prepare(
-      'SELECT * FROM trace_skill_mappings WHERE trace_id = ?'
-    );
+    const stmt = this.db.prepare('SELECT * FROM trace_skill_mappings WHERE trace_id = ?');
     stmt.bind([traceId]);
 
     const results: Array<{

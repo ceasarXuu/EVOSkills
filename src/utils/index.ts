@@ -6,3 +6,4 @@ export * from './hash.js';
 export * from './diff.js';
 export * from './path.js';
 export * from './logger.js';
+export * from './error-helper.js';

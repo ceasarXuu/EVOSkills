@@ -5,7 +5,7 @@
  * Shadow 技能是优化中的临时版本，不会直接部署到运行时。
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { createChildLogger } from '../../utils/logger.js';
 
@@ -74,7 +74,7 @@ export class ShadowRegistry {
     this.loadIndex();
 
     this.initialized = true;
-    logger.info('Shadow Registry initialized');
+    logger.debug('Shadow Registry initialized');
   }
 
   /**
@@ -88,7 +88,7 @@ export class ShadowRegistry {
 
     try {
       const data = readFileSync(this.indexPath, 'utf-8');
-      const entries: ShadowEntry[] = JSON.parse(data);
+      const entries = JSON.parse(data) as ShadowEntry[];
       this.index = new Map(entries.map((e) => [e.skillId, e]));
       logger.debug(`Loaded ${entries.length} shadow entries from index`);
     } catch (error) {
@@ -206,10 +206,7 @@ export class ShadowRegistry {
   /**
    * Update shadow status
    */
-  updateStatus(
-    skillId: string,
-    status: ShadowEntry['status']
-  ): ShadowEntry | undefined {
+  updateStatus(skillId: string, status: ShadowEntry['status']): ShadowEntry | undefined {
     this.ensureInitialized();
 
     const entry = this.index.get(skillId);
@@ -314,8 +311,7 @@ export class ShadowRegistry {
     // Delete content file
     const shadowPath = this.getShadowPath(skillId);
     if (existsSync(shadowPath)) {
-      const fs = require('fs');
-      fs.unlinkSync(shadowPath);
+      unlinkSync(shadowPath);
     }
 
     // Remove from index
@@ -336,8 +332,7 @@ export class ShadowRegistry {
     for (const skillId of this.index.keys()) {
       const shadowPath = this.getShadowPath(skillId);
       if (existsSync(shadowPath)) {
-        const fs = require('fs');
-        fs.unlinkSync(shadowPath);
+        unlinkSync(shadowPath);
       }
     }
 
@@ -397,7 +392,10 @@ export class ShadowRegistry {
     this.ensureInitialized();
 
     const entries = Array.from(this.index.values());
-    const byStatus: Record<'pending' | 'analyzing' | 'optimized' | 'deployed' | 'discarded', number> = {
+    const byStatus: Record<
+      'pending' | 'analyzing' | 'optimized' | 'deployed' | 'discarded',
+      number
+    > = {
       pending: 0,
       analyzing: 0,
       optimized: 0,
@@ -409,9 +407,8 @@ export class ShadowRegistry {
 
     for (const entry of entries) {
       // Map 'frozen' and 'active' to valid status for stats
-      const status = entry.status === 'frozen' || entry.status === 'active' 
-        ? 'pending' 
-        : entry.status;
+      const status =
+        entry.status === 'frozen' || entry.status === 'active' ? 'pending' : entry.status;
       byStatus[status]++;
       totalTraces += entry.traceCount;
     }
@@ -470,7 +467,7 @@ export class ShadowRegistry {
   /**
    * Async init for backward compatibility
    */
-  async initAsync(): Promise<void> {
+  initAsync(): void {
     this.init();
   }
 

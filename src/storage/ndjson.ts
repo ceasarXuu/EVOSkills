@@ -1,4 +1,11 @@
-import { createReadStream, createWriteStream, existsSync, mkdirSync, appendFileSync } from 'node:fs';
+import {
+  createReadStream,
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  appendFileSync,
+  unlinkSync,
+} from 'node:fs';
 import { createInterface } from 'node:readline';
 import { join, dirname } from 'node:path';
 import { createChildLogger } from '../utils/logger.js';
@@ -31,22 +38,22 @@ class FileLock {
     const maxRetries = 100;
     const baseDelay = 10; // 基础延迟 10ms
     const maxDelay = 1000; // 最大延迟 1000ms
-    
+
     while (retries < maxRetries) {
       try {
         appendFileSync(this.lockPath, '', { flag: 'wx' });
         this.locked = true;
         return;
-      } catch (error) {
+      } catch {
         // 文件已存在，使用指数退避等待后重试
         retries++;
         if (retries >= maxRetries) {
           throw new Error(`Failed to acquire lock after ${maxRetries} retries`);
         }
-        
+
         // 指数退避：delay = min(baseDelay * 2^retries, maxDelay)
         const delay = Math.min(baseDelay * Math.pow(2, retries), maxDelay);
-        
+
         // 使用同步等待，避免 CPU 空转
         const start = Date.now();
         while (Date.now() - start < delay) {
@@ -67,8 +74,7 @@ class FileLock {
     try {
       // 删除锁文件
       if (existsSync(this.lockPath)) {
-        // 使用 unlinkSync 删除文件
-        const { unlinkSync } = require('node:fs');
+        // 使用 unlinkSync 删除锁文件
         unlinkSync(this.lockPath);
       }
     } catch (error) {

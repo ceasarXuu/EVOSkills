@@ -11,7 +11,7 @@ const logger = createChildLogger('claude-observer');
  * Claude Code 原始事件类型
  */
 interface ClaudeRawEvent {
-  type: 'user' | 'assistant' | 'summary' | 'queue-operation' | 'file-history-snapshot' | string;
+  type: string;
   timestamp: string;
   sessionId: string;
   uuid?: string;
@@ -30,8 +30,6 @@ interface ClaudeRawEvent {
   operation?: string;
   [key: string]: unknown;
 }
-
-
 
 /**
  * 文件读取位置跟踪
@@ -195,7 +193,10 @@ export class ClaudeObserver extends BaseObserver {
 
       // 读取文件内容（全部或增量）
       const content = readFileSync(path, 'utf-8');
-      const lines = content.slice(startPosition).split('\n').filter((line) => line.trim());
+      const lines = content
+        .slice(startPosition)
+        .split('\n')
+        .filter((line) => line.trim());
 
       for (const line of lines) {
         try {
@@ -369,10 +370,10 @@ export class ClaudeObserver extends BaseObserver {
     if (Array.isArray(content)) {
       // 处理 Claude 的内容数组格式
       const textParts: string[] = [];
-      for (const part of content) {
+      for (const part of content as Array<string | { type?: string; text?: unknown }>) {
         if (typeof part === 'string') {
           textParts.push(part);
-        } else if (part?.type === 'text' && part.text) {
+        } else if (part?.type === 'text' && typeof part.text === 'string') {
           textParts.push(part.text);
         }
       }
@@ -392,7 +393,7 @@ export class ClaudeObserver extends BaseObserver {
     // 匹配 [$skillname] 格式
     const bracketMatches = text.match(/\[\$([^\]]+)\]/g);
     if (bracketMatches) {
-      refs.push(...bracketMatches.map(match => match.slice(2, -1)));
+      refs.push(...bracketMatches.map((match) => match.slice(2, -1)));
     }
 
     // 匹配 @skillname 格式（Claude 可能使用的格式）
@@ -400,10 +401,18 @@ export class ClaudeObserver extends BaseObserver {
     // 注意：过滤掉代码中的装饰器（如 @dataclass, @prisma 等）
     const atMatches = text.match(/@([\w-]+)/g);
     if (atMatches) {
-      const codeKeywords = ['dataclass', 'prisma', 'staticmethod', 'classmethod', 'property', 'app', 'tool'];
+      const codeKeywords = [
+        'dataclass',
+        'prisma',
+        'staticmethod',
+        'classmethod',
+        'property',
+        'app',
+        'tool',
+      ];
       const filteredMatches = atMatches
-        .map(match => match.slice(1))
-        .filter(match => !codeKeywords.includes(match.toLowerCase()) && match.length > 2);
+        .map((match) => match.slice(1))
+        .filter((match) => !codeKeywords.includes(match.toLowerCase()) && match.length > 2);
       refs.push(...filteredMatches);
     }
 
@@ -422,7 +431,7 @@ export class ClaudeObserver extends BaseObserver {
     for (const trace of traces) {
       typeCount.set(trace.eventType, (typeCount.get(trace.eventType) || 0) + 1);
       if (trace.skillRefs) {
-        trace.skillRefs.forEach(ref => skillRefs.add(ref));
+        trace.skillRefs.forEach((ref) => skillRefs.add(ref));
       }
       if (trace.projectContext?.cwd) {
         projects.add(trace.projectContext.cwd);
@@ -452,7 +461,7 @@ export class ClaudeObserver extends BaseObserver {
       turn_id: preprocessed.turnId,
       event_type: preprocessed.eventType,
       timestamp: preprocessed.timestamp,
-      skill_refs: preprocessed.skillRefs,  // 添加 skill_refs
+      skill_refs: preprocessed.skillRefs, // 添加 skill_refs
       status: 'success' as TraceStatus,
     };
 

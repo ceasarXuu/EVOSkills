@@ -6,9 +6,15 @@
 import { mkdir, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { logger } from '../utils/logger.js';
-import { runConfigWizard } from '../config/wizard.js';
 
-export async function initCommand(projectPath: string = process.cwd()): Promise<void> {
+export interface InitOptions {
+  force?: boolean;
+}
+
+export async function initCommand(
+  projectPath: string = process.cwd(),
+  options: InitOptions = {}
+): Promise<void> {
   logger.info('🚀 Initializing Ornn Skills...');
 
   const ornnPath = join(projectPath, '.ornn');
@@ -16,8 +22,13 @@ export async function initCommand(projectPath: string = process.cwd()): Promise<
   // Check if already initialized
   try {
     await access(ornnPath);
-    logger.warn('.ornn directory already exists. Skipping initialization.');
-    return;
+    if (options.force) {
+      logger.info('Force flag detected. Reinitializing...');
+    } else {
+      logger.warn('.ornn directory already exists. Use --force to reinitialize.');
+      logger.info('To update configuration, use: ornn config');
+      return;
+    }
   } catch {
     // Directory doesn't exist, continue with initialization
   }
@@ -28,6 +39,8 @@ export async function initCommand(projectPath: string = process.cwd()): Promise<
   try {
     await mkdir(ornnPath, { recursive: true });
     await mkdir(join(ornnPath, 'skills'), { recursive: true });
+    await mkdir(join(ornnPath, 'state'), { recursive: true });
+    await mkdir(join(ornnPath, 'config'), { recursive: true });
     logger.info(`✓ Created ${ornnPath}`);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -35,11 +48,9 @@ export async function initCommand(projectPath: string = process.cwd()): Promise<
     throw new Error(`Initialization failed: unable to create project structure`);
   }
 
-  // Run configuration wizard
-  logger.info('\n📝 Configuration Wizard');
-  await runConfigWizard(projectPath);
-
   logger.info('\n✅ Ornn Skills initialized successfully!');
   logger.info(`Project path: ${projectPath}`);
-  logger.info('Run "ornn start" to begin skill evolution.');
+  logger.info('\nNext steps:');
+  logger.info('  1. Run "ornn config" to configure LLM provider');
+  logger.info('  2. Run "ornn daemon start" to start the background daemon');
 }

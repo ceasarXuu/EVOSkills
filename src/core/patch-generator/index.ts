@@ -53,7 +53,7 @@ export class PatchGenerator {
     this.registerStrategy(new AppendContextStrategy());
     this.registerStrategy(new TightenTriggerStrategy());
     this.registerStrategy(new RewriteSectionStrategy());
-    logger.info('Default patch strategies registered');
+    logger.debug('Default patch strategies registered');
   }
 
   /**
@@ -64,7 +64,7 @@ export class PatchGenerator {
     for (const [name, config] of Object.entries(DEFAULT_STRATEGY_CONFIGS)) {
       this.strategyConfigs.set(name, config);
     }
-    logger.info('Strategy configurations loaded');
+    logger.debug('Strategy configurations loaded');
   }
 
   /**
@@ -72,7 +72,7 @@ export class PatchGenerator {
    */
   registerStrategy(strategy: BaseStrategy): void {
     this.strategies.set(strategy.getChangeType(), strategy);
-    logger.info(`Strategy registered: ${strategy.getName()}`);
+    logger.debug(`Strategy registered: ${strategy.getName()}`);
   }
 
   /**
@@ -171,7 +171,7 @@ export class PatchGenerator {
         patch: '',
         newContent: '',
         changeType,
-        error: `Strategy execution failed: ${error}`,
+        error: `Strategy execution failed: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }
@@ -191,7 +191,7 @@ export class PatchGenerator {
         resolve(result);
       } catch (error) {
         clearTimeout(timer);
-        reject(error);
+        reject(error instanceof Error ? error : new Error(String(error)));
       }
     });
   }

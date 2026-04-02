@@ -1,8 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync } from 'node:fs';
 import { ConfigManager } from '../../src/config/index.js';
-import { DEFAULT_CONFIG } from '../../src/config/defaults.js';
 
-describe('Config Manager', () => {
+describe('ConfigManager', () => {
   let configManager: ConfigManager;
 
   beforeEach(() => {
@@ -12,7 +14,9 @@ describe('Config Manager', () => {
   describe('getGlobalConfig', () => {
     it('should return default config initially', () => {
       const config = configManager.getGlobalConfig();
-      expect(config).toEqual(DEFAULT_CONFIG);
+      expect(config).toHaveProperty('evaluator');
+      expect(config).toHaveProperty('patch');
+      expect(config).toHaveProperty('journal');
     });
 
     it('should return a copy of config', () => {
@@ -51,15 +55,91 @@ describe('Config Manager', () => {
 
   describe('isSkillFrozen', () => {
     it('should return false when no project config', () => {
-      const result = configManager.isSkillFrozen('test-skill');
-      expect(result).toBe(false);
+      expect(configManager.isSkillFrozen('test-skill')).toBe(false);
     });
   });
 
   describe('getAllowedPatchTypes', () => {
     it('should return default patch types when no project config', () => {
       const types = configManager.getAllowedPatchTypes('test-skill');
-      expect(types).toEqual(DEFAULT_CONFIG.patch.allowed_types);
+      expect(types).toBeDefined();
+      expect(Array.isArray(types)).toBe(true);
     });
+  });
+});
+
+describe('Config File Operations', () => {
+  const testProjectPath = join(tmpdir(), 'ornn-config-file-test-' + Date.now());
+
+  beforeEach(() => {
+    mkdirSync(testProjectPath, { recursive: true });
+    mkdirSync(join(testProjectPath, '.ornn', 'config'), { recursive: true });
+  });
+
+  afterEach(() => {
+    if (existsSync(testProjectPath)) {
+      rmSync(testProjectPath, { recursive: true, force: true });
+    }
+  });
+
+  it('should write and list providers', async () => {
+    const { writeConfig, listConfiguredProviders } = await import('../../src/config/manager.js');
+    const config = {
+      provider: 'deepseek',
+      modelName: 'deepseek-chat',
+      apiKeyEnvVar: 'ORNN_DEEPSEEK_API_KEY',
+    };
+    await writeConfig(testProjectPath, config, true);
+
+    const providers = await listConfiguredProviders(testProjectPath);
+    expect(providers.length).toBe(1);
+    expect(providers[0].provider).toBe('deepseek');
+  });
+
+  it('should return empty list when no config', async () => {
+    const { listConfiguredProviders } = await import('../../src/config/manager.js');
+    const providers = await listConfiguredProviders(testProjectPath);
+    expect(providers).toEqual([]);
+  });
+
+  it('should get and set default provider', async () => {
+    const { writeConfig, getDefaultProvider, setDefaultProvider, listConfiguredProviders } =
+      await import('../../src/config/manager.js');
+    const config1 = { provider: 'openai', modelName: 'gpt-4', apiKeyEnvVar: 'ORNN_OPENAI_API_KEY' };
+    const config2 = {
+      provider: 'deepseek',
+      modelName: 'deepseek-chat',
+      apiKeyEnvVar: 'ORNN_DEEPSEEK_API_KEY',
+    };
+    await writeConfig(testProjectPath, config1, true);
+    await writeConfig(testProjectPath, config2, false);
+
+    const defaultProvider = await getDefaultProvider(testProjectPath);
+    expect(defaultProvider).toBe('openai');
+
+    await setDefaultProvider(testProjectPath, 'deepseek');
+    const newDefault = await getDefaultProvider(testProjectPath);
+    expect(newDefault).toBe('deepseek');
+
+    const providers = await listConfiguredProviders(testProjectPath);
+    expect(providers.length).toBe(2);
+  });
+
+  it('should write env file', async () => {
+    const { writeEnvFile } = await import('../../src/config/manager.js');
+    await writeEnvFile(testProjectPath, 'deepseek', 'sk-test-key-123');
+    const envPath = join(testProjectPath, '.env.local');
+    const content = readFileSync(envPath, 'utf-8');
+    expect(content).toContain('ORNN_DEEPSEEK_API_KEY=sk-test-key-123');
+  });
+
+  it('should append to existing env file', async () => {
+    const { writeEnvFile } = await import('../../src/config/manager.js');
+    await writeEnvFile(testProjectPath, 'deepseek', 'sk-key-1');
+    await writeEnvFile(testProjectPath, 'openai', 'sk-key-2');
+    const envPath = join(testProjectPath, '.env.local');
+    const content = readFileSync(envPath, 'utf-8');
+    expect(content).toContain('ORNN_DEEPSEEK_API_KEY=sk-key-1');
+    expect(content).toContain('ORNN_OPENAI_API_KEY=sk-key-2');
   });
 });

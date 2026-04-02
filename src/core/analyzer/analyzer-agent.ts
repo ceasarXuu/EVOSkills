@@ -95,12 +95,8 @@ export class LLMAnalyzerAgent {
         llmResponse = await this.callLLM(prompt.systemPrompt, prompt.userPrompt);
       } catch (llmError) {
         const errorMsg = llmError instanceof Error ? llmError.message : String(llmError);
-        
-        // Handle LLM not implemented case
-        if (errorMsg.includes('not yet implemented')) {
-          logger.warn('LLM not implemented, using mock analysis for testing');
-          llmResponse = this.generateMockResponse(request);
-        } else if (errorMsg.includes('timed out')) {
+
+        if (errorMsg.includes('timed out')) {
           logger.error('LLM call timed out');
           return {
             success: false,
@@ -209,23 +205,6 @@ export class LLMAnalyzerAgent {
     };
   }
 
-  /**
-   * Generate mock response for testing when LLM is not implemented
-   */
-  private generateMockResponse(request: AnalysisRequest): string {
-    return JSON.stringify({
-      analysis: {
-        summary: `Mock analysis for ${request.skillId} (LLM not yet implemented)`,
-        strengths: ['Current skill structure is preserved'],
-        weaknesses: ['LLM integration pending'],
-        missingScenarios: ['Real analysis not available'],
-        userPainPoints: ['Cannot analyze without LLM'],
-      },
-      suggestions: [],
-      improvedSkill: request.skillContent,
-      confidence: 0.5,
-    });
-  }
 }
 
 /**

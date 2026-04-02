@@ -8,11 +8,7 @@ import type { PatchResult } from '../../../types/index.js';
  */
 export class AddFallbackStrategy extends BaseStrategy {
   constructor() {
-    super(
-      'add-fallback',
-      'Add fallback instructions after relevant steps',
-      'add_fallback'
-    );
+    super('add-fallback', 'Add fallback instructions after relevant steps', 'add_fallback');
   }
 
   /**
@@ -51,8 +47,10 @@ export class AddFallbackStrategy extends BaseStrategy {
 
       // 尝试找到 "## Fallback" 或类似的 section
       for (let i = 0; i < lines.length; i++) {
-        if (lines[i]?.toLowerCase().includes('fallback') ||
-            lines[i]?.toLowerCase().includes('error handling')) {
+        if (
+          lines[i]?.toLowerCase().includes('fallback') ||
+          lines[i]?.toLowerCase().includes('error handling')
+        ) {
           // 在这个 section 后插入
           insertIndex = i + 1;
           while (insertIndex < lines.length && lines[insertIndex]?.startsWith('-')) {
@@ -88,7 +86,9 @@ export class AddFallbackStrategy extends BaseStrategy {
 
       return this.createSuccessResult(patch, newContent);
     } catch (error) {
-      return this.createFailureResult(`Failed to generate patch: ${error}`);
+      return this.createFailureResult(
+        `Failed to generate patch: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 }

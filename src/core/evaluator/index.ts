@@ -26,7 +26,7 @@ export class Evaluator {
   private registerDefaultRules(): void {
     this.rules.push(new RepeatedManualFixRule());
     this.rules.push(new RepeatedDriftRule());
-    logger.info('Default evaluation rules registered');
+    logger.debug('Default evaluation rules registered');
   }
 
   /**
@@ -34,7 +34,7 @@ export class Evaluator {
    */
   registerRule(rule: BaseRule): void {
     this.rules.push(rule);
-    logger.info(`Rule registered: ${rule.getName()}`);
+    logger.debug(`Rule registered: ${rule.getName()}`);
   }
 
   /**

@@ -16,15 +16,24 @@ interface DaemonState {
   processedTraces: number;
   lastCheckpointAt: string | null;
   retryQueueSize: number;
+  optimizationStatus: OptimizationStatus;
+}
+
+interface OptimizationStatus {
+  currentState: 'idle' | 'analyzing' | 'optimizing' | 'error';
+  currentSkillId: string | null;
+  lastOptimizationAt: string | null;
+  lastError: string | null;
+  queueSize: number;
 }
 
 /**
  * 重试队列条目（优化内存使用）
  */
 interface RetryQueueEntry {
-  traceId: string;  // 只存储 trace ID，不存储完整 trace
+  traceId: string; // 只存储 trace ID，不存储完整 trace
   attempts: number;
-  lastErrorMessage?: string;  // 只存储错误消息，不存储完整 Error 对象
+  lastErrorMessage?: string; // 只存储错误消息，不存储完整 Error 对象
   addedAt: number;
 }
 
@@ -44,15 +53,23 @@ export class Daemon {
   private watcher: FSWatcher | null = null;
   private isRunning: boolean = false;
   private cleanupInterval: NodeJS.Timeout | null = null;
-  private retryQueue: Map<string, RetryQueueEntry> = new Map();  // 使用 Map 避免重复
+  private retryQueue: Map<string, RetryQueueEntry> = new Map(); // 使用 Map 避免重复
   private retryInterval: NodeJS.Timeout | null = null;
   private maxRetries = 3;
   private retryDelay = 5000; // 5秒
-  private maxQueueSize = 1000;  // 最大队列大小
+  private maxQueueSize = 1000; // 最大队列大小
   private processedTraces: number = 0;
   private checkpointInterval: NodeJS.Timeout | null = null;
   private startedAt: string = '';
   private lastCheckpointAt: string | null = null;
+  private optimizationStatus: OptimizationStatus = {
+    currentState: 'idle',
+    currentSkillId: null,
+    lastOptimizationAt: null,
+    lastError: null,
+    queueSize: 0,
+  };
+  private optimizationQueue: string[] = [];
 
   constructor(projectRoot: string) {
     this.projectRoot = projectRoot;
@@ -69,12 +86,12 @@ export class Daemon {
       return;
     }
 
-    logger.info('Starting daemon', { projectRoot: this.projectRoot });
+    logger.debug('Starting daemon', { projectRoot: this.projectRoot });
 
     try {
       // 1. 初始化 shadow manager
       await this.shadowManager.init();
-      logger.info('Shadow manager initialized');
+      logger.debug('Shadow manager initialized');
 
       // 2. 设置 trace 回调（带重试机制）
       this.codexObserver.onTrace((trace) => {
@@ -82,8 +99,8 @@ export class Daemon {
       });
 
       // 3. 启动 codex observer
-      await this.codexObserver.start();
-      logger.info('Codex observer started');
+      this.codexObserver.start();
+      logger.debug('Codex observer started');
 
       // 4. 监听项目 .sea 目录变化
       this.startFileWatcher();
@@ -98,12 +115,12 @@ export class Daemon {
       // 7. 注册优雅退出处理
       this.registerShutdownHooks();
 
-      logger.info('Daemon started successfully');
+      logger.debug('Daemon started successfully');
     } catch (error) {
       // 启动失败，清理资源
       this.isRunning = false;
       await this.cleanup();
-      
+
       logger.error('Failed to start daemon', { error });
       throw new Error(`Daemon startup failed: ${String(error)}`);
     }
@@ -148,28 +165,23 @@ export class Daemon {
     // 每小时清理一次旧 traces
     this.cleanupInterval = setInterval(
       () => {
-        void (async () => {
-          try {
-            const retentionDays = 30;
-            const cleaned = await this.shadowManager.cleanupOldTraces(retentionDays);
-            if (cleaned > 0) {
-              logger.info(`Cleaned ${cleaned} old traces`);
-            }
-          } catch (error) {
-            logger.error('Cleanup task failed', { error });
+        try {
+          const retentionDays = 30;
+          const cleaned = this.shadowManager.cleanupOldTraces(retentionDays);
+          if (cleaned > 0) {
+            logger.info(`Cleaned ${cleaned} old traces`);
           }
-        })();
+        } catch (error) {
+          logger.error('Cleanup task failed', { error });
+        }
       },
       60 * 60 * 1000 // 1 小时
     );
 
     // 每5秒处理一次重试队列
-    this.retryInterval = setInterval(
-      () => {
-        void this.processRetryQueue();
-      },
-      this.retryDelay
-    );
+    this.retryInterval = setInterval(() => {
+      void this.processRetryQueue();
+    }, this.retryDelay);
 
     // 每分钟保存一次状态检查点
     this.checkpointInterval = setInterval(
@@ -179,7 +191,7 @@ export class Daemon {
       60 * 1000 // 1 分钟
     );
 
-    logger.info('Cleanup task started');
+    logger.debug('Cleanup task started');
   }
 
   /**
@@ -193,6 +205,7 @@ export class Daemon {
         processedTraces: this.processedTraces,
         lastCheckpointAt: new Date().toISOString(),
         retryQueueSize: this.retryQueue.size,
+        optimizationStatus: { ...this.optimizationStatus },
       };
 
       const checkpointPath = join(this.projectRoot, CHECKPOINT_FILE);
@@ -206,7 +219,7 @@ export class Daemon {
       // 使用临时文件实现原子写入
       const tempPath = `${checkpointPath}.tmp`;
       writeFileSync(tempPath, JSON.stringify(state, null, 2), 'utf-8');
-      
+
       // 原子替换
       const { renameSync, unlinkSync } = await import('node:fs');
       try {
@@ -230,6 +243,57 @@ export class Daemon {
   }
 
   /**
+   * 更新优化状态
+   */
+  updateOptimizationStatus(
+    state: 'idle' | 'analyzing' | 'optimizing' | 'error',
+    skillId?: string,
+    error?: string
+  ): void {
+    this.optimizationStatus.currentState = state;
+    this.optimizationStatus.currentSkillId = skillId || null;
+    this.optimizationStatus.lastError = error || null;
+    if (state === 'idle') {
+      this.optimizationStatus.currentSkillId = null;
+    }
+    logger.debug('Optimization status updated', { state, skillId });
+  }
+
+  /**
+   * 添加到优化队列
+   */
+  enqueueOptimization(skillId: string): void {
+    if (!this.optimizationQueue.includes(skillId)) {
+      this.optimizationQueue.push(skillId);
+      this.optimizationStatus.queueSize = this.optimizationQueue.length;
+      logger.debug('Skill added to optimization queue', {
+        skillId,
+        queueSize: this.optimizationQueue.length,
+      });
+    }
+  }
+
+  /**
+   * 从优化队列获取下一个
+   */
+  dequeueOptimization(): string | undefined {
+    const skillId = this.optimizationQueue.shift();
+    this.optimizationStatus.queueSize = this.optimizationQueue.length;
+    return skillId;
+  }
+
+  /**
+   * 标记优化完成
+   */
+  completeOptimization(skillId: string): void {
+    this.optimizationStatus.currentState = 'idle';
+    this.optimizationStatus.currentSkillId = null;
+    this.optimizationStatus.lastOptimizationAt = new Date().toISOString();
+    this.optimizationStatus.lastError = null;
+    logger.info('Optimization completed', { skillId });
+  }
+
+  /**
    * 获取守护进程状态
    */
   getState(): DaemonState {
@@ -239,6 +303,7 @@ export class Daemon {
       processedTraces: this.processedTraces,
       lastCheckpointAt: this.lastCheckpointAt,
       retryQueueSize: this.retryQueue.size,
+      optimizationStatus: { ...this.optimizationStatus },
     };
   }
 
@@ -283,7 +348,7 @@ export class Daemon {
     this.retryQueue.set(traceId, {
       traceId,
       attempts: 0,
-      lastErrorMessage: error.message,  // 只存储错误消息，不存储完整 Error 对象
+      lastErrorMessage: error.message, // 只存储错误消息，不存储完整 Error 对象
       addedAt: Date.now(),
     });
 
@@ -293,14 +358,14 @@ export class Daemon {
   /**
    * 处理重试队列（优化内存使用）
    */
-  private async processRetryQueue(): Promise<void> {
+  private processRetryQueue(): void {
     if (this.retryQueue.size === 0) {
       return;
     }
 
     // 复制队列条目进行处理
     const entriesToProcess = Array.from(this.retryQueue.entries());
-    
+
     for (const [traceId, entry] of entriesToProcess) {
       if (entry.attempts >= this.maxRetries) {
         logger.error('Trace exceeded max retries, discarding', {
@@ -320,18 +385,18 @@ export class Daemon {
       } catch (error) {
         entry.attempts++;
         entry.lastErrorMessage = error instanceof Error ? error.message : String(error);
-        
+
         if (entry.attempts >= this.maxRetries) {
-          logger.error('Trace failed after max retries', { 
-            traceId, 
-            attempts: entry.attempts, 
-            error: entry.lastErrorMessage 
+          logger.error('Trace failed after max retries', {
+            traceId,
+            attempts: entry.attempts,
+            error: entry.lastErrorMessage,
           });
           this.retryQueue.delete(traceId);
         } else {
-          logger.debug('Trace retry failed, will retry again', { 
-            traceId, 
-            attempts: entry.attempts 
+          logger.debug('Trace retry failed, will retry again', {
+            traceId,
+            attempts: entry.attempts,
           });
         }
       }
@@ -378,48 +443,48 @@ export class Daemon {
       errors.push(error as Error);
     }
 
-      // 2. 停止文件监听器
-      try {
-        if (this.watcher) {
-          await this.watcher.close();
-          this.watcher = null;
-          logger.debug('File watcher stopped');
-        }
-      } catch (error) {
-        logger.error('Failed to stop file watcher', { error });
-        errors.push(error as Error);
+    // 2. 停止文件监听器
+    try {
+      if (this.watcher) {
+        await this.watcher.close();
+        this.watcher = null;
+        logger.debug('File watcher stopped');
       }
+    } catch (error) {
+      logger.error('Failed to stop file watcher', { error });
+      errors.push(error as Error);
+    }
 
-      // 3. 停止定时任务
-      try {
-        if (this.cleanupInterval) {
-          clearInterval(this.cleanupInterval);
-          this.cleanupInterval = null;
-          logger.debug('Cleanup task stopped');
-        }
-        if (this.retryInterval) {
-          clearInterval(this.retryInterval);
-          this.retryInterval = null;
-          logger.debug('Retry task stopped');
-        }
-        if (this.checkpointInterval) {
-          clearInterval(this.checkpointInterval);
-          this.checkpointInterval = null;
-          logger.debug('Checkpoint task stopped');
-        }
-      } catch (error) {
-        logger.error('Failed to stop cleanup task', { error });
-        errors.push(error as Error);
+    // 3. 停止定时任务
+    try {
+      if (this.cleanupInterval) {
+        clearInterval(this.cleanupInterval);
+        this.cleanupInterval = null;
+        logger.debug('Cleanup task stopped');
       }
+      if (this.retryInterval) {
+        clearInterval(this.retryInterval);
+        this.retryInterval = null;
+        logger.debug('Retry task stopped');
+      }
+      if (this.checkpointInterval) {
+        clearInterval(this.checkpointInterval);
+        this.checkpointInterval = null;
+        logger.debug('Checkpoint task stopped');
+      }
+    } catch (error) {
+      logger.error('Failed to stop cleanup task', { error });
+      errors.push(error as Error);
+    }
 
-      // 4. 保存最终检查点
-      try {
-        await this.saveCheckpoint();
-        logger.debug('Final checkpoint saved');
-      } catch (error) {
-        logger.error('Failed to save final checkpoint', { error });
-        errors.push(error as Error);
-      }
+    // 4. 保存最终检查点
+    try {
+      await this.saveCheckpoint();
+      logger.debug('Final checkpoint saved');
+    } catch (error) {
+      logger.error('Failed to save final checkpoint', { error });
+      errors.push(error as Error);
+    }
 
     // 4. 关闭 shadow manager
     try {
@@ -449,36 +514,36 @@ export class Daemon {
         logger.warn('Shutdown already in progress, ignoring signal', { signal });
         return;
       }
-      
+
       isShuttingDown = true;
       logger.info(`Received ${signal}, shutting down gracefully...`);
-      
+
       // 设置退出超时（30秒）
       shutdownTimeout = setTimeout(() => {
         logger.error('Shutdown timeout exceeded, forcing exit');
         process.exit(1);
       }, 30000);
-      
+
       try {
         await this.stop();
-        
+
         // 清除超时定时器
         if (shutdownTimeout) {
           clearTimeout(shutdownTimeout);
           shutdownTimeout = null;
         }
-        
+
         logger.info('Graceful shutdown completed');
         process.exit(0);
       } catch (error) {
         logger.error('Error during graceful shutdown', { error });
-        
+
         // 清除超时定时器
         if (shutdownTimeout) {
           clearTimeout(shutdownTimeout);
           shutdownTimeout = null;
         }
-        
+
         process.exit(1);
       }
     };
@@ -512,14 +577,14 @@ export class Daemon {
   /**
    * 获取 shadow manager
    */
-  getShadowManager() {
+  getShadowManager(): import('../core/shadow-manager/index.js').ShadowManager {
     return this.shadowManager;
   }
 
   /**
    * 获取 codex observer
    */
-  getCodexObserver() {
+  getCodexObserver(): import('../core/observer/codex-observer.js').CodexObserver {
     return this.codexObserver;
   }
 }

@@ -34,7 +34,7 @@ export class TraceManager {
   async init(): Promise<void> {
     this.db = await createSQLiteStorage(this.dbPath);
     await this.db.init();
-    logger.info('Trace manager initialized');
+    logger.debug('Trace manager initialized');
   }
 
   /**
@@ -111,9 +111,9 @@ export class TraceManager {
       try {
         this.db.rollback();
       } catch (rollbackError) {
-        logger.error('Failed to rollback transaction', { 
-          trace_id: trace.trace_id, 
-          rollbackError 
+        logger.debug('Failed to rollback transaction', {
+          trace_id: trace.trace_id,
+          rollbackError
         });
       }
       
@@ -141,9 +141,9 @@ export class TraceManager {
         }
       }
       
-      logger.error('Failed to record trace', { 
-        trace_id: trace.trace_id, 
-        error: error instanceof Error ? error.message : String(error) 
+      logger.debug('Failed to record trace', {
+        trace_id: trace.trace_id,
+        error: error instanceof Error ? error.message : String(error)
       });
       throw error;
     }

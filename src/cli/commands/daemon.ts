@@ -1,8 +1,11 @@
 import { Command } from 'commander';
+import { cliInfo, cliError } from '../../utils/cli-output.js';
 import { join } from 'node:path';
 import { existsSync, writeFileSync, readFileSync, unlinkSync } from 'node:fs';
 import { Daemon } from '../../daemon/index.js';
 import { validateProjectPath } from '../../utils/path.js';
+import { printErrorAndExit } from '../../utils/error-helper.js';
+import ora from 'ora';
 
 const PID_FILE = '.ornn/daemon.pid';
 
@@ -76,63 +79,86 @@ export function createStartCommand(): Command {
   start
     .description('Start the OrnnSkills daemon')
     .option('-p, --project <path>', 'Project root path', process.cwd())
-    .action(async (options: DaemonOptions) => {
-      try {
-        // 验证项目路径
-        let projectRoot: string;
+    .action((options: DaemonOptions): void => {
+      void (async (): Promise<void> => {
         try {
-          projectRoot = validateProjectPath(options.project);
+          // 验证项目路径
+          let projectRoot: string;
+          try {
+            projectRoot = validateProjectPath(options.project);
+          } catch (error) {
+            cliError(`Error: ${error instanceof Error ? error.message : String(error)}`);
+            process.exit(1);
+          }
+
+          // 检查 .ornn 目录是否存在
+          const ornnDir = join(projectRoot, '.ornn');
+          if (!existsSync(ornnDir)) {
+            cliError('Error: .ornn directory not found. Run "ornn init" first.');
+            process.exit(1);
+          }
+
+          // 检查是否已经在运行
+          const existingPid = readPidFile(projectRoot);
+          if (existingPid && isProcessRunning(existingPid)) {
+            cliInfo(`Daemon is already running (PID: ${existingPid})`);
+            cliInfo(`Use "ornn daemon status" to check status.`);
+            process.exit(0);
+          }
+
+          // 如果 PID 文件存在但进程不在运行，清理旧文件
+          if (existingPid) {
+            removePidFile(projectRoot);
+          }
+
+          // 使用进度指示器
+          const spinner = ora('Starting OrnnSkills daemon...').start();
+
+          try {
+            // 创建并启动 daemon
+            const daemon = new Daemon(projectRoot);
+
+            spinner.text = 'Initializing daemon components...';
+            await daemon.start();
+
+            // 写入 PID 文件
+            writePidFile(projectRoot, process.pid);
+
+            spinner.succeed('Daemon started');
+
+            // 设置信号处理以支持 Ctrl+C 退出
+            const handleShutdown = (): void => {
+              void daemon
+                .stop()
+                .then(() => {
+                  removePidFile(projectRoot);
+                  process.exit(0);
+                })
+                .catch(() => {
+                  removePidFile(projectRoot);
+                  process.exit(1);
+                });
+            };
+
+            process.on('SIGINT', handleShutdown);
+            process.on('SIGTERM', handleShutdown);
+
+            // 保持进程运行 - 使用 setInterval 代替 stdin.resume() 以避免阻塞 SIGINT
+            const keepAlive = setInterval(() => {}, 1000);
+
+            // 清理定时器当收到退出信号时
+            process.on('exit', () => {
+              clearInterval(keepAlive);
+            });
+          } catch (error) {
+            spinner.fail('Failed to start daemon');
+            throw error;
+          }
         } catch (error) {
-          console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+          console.error('Error:', error instanceof Error ? error.message : String(error));
           process.exit(1);
         }
-
-        // 检查 .ornn 目录是否存在
-        const ornnDir = join(projectRoot, '.ornn');
-        if (!existsSync(ornnDir)) {
-          console.error('Error: .ornn directory not found. Run "ornn init" first.');
-          process.exit(1);
-        }
-
-        // 检查是否已经在运行
-        const existingPid = readPidFile(projectRoot);
-        if (existingPid && isProcessRunning(existingPid)) {
-          console.log(`Daemon is already running (PID: ${existingPid})`);
-          console.log(`Use "ornn daemon status" to check status.`);
-          process.exit(0);
-        }
-
-        // 如果 PID 文件存在但进程不在运行，清理旧文件
-        if (existingPid) {
-          removePidFile(projectRoot);
-        }
-
-        console.log('Starting OrnnSkills daemon...');
-        console.log(`Project: ${projectRoot}`);
-
-        // 创建并启动 daemon
-        const daemon = new Daemon(projectRoot);
-        await daemon.start();
-
-        // 写入 PID 文件
-        writePidFile(projectRoot, process.pid);
-
-        console.log('✓ Daemon started successfully');
-        console.log(`  PID: ${process.pid}`);
-        console.log(`  Project: ${projectRoot}`);
-        console.log();
-        console.log('The daemon is now running in the background.');
-        console.log('It will automatically analyze traces and optimize skills.');
-        console.log();
-        console.log('Use "ornn daemon status" to check status.');
-        console.log('Use "ornn daemon stop" to stop the daemon.');
-
-        // 保持进程运行
-        process.stdin.resume();
-      } catch (error) {
-        console.error('Error:', error instanceof Error ? error.message : String(error));
-        process.exit(1);
-      }
+      })();
     });
 
   return start;
@@ -147,53 +173,53 @@ export function createStopCommand(): Command {
   stop
     .description('Stop the OrnnSkills daemon')
     .option('-p, --project <path>', 'Project root path', process.cwd())
-    .action(async (options: DaemonOptions) => {
+    .action((options: DaemonOptions) => {
       try {
         // 验证项目路径
         let projectRoot: string;
         try {
           projectRoot = validateProjectPath(options.project);
         } catch (error) {
-          console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+          cliError(`Error: ${error instanceof Error ? error.message : String(error)}`);
           process.exit(1);
         }
 
         // 读取 PID
         const pid = readPidFile(projectRoot);
         if (!pid) {
-          console.log('Daemon is not running (no PID file found)');
+          cliInfo('Daemon is not running (no PID file found)');
           process.exit(0);
         }
 
         // 检查进程是否在运行
         if (!isProcessRunning(pid)) {
-          console.log('Daemon is not running (stale PID file)');
+          cliInfo('Daemon is not running (stale PID file)');
           removePidFile(projectRoot);
           process.exit(0);
         }
 
-        console.log(`Stopping daemon (PID: ${pid})...`);
+        const spinner = ora(`Stopping daemon (PID: ${pid})...`).start();
 
         // 发送 SIGTERM 信号
         process.kill(pid, 'SIGTERM');
 
-        // 等待进程退出
+        // 等待进程退出（最多 5 秒）
         let attempts = 0;
-        const maxAttempts = 30;
+        const maxAttempts = 5;
         const interval = setInterval(() => {
           attempts++;
           if (!isProcessRunning(pid) || attempts >= maxAttempts) {
             clearInterval(interval);
             if (!isProcessRunning(pid)) {
-              console.log('✓ Daemon stopped successfully');
+              spinner.succeed('Daemon stopped');
               removePidFile(projectRoot);
             } else {
-              console.log('Daemon did not stop gracefully, forcing...');
+              // 强制 kill
               try {
                 process.kill(pid, 'SIGKILL');
-                console.log('✓ Daemon stopped');
+                spinner.succeed('Daemon stopped');
               } catch {
-                console.log('Failed to stop daemon');
+                spinner.fail('Failed to stop daemon');
               }
               removePidFile(projectRoot);
             }
@@ -209,6 +235,102 @@ export function createStopCommand(): Command {
 }
 
 /**
+ * 格式化运行时长
+ */
+function formatUptime(startedAt: string): string {
+  const start = new Date(startedAt).getTime();
+  const now = Date.now();
+  const diff = now - start;
+
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) return `${days}d ${hours % 24}h ${minutes % 60}m`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+  return `${seconds}s`;
+}
+
+/**
+ * 读取检查点文件获取统计信息
+ */
+function readCheckpointStats(
+  projectRoot: string
+): { processedTraces: number; startedAt: string } | null {
+  const checkpointPath = join(projectRoot, '.ornn', 'state', 'daemon-checkpoint.json');
+  if (!existsSync(checkpointPath)) {
+    return null;
+  }
+
+  try {
+    const data = JSON.parse(readFileSync(checkpointPath, 'utf-8')) as Record<string, unknown>;
+    return {
+      processedTraces: (data.processedTraces as number) || 0,
+      startedAt:
+        (data.startedAt as string) || (data.started_at as string) || new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 获取日志文件统计
+ */
+function getLogStats(): { errorCount: number; warningCount: number } {
+  const LOG_DIR = join(process.env.HOME || '', '.ornn', 'logs');
+  if (!existsSync(LOG_DIR)) {
+    return { errorCount: 0, warningCount: 0 };
+  }
+
+  try {
+    const errorLogPath = join(LOG_DIR, 'error.log');
+    let errorCount = 0;
+    if (existsSync(errorLogPath)) {
+      const content = readFileSync(errorLogPath, 'utf-8');
+      errorCount = content.split('\n').filter((line) => line.includes('ERROR')).length;
+    }
+    return { errorCount, warningCount: 0 };
+  } catch {
+    return { errorCount: 0, warningCount: 0 };
+  }
+}
+
+/**
+ * 读取优化统计信息
+ */
+function readOptimizationStats(projectRoot: string): {
+  currentState: string;
+  currentSkillId: string | null;
+  lastOptimizationAt: string | null;
+  lastError: string | null;
+  queueSize: number;
+} | null {
+  const checkpointPath = join(projectRoot, '.ornn', 'state', 'daemon-checkpoint.json');
+  if (!existsSync(checkpointPath)) {
+    return null;
+  }
+
+  try {
+    const data = JSON.parse(readFileSync(checkpointPath, 'utf-8')) as Record<string, unknown>;
+    if (data.optimizationStatus) {
+      return data.optimizationStatus as {
+        currentState: string;
+        currentSkillId: string | null;
+        lastOptimizationAt: string | null;
+        lastError: string | null;
+        queueSize: number;
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 创建 status 命令
  */
 export function createDaemonStatusCommand(): Command {
@@ -217,46 +339,127 @@ export function createDaemonStatusCommand(): Command {
   status
     .description('Check daemon status')
     .option('-p, --project <path>', 'Project root path', process.cwd())
-    .action(async (options: DaemonOptions) => {
+    .action((options: DaemonOptions) => {
       try {
         // 验证项目路径
         let projectRoot: string;
         try {
           projectRoot = validateProjectPath(options.project);
         } catch (error) {
-          console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-          process.exit(1);
+          printErrorAndExit(
+            error instanceof Error ? error.message : String(error),
+            { operation: 'Validate project path', projectPath: options.project },
+            'PATH_TRAVERSAL'
+          );
+        }
+
+        // 检查 .ornn 目录是否存在
+        const ornnDir = join(projectRoot, '.ornn');
+        if (!existsSync(ornnDir)) {
+          printErrorAndExit(
+            '.ornn directory not found',
+            { operation: 'Check project initialization', projectPath: projectRoot },
+            'PROJECT_NOT_INITIALIZED'
+          );
         }
 
         // 读取 PID
         const pid = readPidFile(projectRoot);
         if (!pid) {
-          console.log('Daemon status: Not running');
-          console.log();
-          console.log('Use "ornn daemon start" to start the daemon.');
+          cliInfo('\n🔴 Daemon status: Not running');
+          cliInfo('');
+          cliInfo('   The daemon is not currently active.');
+          cliInfo('');
+          cliInfo('   To start the daemon, run:');
+          cliInfo('     $ ornn daemon start');
+          cliInfo('');
           process.exit(0);
         }
 
         // 检查进程是否在运行
         if (!isProcessRunning(pid)) {
-          console.log('Daemon status: Not running (stale PID file)');
+          cliInfo('\n🟡 Daemon status: Not running (stale PID file)');
+          cliInfo('');
+          cliInfo('   The daemon was not properly shut down.');
+          cliInfo('');
           removePidFile(projectRoot);
-          console.log();
-          console.log('Use "ornn daemon start" to start the daemon.');
+          cliInfo('   Cleaned up stale PID file.');
+          cliInfo('   To start the daemon, run:');
+          cliInfo('     $ ornn daemon start');
+          cliInfo('');
           process.exit(0);
         }
 
-        console.log('Daemon status: Running ✓');
-        console.log(`  PID: ${pid}`);
-        console.log(`  Project: ${projectRoot}`);
-        console.log();
-        console.log('The daemon is actively analyzing traces and optimizing skills.');
-        console.log();
-        console.log('Use "ornn skills status" to see skill optimization status.');
-        console.log('Use "ornn daemon stop" to stop the daemon.');
+        // 读取统计信息
+        const stats = readCheckpointStats(projectRoot);
+        const logStats = getLogStats();
+        const optimizationStats = readOptimizationStats(projectRoot);
+
+        // 显示增强的状态信息
+        cliInfo('\n🟢 Daemon status: Running');
+        cliInfo('');
+        cliInfo('   Process:');
+        cliInfo(`     PID:        ${pid}`);
+        cliInfo(`     Project:    ${projectRoot}`);
+        if (stats) {
+          cliInfo(`     Uptime:     ${formatUptime(stats.startedAt)}`);
+        }
+        cliInfo('');
+
+        if (stats) {
+          cliInfo('   Activity:');
+          cliInfo(`     Traces processed: ${stats.processedTraces.toLocaleString()}`);
+          cliInfo('');
+        }
+
+        if (optimizationStats) {
+          cliInfo('   Optimization:');
+          cliInfo(`     State:        ${optimizationStats.currentState}`);
+          if (optimizationStats.currentSkillId) {
+            cliInfo(`     Current skill: ${optimizationStats.currentSkillId}`);
+          }
+          if (optimizationStats.queueSize > 0) {
+            cliInfo(`     Queue size:   ${optimizationStats.queueSize}`);
+          }
+          if (optimizationStats.lastOptimizationAt) {
+            cliInfo(
+              `     Last optimized: ${new Date(optimizationStats.lastOptimizationAt).toLocaleString()}`
+            );
+          }
+          cliInfo('');
+
+          if (optimizationStats.lastError) {
+            cliInfo('   ⚠️  Optimization Issues:');
+            cliInfo(`     Last error: ${optimizationStats.lastError}`);
+            cliInfo('');
+            cliInfo('   🔧 Troubleshooting:');
+            cliInfo('     $ ornn logs --level error');
+            cliInfo('     $ ornn skills status');
+            cliInfo('');
+          }
+        }
+
+        if (logStats.errorCount > 0) {
+          cliInfo('   Health:');
+          cliInfo(`     Recent errors: ${logStats.errorCount}`);
+          cliInfo(`     Check logs: ~/.ornn/logs/error.log`);
+          cliInfo('');
+        }
+
+        cliInfo('   Quick commands:');
+        cliInfo('     $ ornn skills status     # View skill optimization status');
+        cliInfo('     $ ornn daemon stop        # Stop the daemon');
+        cliInfo('     $ ornn skills log <skill> # View evolution logs');
+        cliInfo('');
+
+        cliInfo('   The daemon is actively analyzing traces and optimizing skills.');
+        cliInfo('');
       } catch (error) {
-        console.error('Error:', error instanceof Error ? error.message : String(error));
-        process.exit(1);
+        printErrorAndExit(
+          error instanceof Error ? error.message : String(error),
+          { operation: 'Check daemon status' },
+          undefined
+        );
       }
     });
 

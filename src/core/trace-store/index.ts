@@ -399,7 +399,7 @@ export class TraceStore {
    */
   importFromJSON(json: string): void {
     try {
-      const traces: Trace[] = JSON.parse(json);
+      const traces = JSON.parse(json) as Trace[];
       this.storeBatch(traces);
       logger.info(`Imported ${traces.length} traces from JSON`);
     } catch (error) {

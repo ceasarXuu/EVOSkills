@@ -74,10 +74,13 @@ export class Phase2Integration {
     if (this.options.enableRouter) {
       this.router = new TraceRouter({
         projectPath: this.options.projectPath,
-        onSkillTrace: (mapping, trace) => {
+        onSkillTrace: (
+          mapping: import('../../src/types/index.js').TraceSkillMapping,
+          trace: Trace
+        ): void => {
           this.handleSkillTrace(mapping, trace);
         },
-        onUnknownTrace: (trace) => {
+        onUnknownTrace: (trace: Trace): void => {
           this.handleUnknownTrace(trace);
         },
         ...this.options.routerOptions,
@@ -89,7 +92,7 @@ export class Phase2Integration {
     if (this.options.enableObserver) {
       this.observer = new ProjectObserver({
         projectPath: this.options.projectPath,
-        onTrace: (trace) => {
+        onTrace: (trace: Trace): void => {
           this.handleTrace(trace);
         },
         ...this.options.observerOptions,
@@ -103,7 +106,7 @@ export class Phase2Integration {
   /**
    * Start the integration
    */
-  async start(): Promise<void> {
+  start(): void {
     if (this.isRunning) {
       logger.warn('Phase 2 integration already running');
       return;
@@ -112,7 +115,7 @@ export class Phase2Integration {
     logger.info('Starting Phase 2 integration...');
 
     if (this.observer) {
-      await this.observer.start();
+      this.observer.start();
     }
 
     this.isRunning = true;

@@ -1,6 +1,6 @@
 {
   "name": "ornn-skills",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Skill Evolution Agent - Background meta-agent for automatic skill optimization",
   "main": "dist/index.js",
   "bin": {
@@ -45,6 +45,7 @@
     "glob": "^13.0.0",
     "inquirer": "^13.3.2",
     "ora": "^7.0.0",
+    "smol-toml": "^1.6.1",
     "sql.js": "^1.10.0",
     "toml": "^3.0.0",
     "uuid": "^13.0.0",

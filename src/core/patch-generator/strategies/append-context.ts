@@ -8,11 +8,7 @@ import type { PatchResult } from '../../../types/index.ts';
  */
 export class AppendContextStrategy extends BaseStrategy {
   constructor() {
-    super(
-      'append-context',
-      'Append context information to skill file',
-      'append_context'
-    );
+    super('append-context', 'Append context information to skill file', 'append_context');
   }
 
   generate(currentContent: string, context: Record<string, unknown>): PatchResult {
@@ -26,13 +22,13 @@ export class AppendContextStrategy extends BaseStrategy {
 
       // 解析文件结构
       const lines = currentContent.split('\n');
-      
+
       // 查找插入点：优先在 ## Context 后，否则在文件末尾
       let insertIndex = this.findContextSection(lines);
-      
+
       // 如果没有 Context section，创建一个
       const needsContextSection = insertIndex === -1;
-      
+
       if (needsContextSection) {
         // 在 ## Examples 或 ## Instructions 后插入，或在文件末尾
         insertIndex = this.findInsertPoint(lines);
@@ -53,7 +49,9 @@ export class AppendContextStrategy extends BaseStrategy {
 
       return this.createSuccessResult(patch, newContent);
     } catch (error) {
-      return this.createFailureResult(`Failed to generate patch: ${error}`);
+      return this.createFailureResult(
+        `Failed to generate patch: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -81,7 +79,7 @@ export class AppendContextStrategy extends BaseStrategy {
   private findInsertPoint(lines: string[]): number {
     // 优先级：Examples > Instructions > 文件末尾
     const sectionPriorities = ['examples', 'instructions', 'usage'];
-    
+
     for (const section of sectionPriorities) {
       for (let i = lines.length - 1; i >= 0; i--) {
         const line = lines[i].trim().toLowerCase();
@@ -115,7 +113,7 @@ export class AppendContextStrategy extends BaseStrategy {
     // 添加上下文条目
     lines.push(`<!-- OrnnSkills: Auto-appended context -->`);
     lines.push(`**Pattern**: ${pattern}`);
-    
+
     if (reason) {
       lines.push(`**Reason**: ${reason}`);
     }
@@ -125,7 +123,7 @@ export class AppendContextStrategy extends BaseStrategy {
     lines.push('**When to apply**:');
     lines.push(`- When the agent output matches: "${pattern}"`);
     lines.push('- When similar patterns appear in user input');
-    
+
     lines.push('');
 
     return lines;

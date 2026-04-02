@@ -92,21 +92,21 @@ export class Journal {
         if (existsSync(this.options.dbPath)) {
           const data = fs.readFileSync(this.options.dbPath);
           this.db = new this.SQL.Database(data);
-          logger.info('Loaded existing journal database');
+          logger.debug('Loaded existing journal database');
         } else {
           this.db = new this.SQL.Database();
-          logger.info('Created new journal database');
+          logger.debug('Created new journal database');
         }
       } catch {
         this.db = new this.SQL.Database();
-        logger.info('Created new journal database');
+        logger.debug('Created new journal database');
       }
 
       // Create tables
       this.createTables();
 
       this.initialized = true;
-      logger.info('Journal initialized successfully');
+      logger.debug('Journal initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize journal:', error);
       throw error;
@@ -184,7 +184,7 @@ export class Journal {
    */
   private queueWrite(operation: () => void): void {
     this.writeQueue.push(operation);
-    this.processWriteQueue();
+    void this.processWriteQueue();
   }
 
   /**
@@ -214,7 +214,7 @@ export class Journal {
 
       // Check if more operations were queued during processing
       if (this.writeQueue.length > 0) {
-        this.processWriteQueue();
+        void this.processWriteQueue();
       }
     }
   }
@@ -228,10 +228,13 @@ export class Journal {
     this.queueWrite(() => {
       try {
         // Serialize complex fields
-        const content = trace.assistant_output || trace.tool_result ? JSON.stringify({
-          assistant_output: trace.assistant_output,
-          tool_result: trace.tool_result,
-        }) : null;
+        const content =
+          trace.assistant_output || trace.tool_result
+            ? JSON.stringify({
+                assistant_output: trace.assistant_output,
+                tool_result: trace.tool_result,
+              })
+            : null;
         const metadata = trace.metadata ? JSON.stringify(trace.metadata) : null;
         const skillRefs = trace.skill_refs ? JSON.stringify(trace.skill_refs) : null;
 
@@ -317,7 +320,9 @@ export class Journal {
    * Convert database row to Trace object
    */
   private rowToTrace(row: Record<string, unknown>): Trace {
-    const content = row.content ? JSON.parse(row.content as string) : {};
+    const content = row.content
+      ? (JSON.parse(row.content as string) as Record<string, unknown>)
+      : {};
     return {
       trace_id: row.trace_id as string,
       session_id: row.session_id as string,
@@ -326,14 +331,16 @@ export class Journal {
       event_type: row.event_type as TraceEventType,
       status: row.status as TraceStatus,
       timestamp: row.timestamp as string,
-      user_input: content.user_input,
-      assistant_output: content.assistant_output,
-      tool_name: content.tool_name,
-      tool_args: content.tool_args,
-      tool_result: content.tool_result,
-      files_changed: content.files_changed,
-      skill_refs: row.skill_refs ? JSON.parse(row.skill_refs as string) : undefined,
-      metadata: row.metadata ? JSON.parse(row.metadata as string) : undefined,
+      user_input: content.user_input as string | undefined,
+      assistant_output: content.assistant_output as string | undefined,
+      tool_name: content.tool_name as string | undefined,
+      tool_args: content.tool_args as Record<string, unknown> | undefined,
+      tool_result: content.tool_result as Record<string, unknown> | undefined,
+      files_changed: content.files_changed as string[] | undefined,
+      skill_refs: row.skill_refs ? (JSON.parse(row.skill_refs as string) as string[]) : undefined,
+      metadata: row.metadata
+        ? (JSON.parse(row.metadata as string) as Record<string, unknown> | undefined)
+        : undefined,
     };
   }
 
@@ -395,6 +402,9 @@ export class Journal {
     }
 
     const stmt = this.db.prepare(sql);
+    if (params.length > 0) {
+      stmt.bind(params as string[]);
+    }
     const results: Trace[] = [];
 
     while (stmt.step()) {
@@ -412,7 +422,9 @@ export class Journal {
   getBySession(sessionId: string): Trace[] {
     if (!this.db) throw new Error('Database not initialized');
 
-    const stmt = this.db.prepare('SELECT * FROM traces WHERE session_id = ? ORDER BY timestamp ASC');
+    const stmt = this.db.prepare(
+      'SELECT * FROM traces WHERE session_id = ? ORDER BY timestamp ASC'
+    );
     const results: Trace[] = [];
 
     stmt.bind([sessionId]);
@@ -535,7 +547,9 @@ export class Journal {
 
     // Count by runtime
     const byRuntime: Record<RuntimeType, number> = { codex: 0, opencode: 0, claude: 0 };
-    const runtimeStmt = this.db.prepare('SELECT runtime, COUNT(*) as count FROM traces GROUP BY runtime');
+    const runtimeStmt = this.db.prepare(
+      'SELECT runtime, COUNT(*) as count FROM traces GROUP BY runtime'
+    );
     while (runtimeStmt.step()) {
       const row = runtimeStmt.getAsObject();
       byRuntime[row.runtime as RuntimeType] = row.count as number;
@@ -552,7 +566,9 @@ export class Journal {
       retry: 0,
       status: 0,
     };
-    const eventStmt = this.db.prepare('SELECT event_type, COUNT(*) as count FROM traces GROUP BY event_type');
+    const eventStmt = this.db.prepare(
+      'SELECT event_type, COUNT(*) as count FROM traces GROUP BY event_type'
+    );
     while (eventStmt.step()) {
       const row = eventStmt.getAsObject();
       byEventType[row.event_type as TraceEventType] = row.count as number;
@@ -566,7 +582,9 @@ export class Journal {
       retry: 0,
       interrupted: 0,
     };
-    const statusStmt = this.db.prepare('SELECT status, COUNT(*) as count FROM traces GROUP BY status');
+    const statusStmt = this.db.prepare(
+      'SELECT status, COUNT(*) as count FROM traces GROUP BY status'
+    );
     while (statusStmt.step()) {
       const row = statusStmt.getAsObject();
       byStatus[row.status as TraceStatus] = row.count as number;
@@ -577,7 +595,9 @@ export class Journal {
     let earliest: Date | null = null;
     let latest: Date | null = null;
 
-    const timeStmt = this.db.prepare('SELECT MIN(timestamp) as earliest, MAX(timestamp) as latest FROM traces');
+    const timeStmt = this.db.prepare(
+      'SELECT MIN(timestamp) as earliest, MAX(timestamp) as latest FROM traces'
+    );
     if (timeStmt.step()) {
       const row = timeStmt.getAsObject();
       if (row.earliest) earliest = new Date(row.earliest as string);
@@ -638,7 +658,7 @@ export class Journal {
 
       const stmt = this.db.prepare('DELETE FROM traces WHERE timestamp < ?');
       stmt.run([cutoffDate.toISOString()]);
-      const changes = this.db!.getRowsModified();
+      const changes = this.db.getRowsModified();
       stmt.free();
 
       if (changes > 0) {
@@ -660,7 +680,7 @@ export class Journal {
    */
   importFromJSON(json: string): void {
     try {
-      const traces: Trace[] = JSON.parse(json);
+      const traces = JSON.parse(json) as Trace[];
       this.storeBatch(traces);
       logger.info(`Imported ${traces.length} traces from JSON`);
     } catch (error) {
@@ -674,6 +694,17 @@ export class Journal {
    */
   async close(): Promise<void> {
     if (this.db) {
+      if (this.writeQueue.length > 0 && !this.isProcessingQueue) {
+        await this.processWriteQueue();
+      }
+      const maxWait = 2000;
+      const start = Date.now();
+      while (
+        (this.writeQueue.length > 0 || this.isProcessingQueue) &&
+        Date.now() - start < maxWait
+      ) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
       await this.persist();
       this.db.close();
       this.db = null;
@@ -687,40 +718,40 @@ export class Journal {
   /**
    * Get record by revision - backward compatibility placeholder
    */
-  async getRecordByRevision(_shadowId: string, _revision: number): Promise<unknown | null> {
-    // TODO: Implement if needed
+  getRecordByRevision(_shadowId: string, _revision: number): null {
     return null;
   }
 
   /**
    * Get snapshots - backward compatibility placeholder
    */
-  getSnapshots(_shadowId: string): Array<{ revision: number; timestamp: string; file_path: string; content_hash: string }> {
-    // TODO: Implement if needed
+  getSnapshots(
+    _shadowId: string
+  ): Array<{ revision: number; timestamp: string; file_path: string; content_hash: string }> {
     return [];
   }
 
   /**
    * Get journal records - backward compatibility placeholder
    */
-  async getJournalRecords(_shadowId: string, _options?: { limit?: number; changeType?: string }): Promise<unknown[]> {
-    // TODO: Implement if needed
+  getJournalRecords(
+    _shadowId: string,
+    _options?: { limit?: number; changeType?: string }
+  ): unknown[] {
     return [];
   }
 
   /**
    * Rollback - backward compatibility placeholder
    */
-  async rollback(_shadowId: string, _revision: number): Promise<boolean> {
-    // TODO: Implement if needed
+  rollback(_shadowId: string, _revision: number): boolean {
     return false;
   }
 
   /**
    * Rollback to snapshot - backward compatibility placeholder
    */
-  async rollbackToSnapshot(_shadowId: string, _snapshotPath: string): Promise<boolean> {
-    // TODO: Implement if needed
+  rollbackToSnapshot(_shadowId: string, _snapshotPath: string): boolean {
     return false;
   }
 
@@ -728,23 +759,20 @@ export class Journal {
    * Get latest revision - backward compatibility placeholder
    */
   getLatestRevision(_shadowId: string): number {
-    // TODO: Implement if needed
     return 0;
   }
 
   /**
    * Create snapshot - backward compatibility placeholder
    */
-  async createSnapshot(_shadowId: string, _revision: number | string): Promise<string> {
-    // TODO: Implement if needed
+  createSnapshot(_shadowId: string, _revision: number | string): string {
     return '';
   }
 
   /**
    * Record evolution - backward compatibility placeholder
    */
-  async record(_shadowId: string, _data: unknown): Promise<void> {
-    // TODO: Implement if needed
+  record(_shadowId: string, _data: unknown): void {
     logger.debug('Record called (placeholder)', { shadowId: _shadowId });
   }
 }

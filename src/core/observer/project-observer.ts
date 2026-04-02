@@ -42,7 +42,7 @@ export class ProjectObserver {
   /**
    * Start watching for traces
    */
-  async start(): Promise<void> {
+  start(): void {
     logger.info('Starting project observer...');
     logger.info(`Project path: ${this.options.projectPath}`);
 
@@ -192,7 +192,7 @@ export class ProjectObserver {
       if (!line.trim()) continue;
 
       try {
-        const event = JSON.parse(line);
+        const event = JSON.parse(line) as Record<string, unknown>;
         const trace = this.convertCodexEventToTrace(event, filePath);
         if (trace) {
           traces.push(trace);
@@ -214,7 +214,7 @@ export class ProjectObserver {
       if (!line.trim()) continue;
 
       try {
-        const event = JSON.parse(line);
+        const event = JSON.parse(line) as Record<string, unknown>;
         const trace = this.convertClaudeEventToTrace(event, filePath);
         if (trace) {
           traces.push(trace);
@@ -234,8 +234,8 @@ export class ProjectObserver {
     let projectPath: string | undefined;
     if (e.type === 'session_meta') {
       const payload = e.payload as Record<string, unknown> | undefined;
-      if (payload?.cwd) {
-        projectPath = String(payload.cwd);
+      if (typeof payload?.cwd === 'string') {
+        projectPath = payload.cwd;
       }
     }
 
@@ -253,9 +253,14 @@ export class ProjectObserver {
     const payload = e.payload as Record<string, unknown> | undefined;
     if (payload?.content) {
       if (Array.isArray(payload.content)) {
-        content = payload.content.map((c: { text?: string }) => c.text).join('\n');
+        content = payload.content
+          .map((c: { text?: string }) => c.text)
+          .filter(Boolean)
+          .join('\n');
+      } else if (typeof payload.content === 'string') {
+        content = payload.content;
       } else {
-        content = String(payload.content);
+        content = JSON.stringify(payload.content);
       }
     }
 
@@ -295,7 +300,8 @@ export class ProjectObserver {
     }
 
     const message = e.message as Record<string, unknown> | undefined;
-    const content = String(message?.content || e.content || '');
+    const rawContent = message?.content ?? e.content ?? '';
+    const content = typeof rawContent === 'string' ? rawContent : JSON.stringify(rawContent);
 
     const skillRefs = this.extractSkillRefs(content);
 

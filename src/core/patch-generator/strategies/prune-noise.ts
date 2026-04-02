@@ -8,11 +8,7 @@ import type { PatchResult } from '../../../types/index.js';
  */
 export class PruneNoiseStrategy extends BaseStrategy {
   constructor() {
-    super(
-      'prune-noise',
-      'Remove redundant or ignored instructions',
-      'prune_noise'
-    );
+    super('prune-noise', 'Remove redundant or ignored instructions', 'prune_noise');
   }
 
   generate(currentContent: string, context: Record<string, unknown>): PatchResult {
@@ -49,17 +45,16 @@ export class PruneNoiseStrategy extends BaseStrategy {
       }
 
       // 删除 section
-      const newLines = [
-        ...lines.slice(0, sectionIndex),
-        ...lines.slice(endIndex),
-      ];
+      const newLines = [...lines.slice(0, sectionIndex), ...lines.slice(endIndex)];
 
       const newContent = newLines.join('\n');
       const patch = createUnifiedDiff('skill.md', currentContent, newContent);
 
       return this.createSuccessResult(patch, newContent);
     } catch (error) {
-      return this.createFailureResult(`Failed to generate patch: ${error}`);
+      return this.createFailureResult(
+        `Failed to generate patch: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 }

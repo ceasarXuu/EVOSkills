@@ -5,7 +5,7 @@
  * Origin 是技能首次被 Ornn 发现时的版本，用于回滚和对比。
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { createChildLogger } from '../../utils/logger.js';
 import { hashContent } from '../../utils/hash.js';
@@ -80,7 +80,7 @@ export class OriginRegistry {
 
     try {
       const data = readFileSync(this.indexPath, 'utf-8');
-      const entries: OriginEntry[] = JSON.parse(data);
+      const entries = JSON.parse(data) as OriginEntry[];
       this.index = new Map(entries.map((e) => [e.skillId, e]));
       logger.debug(`Loaded ${entries.length} origin entries from index`);
     } catch (error) {
@@ -247,7 +247,10 @@ export class OriginRegistry {
   /**
    * Compare current skill with origin
    */
-  compare(skillId: string, currentContent: string): {
+  compare(
+    skillId: string,
+    currentContent: string
+  ): {
     changed: boolean;
     originHash: string;
     currentHash: string;
@@ -284,8 +287,7 @@ export class OriginRegistry {
     // Delete origin file
     const originPath = this.getOriginPath(skillId);
     if (existsSync(originPath)) {
-      const fs = require('fs');
-      fs.unlinkSync(originPath);
+      unlinkSync(originPath);
     }
 
     // Remove from index
@@ -306,8 +308,7 @@ export class OriginRegistry {
     for (const skillId of this.index.keys()) {
       const originPath = this.getOriginPath(skillId);
       if (existsSync(originPath)) {
-        const fs = require('fs');
-        fs.unlinkSync(originPath);
+        unlinkSync(originPath);
       }
     }
 
@@ -340,7 +341,7 @@ export class OriginRegistry {
   /**
    * Read origin content - backward compatibility
    */
-  async readContent(skillId: string): Promise<string | undefined> {
+  readContent(skillId: string): string | undefined {
     return this.getContent(skillId);
   }
 }

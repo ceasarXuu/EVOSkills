@@ -22,20 +22,16 @@ export class TightenTriggerStrategy extends BaseStrategy {
 
       // 解析文件结构
       const lines = currentContent.split('\n');
-      
+
       // 查找 Trigger section
       const triggerSection = this.findTriggerSection(lines);
-      
+
       if (!triggerSection.found) {
         return this.createFailureResult('No trigger section found in skill file');
       }
 
       // 生成更精确的触发条件
-      const tightenedCondition = this.tightenCondition(
-        triggerSection.content,
-        pattern,
-        reason
-      );
+      const tightenedCondition = this.tightenCondition(triggerSection.content, pattern, reason);
 
       // 替换原有的触发条件
       const newLines = [
@@ -49,7 +45,9 @@ export class TightenTriggerStrategy extends BaseStrategy {
 
       return this.createSuccessResult(patch, newContent);
     } catch (error) {
-      return this.createFailureResult(`Failed to generate patch: ${error}`);
+      return this.createFailureResult(
+        `Failed to generate patch: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -70,7 +68,7 @@ export class TightenTriggerStrategy extends BaseStrategy {
         while (j < lines.length && !lines[j].trim().startsWith('##')) {
           j++;
         }
-        
+
         return {
           found: true,
           startIndex: i,
@@ -103,7 +101,12 @@ export class TightenTriggerStrategy extends BaseStrategy {
       }
 
       // 在触发条件后添加排除条件
-      if (inTriggerList && !line.trim().startsWith('-') && !line.trim().startsWith('*') && line.trim() !== '') {
+      if (
+        inTriggerList &&
+        !line.trim().startsWith('-') &&
+        !line.trim().startsWith('*') &&
+        line.trim() !== ''
+      ) {
         // 列表结束，添加排除条件
         result.push('');
         result.push('<!-- OrnnSkills: Auto-added exclusions -->');
@@ -114,7 +117,7 @@ export class TightenTriggerStrategy extends BaseStrategy {
         }
         result.push('- Any similar variations of the above pattern');
         result.push('');
-        
+
         inTriggerList = false;
       }
     }

@@ -45,11 +45,11 @@ export class ShadowManager {
    * 初始化
    */
   async init(): Promise<void> {
-    await this.shadowRegistry.init();
+    this.shadowRegistry.init();
     await this.journalManager.init();
     await this.traceManager.init();
     await this.traceSkillMapper.init();
-    logger.info('Shadow manager initialized');
+    logger.debug('Shadow manager initialized');
   }
 
   /**
@@ -159,7 +159,7 @@ export class ShadowManager {
 
     try {
       // 读取当前内容
-      const currentContent = await this.shadowRegistry.readContent(skillId);
+      const currentContent = this.shadowRegistry.readContent(skillId);
       if (!currentContent) {
         logger.warn(`Cannot read shadow content: ${skillId}`);
         return;
@@ -184,13 +184,13 @@ export class ShadowManager {
       }
 
       // 获取当前 revision
-      const currentRevision = await this.journalManager.getLatestRevision(shadowId);
+      const currentRevision = this.journalManager.getLatestRevision(shadowId);
 
       // 写入新内容
       this.shadowRegistry.writeContent(skillId, patchResult.newContent);
 
       // 记录演化
-      await this.journalManager.record(shadowId, {
+      this.journalManager.record(shadowId, {
         shadow_id: shadowId,
         timestamp: new Date().toISOString(),
         reason: evaluation.reason ?? 'Auto optimization',
@@ -212,7 +212,7 @@ export class ShadowManager {
 
       // 检查是否需要创建 snapshot
       if (evaluation.change_type === 'rewrite_section' || (currentRevision + 1) % 5 === 0) {
-        await this.journalManager.createSnapshot(shadowId, currentRevision + 1);
+        this.journalManager.createSnapshot(shadowId, currentRevision + 1);
       }
 
       logger.info(`Patch executed successfully`, {
@@ -259,7 +259,7 @@ export class ShadowManager {
     const evaluation = evaluator.evaluate(traces);
 
     if (evaluation && evaluation.should_patch) {
-      this.handleEvaluation(shadowId, evaluation, traces);
+      void this.handleEvaluation(shadowId, evaluation, traces);
     }
 
     return evaluation;
@@ -268,7 +268,12 @@ export class ShadowManager {
   /**
    * 获取 shadow 状态
    */
-  async getShadowState(shadowId: string) {
+  getShadowState(shadowId: string): {
+    shadow: { skillId: string; status: string; content: string };
+    latest_revision: number;
+    snapshot_count: number;
+    last_patch_time: number | undefined;
+  } | null {
     const skillId = shadowId.split('@')[0];
     const shadow = this.shadowRegistry.get(skillId);
 
@@ -276,7 +281,7 @@ export class ShadowManager {
       return null;
     }
 
-    const latestRevision = await this.journalManager.getLatestRevision(shadowId);
+    const latestRevision = this.journalManager.getLatestRevision(shadowId);
     const snapshots = this.journalManager.getSnapshots(shadowId);
 
     return {
@@ -299,7 +304,7 @@ export class ShadowManager {
    */
   close(): void {
     this.shadowRegistry.close();
-    this.journalManager.close();
+    void this.journalManager.close();
     this.traceManager.close();
     this.traceSkillMapper.close();
     logger.info('Shadow manager closed');

@@ -1,10 +1,13 @@
 import { Command } from 'commander';
+import { cliInfo } from '../../utils/cli-output.js';
 import { join } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { createShadowRegistry } from '../../core/shadow-registry/index.js';
 import { originRegistry } from '../../core/origin-registry/index.js';
 import { createMarkdownSkill } from '../../storage/markdown.js';
 import { validateSkillId, validateProjectPath, getShadowSkillPath } from '../../utils/path.js';
+import { printErrorAndExit } from '../../utils/error-helper.js';
+import { createUnifiedDiff, countChanges } from '../../utils/diff.js';
 
 interface SyncOptions {
   project: string;
@@ -27,8 +30,11 @@ export function createSyncCommand(): Command {
       try {
         // 验证 skill ID 格式
         if (!validateSkillId(skillId)) {
-          console.error(`Error: Invalid skill ID "${skillId}". Skill IDs can only contain letters, numbers, hyphens, underscores, and dots.`);
-          process.exit(1);
+          printErrorAndExit(
+            `Invalid skill ID "${skillId}". Skill IDs can only contain letters, numbers, hyphens, underscores, and dots.`,
+            { operation: 'Validate skill ID', skillId, projectPath: options.project },
+            'INVALID_SKILL_ID'
+          );
         }
 
         // 验证项目路径安全性
@@ -36,27 +42,35 @@ export function createSyncCommand(): Command {
         try {
           projectRoot = validateProjectPath(options.project);
         } catch (error) {
-          console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-          process.exit(1);
+          printErrorAndExit(
+            error instanceof Error ? error.message : String(error),
+            { operation: 'Validate project path', projectPath: options.project },
+            'PATH_TRAVERSAL'
+          );
         }
 
         // 检查 .ornn 目录是否存在
         const ornnDir = join(projectRoot, '.ornn');
         if (!existsSync(ornnDir)) {
-          console.error('Error: .ornn directory not found. Run "ornn init" first.');
-          process.exit(1);
+          printErrorAndExit(
+            '.ornn directory not found',
+            { operation: 'Check project initialization', projectPath: projectRoot },
+            'PROJECT_NOT_INITIALIZED'
+          );
         }
 
         // 初始化 shadow registry
         const shadowRegistry = createShadowRegistry(projectRoot);
-        await shadowRegistry.init();
+        shadowRegistry.init();
 
         // 检查 shadow skill 是否存在
         const shadow = shadowRegistry.get(skillId);
         if (!shadow) {
-          console.error(`Error: Shadow skill "${skillId}" not found in this project.`);
-          console.log(`Run "ornn skills status" to see available skills.`);
-          process.exit(1);
+          printErrorAndExit(
+            `Shadow skill "${skillId}" not found in this project`,
+            { operation: 'Sync skill', skillId, projectPath: projectRoot },
+            'SKILL_NOT_FOUND'
+          );
         }
 
         // 扫描 origin registry
@@ -64,9 +78,11 @@ export function createSyncCommand(): Command {
         const origin = originRegistry.get(skillId);
 
         if (!origin) {
-          console.error(`Error: Origin skill "${skillId}" not found.`);
-          console.log('Make sure the skill exists in one of the configured origin paths.');
-          process.exit(1);
+          printErrorAndExit(
+            `Origin skill "${skillId}" not found`,
+            { operation: 'Sync skill', skillId, projectPath: projectRoot },
+            'ORIGIN_NOT_FOUND'
+          );
         }
 
         // 读取 shadow 内容
@@ -75,37 +91,95 @@ export function createSyncCommand(): Command {
         const shadowContent = shadowSkill.read();
 
         // 读取 origin 内容（用于显示 diff）
-        const originContent = await originRegistry.readContent(skillId);
+        const originContent = originRegistry.readContent(skillId);
+
+        // 确保 originContent 存在
+        if (!originContent) {
+          printErrorAndExit(`Cannot read origin content for "${skillId}"`, {
+            operation: 'Read origin content',
+            skillId,
+            projectPath: projectRoot,
+          });
+        }
 
         // 如果没有变化
         if (originContent === shadowContent) {
-          console.log(`✓ Skill "${skillId}" is already up to date.`);
-          console.log(`  No changes to sync.`);
+          cliInfo(`✓ Skill "${skillId}" is already up to date.`);
+          cliInfo(`  No changes to sync.`);
+          shadowRegistry.close();
           return;
         }
 
         // 显示将要同步的信息
-        const originPath = origin.origin_path || origin.skillPath;
-        console.log(`\nSyncing skill "${skillId}" to origin...`);
-        console.log(`  Shadow: ${shadowPath}`);
-        console.log(`  Origin: ${originPath}`);
-        console.log(`  Current revision: ${shadow.current_revision || shadow.traceCount}`);
-        console.log();
+        const originPath = origin.skillPath;
+        cliInfo(`\n📦 Syncing skill "${skillId}" to origin...`);
+        cliInfo(`  Shadow: ${shadowPath}`);
+        cliInfo(`  Origin: ${originPath}`);
+        cliInfo('');
 
-        // 执行同步
-        if (originPath) {
-          // TODO: Implement actual sync logic
-          console.log(`Would copy to: ${originPath}`);
+        // 显示 diff
+        const changes = countChanges(originContent, shadowContent);
+        cliInfo(`📊 Changes to be applied:`);
+        cliInfo(`  +${changes.added} lines added`);
+        cliInfo(`  -${changes.removed} lines removed`);
+        cliInfo('');
+
+        const diffOutput = createUnifiedDiff(
+          skillId,
+          originContent,
+          shadowContent,
+          'origin',
+          'shadow'
+        );
+        cliInfo('Diff:');
+        cliInfo(diffOutput);
+        cliInfo('');
+
+        // 用户确认（除非使用 --force）
+        if (!options.force) {
+          const inquirer = await import('inquirer').then((m) => m.default || m);
+          const { confirmed } = await inquirer.prompt<{ confirmed: boolean }>([
+            {
+              type: 'confirm',
+              name: 'confirmed',
+              message:
+                'Sync this optimized skill back to origin? This will update the global skill.',
+              default: false,
+            },
+          ]);
+
+          if (!confirmed) {
+            cliInfo('Sync cancelled.');
+            shadowRegistry.close();
+            return;
+          }
         }
 
-        console.log(`✓ Successfully synced "${skillId}" to origin!`);
-        console.log(`  The optimized skill is now active and will be used by your Agent.`);
+        // 执行同步：将 shadow 内容写入 origin
+        try {
+          writeFileSync(originPath, shadowContent, 'utf-8');
+          cliInfo(`\n✓ Successfully synced "${skillId}" to origin!`);
+          cliInfo(`  The optimized skill is now active globally.`);
+          cliInfo('');
+          cliInfo(`  Origin path: ${originPath}`);
+          cliInfo('');
+          cliInfo(`  Note: This affects all projects using this skill.`);
+          cliInfo(`  To revert, restore the original skill from backup or version control.`);
+        } catch (error) {
+          printErrorAndExit(
+            `Failed to write to origin path: ${error instanceof Error ? error.message : String(error)}`,
+            { operation: 'Write to origin', skillId, projectPath: projectRoot }
+          );
+        }
 
         // 关闭 registry
         shadowRegistry.close();
       } catch (error) {
-        console.error('Error:', error instanceof Error ? error.message : String(error));
-        process.exit(1);
+        printErrorAndExit(
+          error instanceof Error ? error.message : String(error),
+          { operation: 'Sync skill', skillId },
+          undefined
+        );
       }
     });
 

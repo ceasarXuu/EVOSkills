@@ -11,7 +11,7 @@ const logger = createChildLogger('trace-skill-observer');
 /**
  * Trace-Skill Observer
  * 在 Observer 层集成 trace 到 skill 的映射功能
- * 
+ *
  * 职责:
  * 1. 监听 trace 事件
  * 2. 实时映射 trace 到 skill
@@ -88,9 +88,9 @@ export class TraceSkillObserver {
         }
       }
     } catch (error) {
-      logger.error('Failed to process trace', { 
-        trace_id: trace.trace_id, 
-        error: error instanceof Error ? error.message : String(error) 
+      logger.error('Failed to process trace', {
+        trace_id: trace.trace_id,
+        error: error instanceof Error ? error.message : String(error),
       });
       // 不抛出异常，避免影响其他 trace 的处理
     }
@@ -154,10 +154,10 @@ export class TraceSkillObserver {
       // 清空 buffer
       this.buffer.delete(skillId);
     } catch (error) {
-      logger.error('Failed to flush skill buffer', { 
-        skill_id: skillId, 
+      logger.error('Failed to flush skill buffer', {
+        skill_id: skillId,
         trace_count: traces.length,
-        error: error instanceof Error ? error.message : String(error) 
+        error: error instanceof Error ? error.message : String(error),
       });
       // 保留 buffer，稍后重试
     }
@@ -189,7 +189,11 @@ export class TraceSkillObserver {
   /**
    * 获取映射统计
    */
-  getMappingStats() {
+  getMappingStats(): {
+    total_mappings: number;
+    by_skill: Record<string, number>;
+    avg_confidence: number;
+  } {
     return this.mapper.getMappingStats();
   }
 
@@ -215,7 +219,6 @@ export class TraceSkillObserver {
     logger.info('TraceSkillObserver closed');
   }
 }
-
 
 // 导出工厂函数
 export function createTraceSkillObserver(projectRoot: string): TraceSkillObserver {

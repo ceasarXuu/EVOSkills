@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
+[![npm version](https://img.shields.io/npm/v/ornn-skills.svg)](https://www.npmjs.com/package/ornn-skills)
 
 [English](README.md) | [中文](README.zh-CN.md)
 
@@ -173,14 +174,20 @@ your-project/
 | Command | Description |
 |---------|-------------|
 | `ornn init` | Initialize configuration |
+| `ornn start` | Start the daemon in background |
+| `ornn stop` | Stop the daemon |
+| `ornn daemon` | Manage daemon (start, stop, status, restart) |
+| `ornn logs` | View daemon logs |
+| `ornn config` | Manage configuration |
+| `ornn completion` | Generate shell completion script |
 | `ornn skills status` | View current project shadow skills status |
 | `ornn skills log <skill>` | View evolution log for a skill |
 | `ornn skills diff <skill>` | View diff between current content and origin |
 | `ornn skills rollback <skill> --to <rev>` | Rollback to specified revision |
 | `ornn skills freeze <skill>` | Pause automatic optimization for a skill |
 | `ornn skills unfreeze <skill>` | Resume automatic optimization |
-| `ornn optimize <skill>` | Manually trigger an optimization evaluation |
-| `ornn skills rebase <skill>` | Resync with origin |
+| `ornn skills sync <skill>` | Resync with origin |
+| `ornn skills preview <skill>` | Preview optimization suggestions |
 
 ## Automatic Optimization Strategies
 

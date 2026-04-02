@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
+[![npm version](https://img.shields.io/npm/v/ornn-skills.svg)](https://www.npmjs.com/package/ornn-skills)
 
 [English](README.md) | [中文](README.zh-CN.md)
 
@@ -173,14 +174,20 @@ your-project/
 | 命令 | 描述 |
 |------|------|
 | `ornn init` | 初始化配置 |
+| `ornn start` | 启动后台守护进程 |
+| `ornn stop` | 停止守护进程 |
+| `ornn daemon` | 管理守护进程（start, stop, status, restart） |
+| `ornn logs` | 查看守护进程日志 |
+| `ornn config` | 管理配置 |
+| `ornn completion` | 生成 shell 补全脚本 |
 | `ornn skills status` | 查看当前项目 shadow skills 状态 |
 | `ornn skills log <skill>` | 查看某个 skill 的演化日志 |
 | `ornn skills diff <skill>` | 查看当前内容与 origin 的 diff |
 | `ornn skills rollback <skill> --to <rev>` | 回滚到指定 revision |
 | `ornn skills freeze <skill>` | 暂停某个 skill 的自动优化 |
 | `ornn skills unfreeze <skill>` | 恢复自动优化 |
-| `ornn optimize <skill>` | 手动触发一次优化评估 |
-| `ornn skills rebase <skill>` | 重新同步 origin |
+| `ornn skills sync <skill>` | 重新同步 origin |
+| `ornn skills preview <skill>` | 预览优化建议 |
 
 ## 自动优化策略
 

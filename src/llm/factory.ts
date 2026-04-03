@@ -55,7 +55,10 @@ export function loadLLMConfigFromEnv(): LLMConfig {
 
   if (!apiKey) {
     throw new Error(
-      "LLM API key not found. Please set ORNN_LLM_API_KEY environment variable or run 'ornn init'"
+      `LLM API key not found for provider "${provider}". ` +
+      'Please set the environment variable ' +
+      (provider === 'deepseek' ? 'DEEPSEEK_API_KEY' : `${provider.toUpperCase()}_API_KEY`) +
+      ', or run "ornn config" to configure your LLM provider.'
     );
   }
 

@@ -121,10 +121,22 @@ export class LLMRouterAgent {
     trace: Trace,
     contextTraces: Trace[]
   ): Promise<{ skillIds: string[]; confidence: number; reasoning: string }> {
+    const provider = this.options.provider || 'deepseek';
+    const modelName = this.options.model || 'deepseek-chat';
+    const apiKey = this.options.apiKey || '';
+
+    if (!apiKey) {
+      throw new Error(
+        `No API key configured for provider "${provider}". ` +
+        `Please run "ornn config" to configure your LLM provider, ` +
+        `or set ${provider === 'deepseek' ? 'DEEPSEEK_API_KEY' : `${provider.toUpperCase()}_API_KEY`} environment variable.`
+      );
+    }
+
     const llm = createLLM({
-      provider: this.options.provider || 'deepseek',
-      modelName: this.options.model || 'deepseek-chat',
-      apiKey: this.options.apiKey || '',
+      provider,
+      modelName,
+      apiKey,
     });
 
     const prompt = this.buildPrompt(trace, contextTraces);

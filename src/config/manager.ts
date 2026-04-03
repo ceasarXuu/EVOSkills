@@ -239,7 +239,14 @@ export async function setDefaultProvider(
 
   // Check if provider exists
   if (!config.providers?.[providerId]) {
-    logger.error(`Provider "${providerId}" not found in configuration`);
+    const availableProviders = Object.keys(config.providers || {});
+    logger.error(
+      `Provider "${providerId}" not found in configuration. ` +
+      (availableProviders.length > 0
+        ? `Available providers: ${availableProviders.join(', ')}.`
+        : 'No providers configured yet.')
+    );
+    logger.info(`To configure providers, run: ornn config`);
     return false;
   }
 

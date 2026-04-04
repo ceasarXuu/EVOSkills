@@ -8,6 +8,7 @@ import { createMarkdownSkill } from '../../storage/markdown.js';
 import { validateSkillId, validateProjectPath, getShadowSkillPath } from '../../utils/path.js';
 import { printErrorAndExit } from '../../utils/error-helper.js';
 import { createUnifiedDiff, countChanges } from '../../utils/diff.js';
+import { confirmAction } from '../../utils/cli-formatters.js';
 
 interface SyncOptions {
   project: string;
@@ -137,18 +138,15 @@ export function createSyncCommand(): Command {
 
         // 用户确认（除非使用 --force）
         if (!options.force) {
-          const inquirer = await import('inquirer').then((m) => m.default || m);
-          const { confirmed } = await inquirer.prompt<{ confirmed: boolean }>([
-            {
-              type: 'confirm',
-              name: 'confirmed',
-              message:
-                'Sync this optimized skill back to origin? This will update the global skill.',
-              default: false,
-            },
-          ]);
+          const ok = await confirmAction({
+            message: 'Sync this optimized skill back to origin? This will update the global skill.',
+            warningLines: [
+              `⚠️  This will overwrite the origin skill file with the optimized shadow version.`,
+              `   Origin path: ${originPath}`,
+            ],
+          });
 
-          if (!confirmed) {
+          if (!ok) {
             cliInfo('Sync cancelled.');
             shadowRegistry.close();
             return;

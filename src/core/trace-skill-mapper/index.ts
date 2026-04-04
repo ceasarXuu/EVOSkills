@@ -231,10 +231,14 @@ export class TraceSkillMapper {
 
   /**
    * 获取某个 skill 相关的 traces
+   *
+   * NOTE: TraceManager 尚未注入到此类中，trace 内容无法在此层读取。
+   * 调用方应通过 TraceManager.getTracesBySkill() 获取完整 trace 数据。
+   * 此方法目前仅返回 trace ID 列表。
    */
   getSkillTraces(skillId: string, _limit?: number): Trace[] {
     if (!this.db) throw new Error('TraceSkillMapper not initialized');
-    // 从数据库查询映射关系
+
     const mappings = this.db.getTraceSkillMappings(skillId);
     const traceIds = mappings.map((m: { trace_id: string }) => m.trace_id);
 
@@ -242,10 +246,15 @@ export class TraceSkillMapper {
       return [];
     }
 
-    // 从 trace store 读取实际 trace 数据
-    // 这里需要接入 TraceManager
-    logger.debug('Getting skill traces', { skillId, count: traceIds.length });
-    return [];
+    // TraceManager 未注入：无法加载完整 trace 内容。
+    // 返回轻量占位对象（仅含 trace_id），而不是静默空数组。
+    logger.warn(
+      'getSkillTraces: TraceManager not injected — returning trace ID stubs only. ' +
+      'Use TraceManager.getTracesBySkill() for full trace data.',
+      { skillId, traceIdCount: traceIds.length }
+    );
+
+    return traceIds.map((id: string) => ({ trace_id: id } as unknown as Trace));
   }
 
   /**

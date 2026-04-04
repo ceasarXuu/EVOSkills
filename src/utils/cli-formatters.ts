@@ -122,3 +122,57 @@ export function printNoSkillsFound(projectRoot: string): void {
   cliInfo('Make sure the daemon is running:');
   cliInfo('  ornn start');
 }
+
+// ─── Log viewer helpers ────────────────────────────────────────────────────────
+// Used by src/cli/commands/logs.ts
+
+/**
+ * Truncate a message to the given max length.
+ */
+export function truncateMessage(msg: string, maxLen = 120): string {
+  if (msg.length <= maxLen) return msg;
+  return msg.slice(0, maxLen) + '...';
+}
+
+/**
+ * Shorten common noisy path prefixes for display.
+ */
+export function shortenPath(msg: string): string {
+  return msg
+    .replace(/\/var\/folders\/[^/]+\/[^/]+\/T\//g, '/tmp/')
+    .replace(/\/Users\/[^/]+\//g, '~/');
+}
+
+/**
+ * Format a timestamp as a human-readable relative time (e.g. "3m ago").
+ */
+export function formatRelativeTime(ts: string): string {
+  try {
+    const diff = Date.now() - new Date(ts).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  } catch {
+    return ts;
+  }
+}
+
+/**
+ * Map a log level string to an emoji indicator.
+ */
+export function levelIcon(level: string): string {
+  switch (level) {
+    case 'ERROR':
+    case 'FATAL':
+      return '🔴';
+    case 'WARN':
+    case 'WARNING':
+      return '🟡';
+    default:
+      return '  ';
+  }
+}

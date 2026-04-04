@@ -7,6 +7,7 @@ import { createTraceSkillMapper } from '../trace-skill-mapper/index.js';
 import { evaluator } from '../evaluator/index.js';
 import { patchGenerator } from '../patch-generator/index.js';
 import { hashString } from '../../utils/hash.js';
+import { skillIdFromShadowId } from '../../utils/parse.js';
 import type { Trace, EvaluationResult, AutoOptimizePolicy } from '../../types/index.js';
 
 const logger = createChildLogger('shadow-manager');
@@ -135,7 +136,7 @@ export class ShadowManager {
     }
 
     // 检查是否被冻结
-    const shadow = this.shadowRegistry.get(shadowId.split('@')[0]);
+    const shadow = this.shadowRegistry.get(skillIdFromShadowId(shadowId) ?? shadowId.split('@')[0]);
     if (shadow?.status === 'frozen') {
       logger.debug(`Shadow ${shadowId} is frozen, skipping patch`);
       return;
@@ -155,7 +156,7 @@ export class ShadowManager {
    * 执行 patch
    */
   private async executePatch(shadowId: string, evaluation: EvaluationResult): Promise<void> {
-    const skillId = shadowId.split('@')[0];
+    const skillId = skillIdFromShadowId(shadowId) ?? shadowId.split('@')[0];
 
     try {
       // 读取当前内容
@@ -274,7 +275,7 @@ export class ShadowManager {
     snapshot_count: number;
     last_patch_time: number | undefined;
   } | null {
-    const skillId = shadowId.split('@')[0];
+    const skillId = skillIdFromShadowId(shadowId) ?? shadowId.split('@')[0];
     const shadow = this.shadowRegistry.get(skillId);
 
     if (!shadow) {

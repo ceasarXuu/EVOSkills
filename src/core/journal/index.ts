@@ -249,7 +249,7 @@ export class Journal {
         const skillRefs = trace.skill_refs ? JSON.stringify(trace.skill_refs) : null;
 
         // Insert or replace trace
-        const stmt = this.db!.prepare(`
+        const stmt = this.db.prepare(`
           INSERT OR REPLACE INTO traces 
           (trace_id, session_id, turn_id, parent_trace_id, runtime, event_type, status, timestamp, content, metadata, skill_refs)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -273,18 +273,18 @@ export class Journal {
         // Update skill references
         if (trace.skill_refs && trace.skill_refs.length > 0) {
           // Delete existing skill refs
-          const deleteStmt = this.db!.prepare('DELETE FROM trace_skills WHERE trace_id = ?');
+          const deleteStmt = this.db.prepare('DELETE FROM trace_skills WHERE trace_id = ?');
           deleteStmt.run([trace.trace_id]);
           deleteStmt.free();
 
           // Insert new skill refs
-          const insertStmt = this.db!.prepare(`
+          const insertStmt = this.db.prepare(`
             INSERT OR REPLACE INTO trace_skills (trace_id, skill_id, skill_ref)
             VALUES (?, ?, ?)
           `);
 
           for (const skillRef of trace.skill_refs) {
-            const skillId = skillRef.split('@')[0];
+            const skillId = (skillRef.includes('@') ? skillRef.split('@')[0] : skillRef);
             insertStmt.run([trace.trace_id, skillId, skillRef]);
           }
           insertStmt.free();

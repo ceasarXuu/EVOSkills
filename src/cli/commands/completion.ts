@@ -7,7 +7,7 @@ import { Command } from 'commander';
 import { cliInfo } from '../../utils/cli-output.js';
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { logger } from '../../utils/logger.js';
+import { printErrorAndExit } from '../../utils/error-helper.js';
 
 interface CompletionOptions {
   shell: string;
@@ -492,8 +492,10 @@ export function createCompletionCommand(): Command {
       const validShells = ['bash', 'zsh', 'fish'];
 
       if (!validShells.includes(shell)) {
-        logger.error(`Invalid shell "${shell}". Valid options: ${validShells.join(', ')}`);
-        process.exit(1);
+        printErrorAndExit(
+          `Invalid shell "${shell}". Valid options: ${validShells.join(', ')}`,
+          { operation: 'Generate completion script' }
+        );
       }
 
       let script: string;
@@ -519,7 +521,7 @@ export function createCompletionCommand(): Command {
             mkdirSync(dir, { recursive: true });
           }
           writeFileSync(options.output, script, 'utf-8');
-          logger.info(`Completion script written to: ${options.output}`);
+          cliInfo(`Completion script written to: ${options.output}`);
 
           // Show installation instructions
           const instructions = getInstallInstructions(shell);
@@ -527,12 +529,13 @@ export function createCompletionCommand(): Command {
             cliInfo('\n' + instructions);
           }
         } catch (error) {
-          logger.error(
-            `Failed to write completion script: ${
+          printErrorAndExit(
+            `Failed to write completion script to "${options.output}": ${
               error instanceof Error ? error.message : String(error)
-            }`
+            }`,
+            { operation: 'Write completion script' },
+            'PERMISSION_DENIED'
           );
-          process.exit(1);
         }
       } else {
         // Output to stdout

@@ -107,10 +107,12 @@ export function createTopLevelStatusCommand(): Command {
           try {
             const cpPath = join(projectRoot, CHECKPOINT_FILE);
             if (existsSync(cpPath)) {
-              const cp = JSON.parse(readFileSync(cpPath, 'utf-8'));
-              uptime = formatUptime(cp.startedAt);
+              const cp = JSON.parse(readFileSync(cpPath, 'utf-8')) as { startedAt?: string };
+              uptime = formatUptime(cp.startedAt ?? '');
             }
-          } catch {}
+          } catch (_err) {
+            // Ignore checkpoint read errors
+          }
 
           const logStats = getLogStats();
           log('\n   🟢 Daemon: Running');
@@ -134,7 +136,7 @@ export function createTopLevelStatusCommand(): Command {
             log(`\n   📦 Skills: ${shadows.length} shadow(s)`);
 
             const journalManager = createJournalManager(projectRoot);
-            journalManager.init();
+            void journalManager.init();
 
             for (const shadow of shadows) {
               const skillId = shadow.skill_id || shadow.skillId || 'unknown';
@@ -150,7 +152,7 @@ export function createTopLevelStatusCommand(): Command {
               log(`     ${statusIcon} ${skillId.padEnd(22)} rev:${String(latestRevision).padStart(3)}  optimized: ${lastOptimized}`);
             }
 
-            journalManager.close();
+            void journalManager.close();
           }
         } catch (_skillsError) {
           log('\n   ⚠️  Skills: Unable to load');

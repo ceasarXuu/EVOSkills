@@ -232,7 +232,7 @@ export class TraceRouter {
     const skillCounts = new Map<string, number>();
     for (const result of routed) {
       for (const skillRef of result.skillRefs) {
-        const skillId = skillRef.split('@')[0];
+        const skillId = (skillRef.includes('@') ? skillRef.split('@')[0] : skillRef);
         skillCounts.set(skillId, (skillCounts.get(skillId) || 0) + 1);
       }
     }

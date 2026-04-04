@@ -82,7 +82,7 @@ export class TraceStore {
       // Index by skill references
       if (trace.skill_refs) {
         for (const skillRef of trace.skill_refs) {
-          const skillId = skillRef.split('@')[0];
+          const skillId = (skillRef.includes('@') ? skillRef.split('@')[0] : skillRef);
           if (!this.skillTraces.has(skillId)) {
             this.skillTraces.set(skillId, new Set());
           }
@@ -124,7 +124,7 @@ export class TraceStore {
     // Remove from skill indexes
     if (trace.skill_refs) {
       for (const skillRef of trace.skill_refs) {
-        const skillId = skillRef.split('@')[0];
+        const skillId = (skillRef.includes('@') ? skillRef.split('@')[0] : skillRef);
         const skillTraceIds = this.skillTraces.get(skillId);
         if (skillTraceIds) {
           skillTraceIds.delete(traceId);

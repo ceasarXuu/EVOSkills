@@ -2,6 +2,12 @@ import { Command } from 'commander';
 import { existsSync, readFileSync, statSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { printErrorAndExit } from '../../utils/error-helper.js';
+import {
+  truncateMessage,
+  shortenPath,
+  formatRelativeTime,
+  levelIcon,
+} from '../../utils/cli-formatters.js';
 
 interface LogOptions {
   project: string;
@@ -30,7 +36,9 @@ function getLogFiles(): string[] {
           logs.push(join(globalLogPath, file));
         }
       }
-    } catch {}
+    } catch (_err) {
+      // Ignore errors reading global log directory
+    }
   }
 
   return logs;
@@ -48,39 +56,6 @@ function parseLine(line: string): ParsedLogEntry | null {
     message: match[3],
     raw: line,
   };
-}
-
-function truncateMessage(msg: string, maxLen: number = 120): string {
-  if (msg.length <= maxLen) return msg;
-  return msg.slice(0, maxLen) + '...';
-}
-
-function shortenPath(msg: string): string {
-  return msg.replace(/\/var\/folders\/[^/]+\/[^/]+\/T\//g, '/tmp/')
-            .replace(/\/Users\/[^/]+\//g, '~/');
-}
-
-function formatRelativeTime(ts: string): string {
-  try {
-    const diff = Date.now() - new Date(ts).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
-  } catch {
-    return ts;
-  }
-}
-
-function levelIcon(level: string): string {
-  switch (level) {
-    case 'ERROR': case 'FATAL': return '🔴';
-    case 'WARN': case 'WARNING': return '🟡';
-    default: return '  ';
-  }
 }
 
 interface LogGroup {
@@ -212,7 +187,9 @@ function clearLogs(): Promise<void> {
           try {
             writeFileSync(join(logDir, file), '', 'utf-8');
             cleared++;
-          } catch {}
+          } catch (_err) {
+            // Skip files that cannot be cleared (permission issues etc.)
+          }
         }
 
         log(`\n   ✅ Cleared ${cleared}/${files.length} log files (${formatFileSize(totalSizeBefore)} freed)\n`);
@@ -243,7 +220,7 @@ export function createLogsCommand(): Command {
     .option('--clear', 'Clear all log files (requires confirmation)', false)
     .action((options: LogOptions & { raw?: boolean; clear?: boolean }) => {
       if (options.clear) {
-        clearLogs();
+        void clearLogs();
         return;
       }
       try {

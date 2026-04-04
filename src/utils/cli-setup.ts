@@ -91,34 +91,4 @@ export async function initProjectComponents(
   };
 }
 
-/**
- * 仅需要 shadowRegistry（不需要 journalManager）的轻量版初始化。
- */
-export interface RegistryOnlyComponents {
-  shadowRegistry: ReturnType<typeof createShadowRegistry>;
-  projectRoot: string;
-  close: () => void;
-}
 
-export function initRegistryOnly(
-  projectPath: string,
-  operation: string
-): RegistryOnlyComponents {
-  const projectRoot = validateProjectRootOrExit(projectPath, operation);
-  const shadowRegistry = createShadowRegistry(projectRoot);
-
-  try {
-    shadowRegistry.init();
-  } catch (error) {
-    printErrorAndExit(
-      error instanceof Error ? error.message : String(error),
-      { operation: `Initialize registry for "${operation}"`, projectPath: projectRoot }
-    );
-  }
-
-  return {
-    shadowRegistry,
-    projectRoot,
-    close: () => shadowRegistry.close(),
-  };
-}

@@ -1,10 +1,10 @@
 import { Command } from 'commander';
-import { cliInfo, cliError } from '../../utils/cli-output.js';
+import { cliInfo } from '../../utils/cli-output.js';
 import { join } from 'node:path';
 import { existsSync, writeFileSync, readFileSync, unlinkSync } from 'node:fs';
 import { Daemon } from '../../daemon/index.js';
-import { validateProjectPath } from '../../utils/path.js';
 import { printErrorAndExit } from '../../utils/error-helper.js';
+import { validateProjectRootOrExit } from '../../utils/cli-setup.js';
 import ora from 'ora';
 
 const PID_FILE = '.ornn/daemon.pid';
@@ -82,21 +82,7 @@ export function createStartCommand(): Command {
     .action((options: DaemonOptions): void => {
       void (async (): Promise<void> => {
         try {
-          // 验证项目路径
-          let projectRoot: string;
-          try {
-            projectRoot = validateProjectPath(options.project);
-          } catch (error) {
-            cliError(`Error: ${error instanceof Error ? error.message : String(error)}`);
-            process.exit(1);
-          }
-
-          // 检查 .ornn 目录是否存在
-          const ornnDir = join(projectRoot, '.ornn');
-          if (!existsSync(ornnDir)) {
-            cliError('Error: .ornn directory not found. Run "ornn init" first.');
-            process.exit(1);
-          }
+          const projectRoot = validateProjectRootOrExit(options.project, 'daemon start');
 
           // 检查是否已经在运行
           const existingPid = readPidFile(projectRoot);
@@ -155,8 +141,10 @@ export function createStartCommand(): Command {
             throw error;
           }
         } catch (error) {
-          console.error('Error:', error instanceof Error ? error.message : String(error));
-          process.exit(1);
+          printErrorAndExit(
+            error instanceof Error ? error.message : String(error),
+            { operation: 'Start daemon', projectPath: options.project }
+          );
         }
       })();
     });
@@ -175,14 +163,7 @@ export function createStopCommand(): Command {
     .option('-p, --project <path>', 'Project root path', process.cwd())
     .action((options: DaemonOptions) => {
       try {
-        // 验证项目路径
-        let projectRoot: string;
-        try {
-          projectRoot = validateProjectPath(options.project);
-        } catch (error) {
-          cliError(`Error: ${error instanceof Error ? error.message : String(error)}`);
-          process.exit(1);
-        }
+        const projectRoot = validateProjectRootOrExit(options.project, 'daemon stop');
 
         // 读取 PID
         const pid = readPidFile(projectRoot);
@@ -226,8 +207,10 @@ export function createStopCommand(): Command {
           }
         }, 1000);
       } catch (error) {
-        console.error('Error:', error instanceof Error ? error.message : String(error));
-        process.exit(1);
+        printErrorAndExit(
+          error instanceof Error ? error.message : String(error),
+          { operation: 'Stop daemon', projectPath: options.project }
+        );
       }
     });
 
@@ -341,27 +324,7 @@ export function createDaemonStatusCommand(): Command {
     .option('-p, --project <path>', 'Project root path', process.cwd())
     .action((options: DaemonOptions) => {
       try {
-        // 验证项目路径
-        let projectRoot: string;
-        try {
-          projectRoot = validateProjectPath(options.project);
-        } catch (error) {
-          printErrorAndExit(
-            error instanceof Error ? error.message : String(error),
-            { operation: 'Validate project path', projectPath: options.project },
-            'PATH_TRAVERSAL'
-          );
-        }
-
-        // 检查 .ornn 目录是否存在
-        const ornnDir = join(projectRoot, '.ornn');
-        if (!existsSync(ornnDir)) {
-          printErrorAndExit(
-            '.ornn directory not found',
-            { operation: 'Check project initialization', projectPath: projectRoot },
-            'PROJECT_NOT_INITIALIZED'
-          );
-        }
+        const projectRoot = validateProjectRootOrExit(options.project, 'daemon status');
 
         // 读取 PID
         const pid = readPidFile(projectRoot);

@@ -1,18 +1,13 @@
-/**
- * Config Command
- * Manage OrnnSkills configuration
- */
-
 import { Command } from 'commander';
-import { join } from 'node:path';
-import { existsSync } from 'node:fs';
 import { runConfigWizard } from '../../config/wizard.js';
 import {
   listConfiguredProviders,
   getDefaultProvider,
   setDefaultProvider,
 } from '../../config/manager.js';
-import { logger } from '../../utils/logger.js';
+import { cliInfo } from '../../utils/cli-output.js';
+import { printErrorAndExit } from '../../utils/error-helper.js';
+import { validateProjectRootOrExit } from '../../utils/cli-setup.js';
 
 interface ConfigOptions {
   project?: string;
@@ -34,29 +29,23 @@ export function createConfigCommand(): Command {
     .action(async (options: ConfigOptions) => {
       try {
         const projectPath = options.project || process.cwd();
-        const ornnDir = join(projectPath, '.ornn');
-
-        // Check if project is initialized
-        if (!existsSync(ornnDir)) {
-          logger.error('Project not initialized. Run "ornn init" first.');
-          process.exit(1);
-        }
+        const projectRoot = validateProjectRootOrExit(projectPath, 'config');
 
         // Handle list option
         if (options.list) {
-          const providers = await listConfiguredProviders(projectPath);
-          const defaultProvider = await getDefaultProvider(projectPath);
+          const providers = await listConfiguredProviders(projectRoot);
+          const defaultProvider = await getDefaultProvider(projectRoot);
 
           if (providers.length === 0) {
-            logger.info('No providers configured yet.');
-            logger.info('Run "ornn config" to add a provider.');
+            cliInfo('No providers configured yet.');
+            cliInfo('Run "ornn config" to add a provider.');
             return;
           }
 
-          logger.info('📋 Configured providers:');
+          cliInfo('📋 Configured providers:');
           for (const provider of providers) {
             const isDefault = provider.provider === defaultProvider;
-            logger.info(
+            cliInfo(
               `  ${isDefault ? '✓' : ' '} ${provider.provider} (${provider.modelName})${isDefault ? ' [default]' : ''}`
             );
           }
@@ -65,22 +54,26 @@ export function createConfigCommand(): Command {
 
         // Handle use option (set default)
         if (options.use) {
-          const success = await setDefaultProvider(projectPath, options.use);
-          if (success) {
-            logger.info(`✓ Default provider set to: ${options.use}`);
-          } else {
-            process.exit(1);
+          const success = await setDefaultProvider(projectRoot, options.use);
+          if (!success) {
+            printErrorAndExit(
+              `Failed to set default provider to "${options.use}". Make sure the provider is configured.`,
+              { operation: 'Set default provider', projectPath: projectRoot },
+              'CONFIG_INVALID'
+            );
           }
+          cliInfo(`✓ Default provider set to: ${options.use}`);
           return;
         }
 
         // Run configuration wizard
-        await runConfigWizard(projectPath);
-
-        logger.info('\n✅ Configuration updated successfully!');
+        await runConfigWizard(projectRoot);
+        cliInfo('\n✅ Configuration updated successfully!');
       } catch (error) {
-        logger.error('Failed to update configuration:', error);
-        process.exit(1);
+        printErrorAndExit(
+          error instanceof Error ? error.message : String(error),
+          { operation: 'Manage config', projectPath: options.project }
+        );
       }
     });
 

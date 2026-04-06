@@ -547,7 +547,7 @@ function renderSidebar() {
     const statusColor = running === undefined ? 'color:var(--muted)' : running ? 'color:var(--green)' : 'color:var(--muted)';
     const active = state.selectedProjectId === p.path ? 'active' : '';
     const skillsText = skills > 0 ? ' · ' + skills + ' ' + t('sidebarSkills') : '';
-    return \`<div class="project-item \${active}" onclick="selectProject('\${escHtml(p.path)}')">
+    return \`<div class="project-item \${active}" onclick="selectProject('\${escJsStr(p.path)}')">
       <div class="project-name">
         <span class="dot \${dotClass}"></span>
         <span>\${escHtml(p.name)}</span>
@@ -869,8 +869,8 @@ function renderSkillCard(skill, projectPath) {
         <span>\${highlightedName}</span>
       </div>
       <div class="skill-actions">
-        <button class="btn-sm" onclick="viewSkill('\${escHtml(projectPath)}','\${escHtml(skill.skillId)}','\${escHtml(runtime)}');event.stopPropagation()">\${t('skillView')}</button>
-        \${versions > 0 ? \`<button class="btn-sm" onclick="viewSkill('\${escHtml(projectPath)}','\${escHtml(skill.skillId)}','\${escHtml(runtime)}');event.stopPropagation()">\${t('skillHistory')} (\${versions})</button>\` : ''}
+        <button class="btn-sm" onclick="viewSkill('\${escJsStr(projectPath)}','\${escJsStr(skill.skillId)}','\${escJsStr(runtime)}');event.stopPropagation()">\${t('skillView')}</button>
+        \${versions > 0 ? \`<button class="btn-sm" onclick="viewSkill('\${escJsStr(projectPath)}','\${escJsStr(skill.skillId)}','\${escJsStr(runtime)}');event.stopPropagation()">\${t('skillHistory')} (\${versions})</button>\` : ''}
       </div>
     </div>
     <div class="skill-meta">
@@ -934,6 +934,9 @@ async function viewSkill(projectPath, skillId, runtime = 'codex') {
   try {
     const enc = encodeURIComponent(projectPath);
     const r = await fetch(\`/api/projects/\${enc}/skills/\${encodeURIComponent(skillId)}?runtime=\${encodeURIComponent(runtime)}\`);
+    if (!r.ok) {
+      throw new Error(\`HTTP \${r.status}: \${r.statusText}\`);
+    }
     const data = await r.json();
     document.getElementById('modalContent').textContent = data.content ?? t('modalNoContent');
 
@@ -951,9 +954,10 @@ async function viewSkill(projectPath, skillId, runtime = 'codex') {
         </div>\`;
       }).join('');
       // Auto-load current version metadata
-      if (versions.length > 0) loadVersionMeta(encodeURIComponent(projectPath), encodeURIComponent(skillId), Math.max(...versions));
+      if (versions.length > 0) loadVersionMeta(enc, encodeURIComponent(skillId), Math.max(...versions));
     }
   } catch (e) {
+    console.error('[dashboard] failed to load skill content', { projectPath, skillId, runtime, error: String(e) });
     document.getElementById('modalContent').textContent = 'Error loading skill content.';
   }
 }
@@ -961,6 +965,7 @@ async function viewSkill(projectPath, skillId, runtime = 'codex') {
 async function loadVersionMeta(encProject, encSkill, version) {
   try {
     const r = await fetch(\`/api/projects/\${encProject}/skills/\${encSkill}/versions/\${version}\`);
+    if (!r.ok) return;
     const data = await r.json();
     const el = document.getElementById(\`vmeta_\${version}\`);
     if (el && data.metadata) {
@@ -968,16 +973,23 @@ async function loadVersionMeta(encProject, encSkill, version) {
       el.innerHTML = \`<span>\${m.createdAt?.slice(0,10) ?? ''}</span>
         \${m.reason ? \`<br><span class="version-change">\${escHtml(m.reason.slice(0,40))}</span>\` : ''}\`;
     }
-  } catch {}
+  } catch (e) {
+    console.warn('[dashboard] failed to load version metadata', { encProject, encSkill, version, error: String(e) });
+  }
 }
 
 async function loadVersion(encProject, encSkill, version) {
   try {
     const r = await fetch(\`/api/projects/\${encProject}/skills/\${encSkill}/versions/\${version}\`);
+    if (!r.ok) {
+      throw new Error(\`HTTP \${r.status}: \${r.statusText}\`);
+    }
     const data = await r.json();
     document.getElementById('modalContent').textContent = data.content ?? t('modalNoContent');
     await loadVersionMeta(encProject, encSkill, version);
-  } catch {}
+  } catch (e) {
+    console.error('[dashboard] failed to load version content', { encProject, encSkill, version, error: String(e) });
+  }
 }
 
 function closeModal() {
@@ -1050,6 +1062,14 @@ document.getElementById('addPathInput').addEventListener('keydown', async (e) =>
 // ─── Utilities ────────────────────────────────────────────────────────────────
 function escHtml(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function escJsStr(s) {
+  return String(s ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n');
 }
 
 function formatUptime(startedAt) {

@@ -322,6 +322,13 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
           const content = readSkillContent(projectPath, skillId, runtime);
           const skills = readSkills(projectPath);
           const skill = skills.find((s) => s.skillId === skillId && (s.runtime ?? 'codex') === runtime);
+          if (content === null) {
+            logger.warn('Skill content not found for dashboard request', {
+              projectPath,
+              skillId,
+              runtime,
+            });
+          }
           json(res, {
             skillId,
             runtime,

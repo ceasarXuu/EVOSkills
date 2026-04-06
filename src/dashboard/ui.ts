@@ -2,7 +2,7 @@
  * Dashboard UI
  *
  * 返回完整的单页 HTML Dashboard，内嵌 CSS + JS，无外部依赖。
- * 深色主题，三栏布局：项目列表 / 主面板 / 实时日志。
+ * 深色主题，双栏布局：项目列表 / 主面板（含子 Tab）。
  * 支持多语言切换（中英文）。
  */
 
@@ -56,7 +56,7 @@ export function getDashboardHtml(_port: number, lang: Language = 'en'): string {
   .dot-gray { background: var(--muted); }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
-  .main { display: grid; grid-template-columns: 200px 1fr 300px; height: 100%; overflow: hidden; grid-row: 2; }
+  .main { display: grid; grid-template-columns: 200px 1fr; height: 100%; overflow: hidden; grid-row: 2; }
 
   /* ─── Sidebar ─────────────────────────────────────── */
   .sidebar {
@@ -97,6 +97,14 @@ export function getDashboardHtml(_port: number, lang: Language = 'en'): string {
   /* ─── Main Panel ─────────────────────────────────── */
   .panel { overflow-y: auto; background: var(--bg0); }
   .panel-inner { padding: 16px; display: flex; flex-direction: column; gap: 14px; min-height: 100%; }
+  .main-tabs { display: flex; gap: 8px; }
+  .main-tab {
+    font-family: var(--font); font-size: 11px; padding: 6px 12px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--bg1); color: var(--muted);
+    cursor: pointer; transition: all .15s;
+  }
+  .main-tab:hover { border-color: var(--blue); color: var(--text); }
+  .main-tab.active { background: var(--blue); color: #fff; border-color: var(--blue); }
 
   .no-project {
     display: flex; align-items: center; justify-content: center;
@@ -212,6 +220,7 @@ export function getDashboardHtml(_port: number, lang: Language = 'en'): string {
   .trace-table td { font-size: 10px; padding: 3px 6px; border-bottom: 1px solid rgba(48,54,61,.5); }
   .trace-table tr:last-child td { border-bottom: none; }
   .badge { display: inline-flex; align-items: center; gap: 3px; }
+  .trace-table-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
 
   /* ─── Skill Detail Modal ─────────────────────────── */
   .modal-overlay {
@@ -253,10 +262,10 @@ export function getDashboardHtml(_port: number, lang: Language = 'en'): string {
   .version-meta { font-size: 10px; color: var(--muted); margin-top: 3px; }
   .version-change { display: inline-block; font-size: 9px; padding: 1px 5px; border-radius: 8px; margin-top: 3px; background: rgba(88,166,255,.1); color: var(--blue); }
 
-  /* ─── Log Panel ──────────────────────────────────── */
+  /* ─── Logs Card ───────────────────────────────────── */
   .log-panel {
-    background: var(--bg1); border-left: 1px solid var(--border);
-    display: flex; flex-direction: column; overflow: hidden;
+    background: var(--bg1); border: 1px solid var(--border); border-radius: 6px;
+    display: flex; flex-direction: column; overflow: hidden; min-height: 520px;
   }
   .log-header {
     padding: 8px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
@@ -268,7 +277,7 @@ export function getDashboardHtml(_port: number, lang: Language = 'en'): string {
     border: 1px solid var(--border); background: var(--bg0); color: var(--text);
     outline: none; cursor: pointer;
   }
-  .log-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+  .log-list { flex: 1; overflow-y: auto; padding: 8px 0; max-height: 560px; }
   .log-entry { padding: 2px 10px; display: flex; gap: 6px; font-size: 10px; line-height: 1.5; }
   .log-entry:hover { background: var(--bg2); }
   .log-ts { color: var(--muted); flex-shrink: 0; white-space: nowrap; }
@@ -353,20 +362,6 @@ export function getDashboardHtml(_port: number, lang: Language = 'en'): string {
     <main class="panel" id="mainPanel">
       <div class="no-project">${t.mainSelectProject}</div>
     </main>
-
-    <!-- Log Panel -->
-    <aside class="log-panel">
-      <div class="log-header">
-        <span class="log-title">${t.logTitle}</span>
-        <select class="log-filter" id="logFilter" onchange="filterLogs()">
-          <option value="ALL">${t.logFilterAll}</option>
-          <option value="INFO">INFO</option>
-          <option value="WARN">WARN</option>
-          <option value="ERROR">ERROR</option>
-        </select>
-      </div>
-      <div class="log-list" id="logList"></div>
-    </aside>
   </div>
 </div>
 
@@ -426,7 +421,8 @@ function switchLang(lang) {
   document.querySelector('.sidebar-add span:last-child').textContent = t('sidebarAddProject');
   document.getElementById('addPathInput').placeholder = t('sidebarAddPlaceholder');
   document.querySelector('.add-form-hint').textContent = t('sidebarAddHint');
-  document.querySelector('.log-title').textContent = t('logTitle');
+  const logTitleEl = document.querySelector('.log-title');
+  if (logTitleEl) logTitleEl.textContent = t('logTitle');
   document.querySelector('.modal-close').textContent = '✕ ' + t('modalClose');
   document.querySelector('.modal-history h4').textContent = t('modalVersionHistory');
   // Re-render dynamic content
@@ -447,6 +443,7 @@ const state = {
   searchQuery: '',
   sortBy: 'name',
   sortOrder: 'asc',
+  selectedMainTab: 'overview',
 };
 
 // ─── SSE Connection ──────────────────────────────────────────────────────────
@@ -478,7 +475,9 @@ function handleUpdate(data) {
   }
   if (data.logs) {
     state.allLogs = [...state.allLogs, ...data.logs].slice(-1000);
-    renderLogs();
+    if (state.selectedMainTab === 'logs') {
+      renderLogs();
+    }
   }
   if (state.selectedProjectId && shouldRerenderMain) {
     const activeEl = document.activeElement;
@@ -603,8 +602,14 @@ function renderMainPanel(projectPath) {
   const uptime = daemon.isRunning && daemon.startedAt ? formatUptime(daemon.startedAt) : '—';
 
   el.innerHTML = \`<div class="panel-inner">
+    <div class="main-tabs">
+      <button class="main-tab \${state.selectedMainTab === 'overview' ? 'active' : ''}" onclick="selectMainTab('overview')">\${t('mainTabOverview')}</button>
+      <button class="main-tab \${state.selectedMainTab === 'skills' ? 'active' : ''}" onclick="selectMainTab('skills')">\${t('mainTabSkills')}</button>
+      <button class="main-tab \${state.selectedMainTab === 'activity' ? 'active' : ''}" onclick="selectMainTab('activity')">\${t('mainTabActivity')}</button>
+      <button class="main-tab \${state.selectedMainTab === 'logs' ? 'active' : ''}" onclick="selectMainTab('logs')">\${t('mainTabLogs')}</button>
+    </div>
 
-    <!-- Stats row -->
+    \${state.selectedMainTab === 'overview' ? \`
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-label">\${t('statShadowSkills')}</div>
@@ -628,7 +633,6 @@ function renderMainPanel(projectPath) {
       </div>
     </div>
 
-    <!-- Daemon Status -->
     <div class="card">
       <div class="card-header">
         <span>\${t('daemonStatus')}</span>
@@ -649,8 +653,17 @@ function renderMainPanel(projectPath) {
         </div>
       </div>
     </div>
+    \${traceStats.total > 0 ? \`
+    <div class="card">
+      <div class="card-header"><span>\${t('traceTitle')}</span><span style="color:var(--muted)">\${traceStats.total} \${t('traceTotal')}</span></div>
+      <div class="card-body">
+        \${renderTraceBars(t('traceRuntime'), traceStats.byRuntime, ['codex','claude','opencode'])}
+        \${renderTraceBars(t('traceStatus'), traceStats.byStatus, ['success','failure','retry','interrupted'])}
+      </div>
+    </div>\` : ''}
+    \` : ''}
 
-    <!-- Shadow Skills -->
+    \${state.selectedMainTab === 'skills' ? \`
     <div class="card">
       <div class="card-header">
         <span>\${t('skillsTitle')}</span>
@@ -690,19 +703,37 @@ function renderMainPanel(projectPath) {
         </div>
       </div>
     </div>
+    \` : ''}
 
-    <!-- Trace Activity -->
-    \${traceStats.total > 0 ? \`
+    \${state.selectedMainTab === 'activity' ? \`
     <div class="card">
       <div class="card-header"><span>\${t('traceTitle')}</span><span style="color:var(--muted)">\${traceStats.total} \${t('traceTotal')}</span></div>
       <div class="card-body">
+        \${traceStats.total > 0 ? \`
         \${renderTraceBars(t('traceRuntime'), traceStats.byRuntime, ['codex','claude','opencode'])}
         \${renderTraceBars(t('traceStatus'), traceStats.byStatus, ['success','failure','retry','interrupted'])}
-        <div style="margin-top:10px">
-          \${renderRecentTraces(recentTraces.slice(0,10))}
+        <div style="margin-top:10px" class="trace-table-wrap">
+          \${renderRecentTraces(recentTraces.slice(0,50))}
         </div>
+        \` : \`<div class="empty-state">\${t('activityEmpty')}</div>\`}
       </div>
-    </div>\` : ''}
+    </div>
+    \` : ''}
+
+    \${state.selectedMainTab === 'logs' ? \`
+    <div class="log-panel">
+      <div class="log-header">
+        <span class="log-title">\${t('logTitle')}</span>
+        <select class="log-filter" id="logFilter" onchange="filterLogs()">
+          <option value="ALL" \${state.logFilter === 'ALL' ? 'selected' : ''}>\${t('logFilterAll')}</option>
+          <option value="INFO" \${state.logFilter === 'INFO' ? 'selected' : ''}>INFO</option>
+          <option value="WARN" \${state.logFilter === 'WARN' ? 'selected' : ''}>WARN</option>
+          <option value="ERROR" \${state.logFilter === 'ERROR' ? 'selected' : ''}>ERROR</option>
+        </select>
+      </div>
+      <div class="log-list" id="logList"></div>
+    </div>
+    \` : ''}
 
   </div>\`;
 
@@ -715,6 +746,19 @@ function renderMainPanel(projectPath) {
       }
     }
   }
+
+  if (state.selectedMainTab === 'logs') {
+    renderLogs();
+  }
+}
+
+function selectMainTab(tab) {
+  state.selectedMainTab = tab;
+  if (state.selectedProjectId) {
+    renderMainPanel(state.selectedProjectId);
+  }
+  // 前端日志：记录 dashboard 主 tab 切换
+  console.debug('[dashboard] switched main tab', { tab });
 }
 
 function renderStateBadge(state) {
@@ -858,13 +902,14 @@ function renderTraceBars(label, data, keys) {
 function renderRecentTraces(traces) {
   if (!traces.length) return '';
   return \`<table class="trace-table">
-    <thead><tr><th>\${t('traceTime')}</th><th>\${t('traceRuntime')}</th><th>\${t('traceEvent')}</th><th>\${t('traceStatus')}</th><th>\${t('traceSession')}</th></tr></thead>
+    <thead><tr><th>\${t('traceTime')}</th><th>\${t('traceRuntime')}</th><th>\${t('traceEvent')}</th><th>\${t('traceStatus')}</th><th>\${t('traceSession')}</th><th>Trace ID</th></tr></thead>
     <tbody>\${traces.map(t => \`<tr>
       <td style="color:var(--muted)">\${t.timestamp ? t.timestamp.slice(11,19) : '—'}</td>
       <td>\${t.runtime}</td>
       <td>\${t.event_type}</td>
       <td style="color:\${t.status==='success'?'var(--green)':t.status==='failure'?'var(--red)':'var(--yellow)'}">\${t.status}</td>
       <td style="color:var(--muted)">\${t.session_id?.slice(0,8) ?? '—'}</td>
+      <td style="color:var(--muted)">\${t.trace_id?.slice(0,8) ?? '—'}</td>
     </tr>\`).join('')}</tbody>
   </table>\`;
 }
@@ -947,9 +992,15 @@ document.getElementById('skillModal').addEventListener('click', (e) => {
 function renderLogs() {
   const filter = state.logFilter;
   const list = document.getElementById('logList');
+  if (!list) return;
   const entries = filter === 'ALL' ? state.allLogs : state.allLogs.filter(l => l.level === filter);
   const MAX = 300;
   const visible = entries.slice(-MAX);
+
+  if (visible.length === 0) {
+    list.innerHTML = '<div class="empty-state">' + t('logsEmpty') + '</div>';
+    return;
+  }
 
   list.innerHTML = visible.map(l => \`<div class="log-entry">
     <span class="log-ts">\${l.timestamp?.slice(11,19) ?? ''}</span>

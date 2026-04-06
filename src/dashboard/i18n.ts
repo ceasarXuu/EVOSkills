@@ -30,6 +30,12 @@ export interface I18nStrings {
   mainSelectProject: string;
   mainLoading: string;
   mainNoData: string;
+  mainTabOverview: string;
+  mainTabSkills: string;
+  mainTabActivity: string;
+  mainTabLogs: string;
+  activityEmpty: string;
+  logsEmpty: string;
 
   // Stats
   statShadowSkills: string;
@@ -125,6 +131,12 @@ const en: I18nStrings = {
   mainSelectProject: '← Select a project',
   mainLoading: 'Loading...',
   mainNoData: 'No data',
+  mainTabOverview: 'Overview',
+  mainTabSkills: 'Skills',
+  mainTabActivity: 'Activity',
+  mainTabLogs: 'Logs',
+  activityEmpty: 'No trace activity yet.',
+  logsEmpty: 'No logs yet.',
 
   // Stats
   statShadowSkills: 'Shadow Skills',
@@ -220,6 +232,12 @@ const zh: I18nStrings = {
   mainSelectProject: '← 选择一个项目',
   mainLoading: '加载中...',
   mainNoData: '暂无数据',
+  mainTabOverview: '总览',
+  mainTabSkills: '技能列表',
+  mainTabActivity: '实时追踪',
+  mainTabLogs: '日志',
+  activityEmpty: '暂无追踪活动。',
+  logsEmpty: '暂无日志。',
 
   // Stats
   statShadowSkills: 'Shadow 技能',

@@ -103,7 +103,7 @@ export class SkillDeployer {
     const metadata = version.metadata;
 
     const header = `<!-- Ornn Version: v${version.version} -->
-<!-- Origin: ${this.options.projectPath}/.ornn/skills/${skillId} -->
+<!-- Origin: ${this.options.projectPath}/.ornn/skills/${this.options.runtime}/${skillId} -->
 <!-- Runtime: ${this.options.runtime} -->
 <!-- Project: ${this.options.projectPath} -->
 <!-- Last Optimized: ${metadata.createdAt} -->
@@ -149,7 +149,14 @@ export class SkillDeployer {
         return null;
       }
 
-      const backupDir = join(this.options.projectPath, '.ornn', 'skills', skillId, 'backup');
+      const backupDir = join(
+        this.options.projectPath,
+        '.ornn',
+        'skills',
+        this.options.runtime,
+        skillId,
+        'backup'
+      );
       mkdirSync(backupDir, { recursive: true });
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');

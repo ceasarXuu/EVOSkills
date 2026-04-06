@@ -1,13 +1,13 @@
 import { Command } from 'commander';
 import { cliInfo } from '../../utils/cli-output.js';
-import { writeFileSync } from 'node:fs';
 import { printErrorAndExit } from '../../utils/error-helper.js';
 import { createUnifiedDiff, countChanges } from '../../utils/diff.js';
 import { confirmAction } from '../../utils/cli-formatters.js';
 import { initRegistryOnly, validateSkillIdOrExit, getShadowOrExit } from '../lib/cli-setup.js';
-import { originRegistry } from '../../core/origin-registry/index.js';
 import { parseRuntimeOption } from '../lib/runtime-option.js';
 import { join } from 'node:path';
+import { createSkillVersionManager } from '../../core/skill-version/index.js';
+import { createSkillDeployer } from '../../core/skill-deployer/index.js';
 
 interface SyncOptions {
   project: string;
@@ -17,13 +17,13 @@ interface SyncOptions {
 
 /**
  * Sync 命令
- * 将 shadow skill 同步回 origin
+ * 将 shadow skill 同步到项目 runtime 路径（不改全局）
  */
 export function createSyncCommand(): Command {
   const sync = new Command('sync');
 
   sync
-    .description('Sync shadow skill back to origin (apply optimizations)')
+    .description('Sync shadow skill to project runtime path (apply optimizations)')
     .argument('<skill>', 'Skill ID to sync')
     .option('-r, --runtime <runtime>', 'Runtime scope: codex | claude | opencode')
     .option('-p, --project <path>', 'Project root path', process.cwd())
@@ -36,17 +36,6 @@ export function createSyncCommand(): Command {
         const runtime = parseRuntimeOption(options.runtime);
         const shadow = getShadowOrExit(shadowRegistry, skillId, 'Sync skill', projectRoot, runtime);
 
-        originRegistry.scan();
-        const origin = originRegistry.get(skillId);
-
-        if (!origin) {
-          printErrorAndExit(
-            `Origin skill "${skillId}" not found`,
-            { operation: 'Sync skill', skillId, projectPath: projectRoot },
-            'ORIGIN_NOT_FOUND'
-          );
-        }
-
         const shadowPath = join(
           projectRoot,
           '.ornn',
@@ -55,15 +44,13 @@ export function createSyncCommand(): Command {
           `${skillId}.md`
         );
         const shadowContent = shadowRegistry.readContent(skillId, shadow.runtime);
-        const originContent = originRegistry.readContent(skillId);
-
-        if (!originContent) {
-          printErrorAndExit(`Cannot read origin content for "${skillId}"`, {
-            operation: 'Read origin content',
-            skillId,
-            projectPath: projectRoot,
-          });
-        }
+        const targetRuntime = shadow.runtime ?? 'codex';
+        const deployer = createSkillDeployer({
+          runtime: targetRuntime,
+          projectPath: projectRoot,
+        });
+        const deployedContent = deployer.readCurrent(skillId);
+        const targetPath = deployer.getDeploymentPath(skillId);
 
         if (!shadowContent) {
           printErrorAndExit(`Cannot read shadow content for "${skillId}"`, {
@@ -74,35 +61,41 @@ export function createSyncCommand(): Command {
           });
         }
 
-        if (originContent === shadowContent) {
+        if (deployedContent === shadowContent) {
           cliInfo(`✓ Skill "${skillId}" is already up to date.`);
           cliInfo(`  No changes to sync.`);
           return;
         }
 
-        const originPath = origin.skillPath;
-        cliInfo(`\n📦 Syncing skill "${skillId}" to origin...`);
+        cliInfo(`\n📦 Syncing skill "${skillId}" to project runtime...`);
         cliInfo(`  Shadow: ${shadowPath}`);
-        cliInfo(`  Origin: ${originPath}`);
+        cliInfo(`  Runtime target: ${targetPath}`);
+        cliInfo(`  Runtime: ${targetRuntime}`);
         cliInfo('');
 
-        const changes = countChanges(originContent, shadowContent);
+        const changes = countChanges(deployedContent ?? '', shadowContent);
         cliInfo(`📊 Changes to be applied:`);
         cliInfo(`  +${changes.added} lines added`);
         cliInfo(`  -${changes.removed} lines removed`);
         cliInfo('');
 
-        const diffOutput = createUnifiedDiff(skillId, originContent, shadowContent, 'origin', 'shadow');
+        const diffOutput = createUnifiedDiff(
+          skillId,
+          deployedContent ?? '',
+          shadowContent,
+          'runtime',
+          'shadow'
+        );
         cliInfo('Diff:');
         cliInfo(diffOutput);
         cliInfo('');
 
         if (!options.force) {
           const ok = await confirmAction({
-            message: 'Sync this optimized skill back to origin? This will update the global skill.',
+            message: 'Sync this optimized skill to project runtime path?',
             warningLines: [
-              `⚠️  This will overwrite the origin skill file with the optimized shadow version.`,
-              `   Origin path: ${originPath}`,
+              `⚠️  This will overwrite the project runtime skill file with the optimized shadow version.`,
+              `   Runtime target: ${targetPath}`,
             ],
           });
 
@@ -112,14 +105,33 @@ export function createSyncCommand(): Command {
           }
         }
 
-        writeFileSync(originPath, shadowContent, 'utf-8');
-        cliInfo(`\n✓ Successfully synced "${skillId}" to origin!`);
-        cliInfo(`  The optimized skill is now active globally.`);
+        const versionManager = createSkillVersionManager({
+          projectPath: projectRoot,
+          skillId,
+          runtime: targetRuntime,
+        });
+        const latest = versionManager.getLatestVersion();
+        const version =
+          latest && latest.content === shadowContent
+            ? latest
+            : versionManager.createVersion(shadowContent, 'Manual sync from CLI', []);
+        const deployResult = deployer.deploy(skillId, version);
+        if (!deployResult.success) {
+          printErrorAndExit(`Failed to deploy skill "${skillId}"`, {
+            operation: 'Deploy skill',
+            skillId,
+            runtime: targetRuntime,
+            projectPath: projectRoot,
+          });
+        }
+
+        cliInfo(`\n✓ Successfully synced "${skillId}" to project runtime!`);
+        cliInfo(`  The optimized skill is now active for this project.`);
         cliInfo('');
-        cliInfo(`  Origin path: ${originPath}`);
+        cliInfo(`  Runtime path: ${targetPath}`);
+        cliInfo(`  Version: v${version.version}`);
         cliInfo('');
-        cliInfo(`  Note: This affects all projects using this skill.`);
-        cliInfo(`  To revert, restore the original skill from backup or version control.`);
+        cliInfo(`  Note: This does not modify global skills.`);
       } catch (error) {
         printErrorAndExit(
           error instanceof Error ? error.message : String(error),

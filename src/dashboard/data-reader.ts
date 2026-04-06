@@ -133,18 +133,30 @@ export function readDaemonStatus(projectRoot: string): DaemonStatus {
 
 // ─── Shadow Skills ────────────────────────────────────────────────────────────
 
-function listVersionsForSkill(projectRoot: string, skillId: string): number[] {
-  const versionsDir = join(projectRoot, '.ornn', 'skills', skillId, 'versions');
-  if (!existsSync(versionsDir)) return [];
+function listVersionsForSkill(
+  projectRoot: string,
+  skillId: string,
+  runtime: 'codex' | 'claude' | 'opencode' = 'codex'
+): number[] {
+  const candidates = [
+    join(projectRoot, '.ornn', 'skills', runtime, skillId, 'versions'),
+    // backward compatibility (old layout without runtime segment)
+    join(projectRoot, '.ornn', 'skills', skillId, 'versions'),
+  ];
 
-  try {
-    return readdirSync(versionsDir, { withFileTypes: true })
-      .filter((e) => e.isDirectory() && /^v\d+$/.test(e.name))
-      .map((e) => parseInt(e.name.slice(1), 10))
-      .sort((a, b) => a - b);
-  } catch {
-    return [];
+  for (const versionsDir of candidates) {
+    if (!existsSync(versionsDir)) continue;
+    try {
+      return readdirSync(versionsDir, { withFileTypes: true })
+        .filter((e) => e.isDirectory() && /^v\d+$/.test(e.name))
+        .map((e) => parseInt(e.name.slice(1), 10))
+        .sort((a, b) => a - b);
+    } catch {
+      // try next candidate
+    }
   }
+
+  return [];
 }
 
 export function readSkills(projectRoot: string): SkillInfo[] {
@@ -160,7 +172,11 @@ export function readSkills(projectRoot: string): SkillInfo[] {
       // Dashboard 列表与 SSE 不需要完整正文，避免大 payload 导致前端卡顿
       content: '',
       runtime: entry.runtime ?? 'codex',
-      versionsAvailable: listVersionsForSkill(projectRoot, entry.skillId),
+      versionsAvailable: listVersionsForSkill(
+        projectRoot,
+        entry.skillId,
+        (entry.runtime ?? 'codex') as 'codex' | 'claude' | 'opencode'
+      ),
     }));
   } catch {
     return [];
@@ -191,21 +207,29 @@ export function readSkillContent(
 export function readSkillVersion(
   projectRoot: string,
   skillId: string,
-  version: number
+  version: number,
+  runtime: 'codex' | 'claude' | 'opencode' = 'codex'
 ): { content: string; metadata: SkillVersionMeta } | null {
-  const versionDir = join(projectRoot, '.ornn', 'skills', skillId, 'versions', `v${version}`);
-  const contentPath = join(versionDir, 'skill.md');
-  const metadataPath = join(versionDir, 'metadata.json');
+  const versionDirs = [
+    join(projectRoot, '.ornn', 'skills', runtime, skillId, 'versions', `v${version}`),
+    // backward compatibility (old layout without runtime segment)
+    join(projectRoot, '.ornn', 'skills', skillId, 'versions', `v${version}`),
+  ];
 
-  if (!existsSync(contentPath) || !existsSync(metadataPath)) return null;
-
-  try {
-    const content = readFileSync(contentPath, 'utf-8');
-    const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8')) as SkillVersionMeta;
-    return { content, metadata };
-  } catch {
-    return null;
+  for (const versionDir of versionDirs) {
+    const contentPath = join(versionDir, 'skill.md');
+    const metadataPath = join(versionDir, 'metadata.json');
+    if (!existsSync(contentPath) || !existsSync(metadataPath)) continue;
+    try {
+      const content = readFileSync(contentPath, 'utf-8');
+      const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8')) as SkillVersionMeta;
+      return { content, metadata };
+    } catch {
+      // try next candidate
+    }
   }
+
+  return null;
 }
 
 // ─── Traces (NDJSON tail) ─────────────────────────────────────────────────────

@@ -68,7 +68,14 @@ export class SkillVersionManager {
 
   constructor(options: VersionManagerOptions) {
     this.options = options;
-    this.versionsDir = join(options.projectPath, '.ornn', 'skills', options.skillId, 'versions');
+    this.versionsDir = join(
+      options.projectPath,
+      '.ornn',
+      'skills',
+      options.runtime,
+      options.skillId,
+      'versions'
+    );
 
     // Ensure versions directory exists
     this.ensureDirectory();

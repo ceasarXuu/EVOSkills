@@ -6,6 +6,7 @@ import { createTraceManager } from '../observer/trace-manager.js';
 import { createTraceSkillMapper } from '../trace-skill-mapper/index.js';
 import { evaluator } from '../evaluator/index.js';
 import { patchGenerator } from '../patch-generator/index.js';
+import { createSkillVersionManager } from '../skill-version/index.js';
 import { hashString } from '../../utils/hash.js';
 import { buildShadowId, runtimeFromShadowId, skillIdFromShadowId } from '../../utils/parse.js';
 import { createSQLiteStorage } from '../../storage/sqlite.js';
@@ -77,13 +78,13 @@ export class ShadowManager {
   private bootstrapSkillsForMonitoring(): void {
     if (!this.db) throw new Error('ShadowManager database not initialized');
 
-    // 宿主对齐：项目内 skills 与全局 skills 同时扫描，且项目内优先级更高（同名覆盖）
+    // 宿主对齐：项目内 + 全局同扫；同名按项目优先，且按 runtime 维度独立决议来源。
     const projectRoots = [
-      join(this.projectRoot, 'skills'),
-      join(this.projectRoot, '.skills'),
       join(this.projectRoot, '.codex', 'skills'),
       join(this.projectRoot, '.claude', 'skills'),
       join(this.projectRoot, '.opencode', 'skills'),
+      join(this.projectRoot, 'skills'),
+      join(this.projectRoot, '.skills'),
       join(this.projectRoot, '.agents', 'skills'),
     ];
     const globalRoots = [
@@ -92,13 +93,18 @@ export class ShadowManager {
       join(homedir(), '.codex', 'skills'),
     ];
     const candidateRoots = [...new Set<string>([...projectRoots, ...globalRoots])];
-    const selectedSourceBySkill = new Map<string, string>();
+    const selectedSourceByRuntimeSkill = new Map<
+      string,
+      { root: string; skillPath: string; content: string; isProjectSource: boolean }
+    >();
 
     const runtimes = configManager.getGlobalConfig().observer.enabled_runtimes;
     let discovered = 0;
     let registered = 0;
     let createdShadows = 0;
+    let bootstrapVersionedUpdates = 0;
     let materializedToProject = 0;
+    const originUpserted = new Set<string>();
 
     for (const root of candidateRoots) {
       if (!existsSync(root)) continue;
@@ -119,14 +125,11 @@ export class ShadowManager {
         const skillPath = skillFileCandidates.find((p) => existsSync(p));
         if (!skillPath) continue;
 
-        // 同名 skill 冲突时保留先命中的来源（candidateRoots 已按优先级排序）
-        if (selectedSourceBySkill.has(skillId)) {
-          continue;
-        }
-
         discovered++;
-        selectedSourceBySkill.set(skillId, root);
         const isProjectSource = root.startsWith(this.projectRoot);
+        const runtimeScope = this.resolveRootRuntime(root);
+        const applicableRuntimes =
+          runtimeScope === null ? runtimes : runtimes.filter((r) => r === runtimeScope);
 
         let content = '';
         try {
@@ -135,59 +138,90 @@ export class ShadowManager {
           continue;
         }
 
-        const now = new Date().toISOString();
-        const originVersion = hashString(content);
+        for (const runtime of applicableRuntimes) {
+          const scopedKey = `${runtime}::${skillId}`;
+          if (selectedSourceByRuntimeSkill.has(scopedKey)) continue;
+          selectedSourceByRuntimeSkill.set(scopedKey, {
+            root,
+            skillPath,
+            content,
+            isProjectSource,
+          });
+        }
+      }
+    }
+
+    for (const [scopedKey, selected] of selectedSourceByRuntimeSkill.entries()) {
+      const [runtime, skillId] = scopedKey.split('::') as [RuntimeType, string];
+      const now = new Date().toISOString();
+      const originVersion = hashString(selected.content);
+
+      if (!originUpserted.has(skillId)) {
         const origin = {
           skill_id: skillId,
-          origin_path: skillPath,
+          origin_path: selected.skillPath,
           origin_version: originVersion,
           source: 'local' as const,
           installed_at: now,
           last_seen_at: now,
         };
-
         this.db.upsertOriginSkill(origin);
+        originUpserted.add(skillId);
+      }
 
-        for (const runtime of runtimes) {
-          const scopedSkillId = `${runtime}::${skillId}`;
-
-          if (!this.shadowRegistry.has(skillId, runtime)) {
-            this.shadowRegistry.create(skillId, content, originVersion, runtime);
-            createdShadows++;
-          } else {
-            // 已存在时也对齐到“当前优先来源”内容，确保项目同名 skill 能覆盖全局版本
-            const current = this.shadowRegistry.readContent(skillId, runtime);
-            if (current !== undefined && current !== content) {
-              this.shadowRegistry.updateContent(skillId, content, runtime);
-            }
-          }
-
-          const shadowEntry = this.shadowRegistry.get(skillId, runtime);
-          const status: ShadowStatus = shadowEntry?.status === 'frozen' ? 'frozen' : 'active';
-          const shadow = {
-            project_id: this.projectRoot,
-            skill_id: scopedSkillId,
+      if (!this.shadowRegistry.has(skillId, runtime)) {
+        this.shadowRegistry.create(skillId, selected.content, originVersion, runtime);
+        createdShadows++;
+      } else {
+        const current = this.shadowRegistry.readContent(skillId, runtime);
+        if (current !== undefined && current !== selected.content) {
+          this.shadowRegistry.updateContent(skillId, selected.content, runtime);
+          const versionManager = createSkillVersionManager({
+            projectPath: this.projectRoot,
+            skillId,
             runtime,
-            shadow_id: buildShadowId(skillId, this.projectRoot, runtime),
-            origin_skill_id: skillId,
-            origin_version_at_fork: originVersion,
-            shadow_path: join(this.projectRoot, '.ornn', 'shadows', runtime, `${skillId}.md`),
-            current_revision: 0,
-            status,
-            created_at: now,
-            last_optimized_at: now,
-          };
-          this.db.upsertShadowSkill(shadow);
-          this.traceSkillMapper.registerSkill(origin, shadow);
-          registered++;
+          });
+          versionManager.createVersion(
+            selected.content,
+            `Bootstrap source sync (${selected.isProjectSource ? 'project' : 'global'} -> project-preferred)`,
+            []
+          );
+          bootstrapVersionedUpdates++;
+        }
+      }
 
-          // 当来源是全局 skill 且项目侧尚不存在时，物化到项目目录，
-          // 保证后续由项目副本生效，避免改动全局影响其它项目。
-          if (!isProjectSource) {
-            if (this.materializeSkillToProject(runtime as RuntimeType, skillId, content)) {
-              materializedToProject++;
-            }
-          }
+      const shadowEntry = this.shadowRegistry.get(skillId, runtime);
+      const status: ShadowStatus = shadowEntry?.status === 'frozen' ? 'frozen' : 'active';
+      const shadow = {
+        project_id: this.projectRoot,
+        skill_id: scopedKey,
+        runtime,
+        shadow_id: buildShadowId(skillId, this.projectRoot, runtime),
+        origin_skill_id: skillId,
+        origin_version_at_fork: originVersion,
+        shadow_path: join(this.projectRoot, '.ornn', 'shadows', runtime, `${skillId}.md`),
+        current_revision: 0,
+        status,
+        created_at: now,
+        last_optimized_at: now,
+      };
+      this.db.upsertShadowSkill(shadow);
+      const originForMapper = {
+        skill_id: skillId,
+        origin_path: selected.skillPath,
+        origin_version: originVersion,
+        source: 'local' as const,
+        installed_at: now,
+        last_seen_at: now,
+      };
+      this.traceSkillMapper.registerSkill(originForMapper, shadow);
+      registered++;
+
+      // 当来源是全局 skill 且项目侧尚不存在时，物化到项目目录，
+      // 保证后续由项目副本生效，避免改动全局影响其它项目。
+      if (!selected.isProjectSource) {
+        if (this.materializeSkillToProject(runtime, skillId, selected.content)) {
+          materializedToProject++;
         }
       }
     }
@@ -196,11 +230,25 @@ export class ShadowManager {
       discovered,
       registered,
       createdShadows,
+      bootstrapVersionedUpdates,
       roots: candidateRoots,
       prioritizedProjectRoots: projectRoots,
-      selectedSkills: selectedSourceBySkill.size,
+      selectedSkills: selectedSourceByRuntimeSkill.size,
       materializedToProject,
     });
+  }
+
+  private resolveRootRuntime(root: string): RuntimeType | null {
+    if (root.includes(`${this.projectRoot}/.codex/skills`) || root.includes('/.codex/skills')) {
+      return 'codex';
+    }
+    if (root.includes(`${this.projectRoot}/.claude/skills`) || root.includes('/.claude/skills')) {
+      return 'claude';
+    }
+    if (root.includes(`${this.projectRoot}/.opencode/skills`) || root.includes('/.opencode/skills')) {
+      return 'opencode';
+    }
+    return null;
   }
 
   private getProjectSkillPath(runtime: RuntimeType, skillId: string): string {

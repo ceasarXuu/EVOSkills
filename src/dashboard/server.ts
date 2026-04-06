@@ -467,7 +467,12 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
         if (versionMatch && method === 'GET') {
           const skillId = decodeURIComponent(versionMatch[1]);
           const version = parseInt(versionMatch[2], 10);
-          const result = readSkillVersion(projectPath, skillId, version);
+          const runtimeParam = url.searchParams.get('runtime');
+          const runtime: RuntimeType =
+            runtimeParam === 'claude' || runtimeParam === 'opencode' || runtimeParam === 'codex'
+              ? runtimeParam
+              : 'codex';
+          const result = readSkillVersion(projectPath, skillId, version, runtime);
           if (!result) {
             notFound(res);
             return;

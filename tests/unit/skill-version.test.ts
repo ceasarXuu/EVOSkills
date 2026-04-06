@@ -13,7 +13,7 @@ describe('SkillVersionManager', () => {
   describe('constructor', () => {
     it('should create versions directory', () => {
       const manager = new SkillVersionManager({ projectPath: testDir, skillId: 'my-skill', runtime: 'codex' });
-      expect(existsSync(join(testDir, '.ornn', 'skills', 'my-skill', 'versions'))).toBe(true);
+      expect(existsSync(join(testDir, '.ornn', 'skills', 'codex', 'my-skill', 'versions'))).toBe(true);
     });
 
     it('should scan existing versions', () => {
@@ -58,15 +58,15 @@ describe('SkillVersionManager', () => {
     it('should create version directory and files', () => {
       const manager = new SkillVersionManager({ projectPath: testDir, skillId: 'my-skill', runtime: 'codex' });
       manager.createVersion('content', 'reason', []);
-      expect(existsSync(join(testDir, '.ornn', 'skills', 'my-skill', 'versions', 'v1', 'skill.md'))).toBe(true);
-      expect(existsSync(join(testDir, '.ornn', 'skills', 'my-skill', 'versions', 'v1', 'metadata.json'))).toBe(true);
+      expect(existsSync(join(testDir, '.ornn', 'skills', 'codex', 'my-skill', 'versions', 'v1', 'skill.md'))).toBe(true);
+      expect(existsSync(join(testDir, '.ornn', 'skills', 'codex', 'my-skill', 'versions', 'v1', 'metadata.json'))).toBe(true);
     });
 
     it('should create latest symlink', () => {
       const manager = new SkillVersionManager({ projectPath: testDir, skillId: 'my-skill', runtime: 'codex' });
       manager.createVersion('v1', 'initial', []);
       manager.createVersion('v2', 'update', []);
-      expect(existsSync(join(testDir, '.ornn', 'skills', 'my-skill', 'versions', 'latest'))).toBe(true);
+      expect(existsSync(join(testDir, '.ornn', 'skills', 'codex', 'my-skill', 'versions', 'latest'))).toBe(true);
     });
   });
 
@@ -130,7 +130,7 @@ describe('SkillVersionManager', () => {
   describe('getVersionsDir', () => {
     it('should return versions directory', () => {
       const manager = new SkillVersionManager({ projectPath: testDir, skillId: 'my-skill', runtime: 'codex' });
-      expect(manager.getVersionsDir()).toBe(join(testDir, '.ornn', 'skills', 'my-skill', 'versions'));
+      expect(manager.getVersionsDir()).toBe(join(testDir, '.ornn', 'skills', 'codex', 'my-skill', 'versions'));
     });
   });
 
@@ -150,7 +150,7 @@ describe('SkillVersionManager', () => {
   describe('getVersionDir', () => {
     it('should return version directory path', () => {
       const manager = new SkillVersionManager({ projectPath: testDir, skillId: 'my-skill', runtime: 'codex' });
-      expect(manager.getVersionDir(1)).toBe(join(testDir, '.ornn', 'skills', 'my-skill', 'versions', 'v1'));
+      expect(manager.getVersionDir(1)).toBe(join(testDir, '.ornn', 'skills', 'codex', 'my-skill', 'versions', 'v1'));
     });
   });
 

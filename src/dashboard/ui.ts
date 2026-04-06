@@ -468,7 +468,14 @@ function handleUpdate(data) {
     renderLogs();
   }
   if (state.selectedProjectId && shouldRerenderMain) {
-    renderMainPanel(state.selectedProjectId);
+    const activeEl = document.activeElement;
+    const isSearchFocused = activeEl && activeEl.id === 'skillSearchInput';
+    if (isSearchFocused) {
+      // 用户正在输入时只刷新技能列表，避免整面板重绘导致焦点抖动
+      updateSkillsList();
+    } else {
+      renderMainPanel(state.selectedProjectId);
+    }
   }
 }
 

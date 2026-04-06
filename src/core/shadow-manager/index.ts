@@ -77,11 +77,22 @@ export class ShadowManager {
   private bootstrapSkillsForMonitoring(): void {
     if (!this.db) throw new Error('ShadowManager database not initialized');
 
-    const candidateRoots = new Set<string>([
+    // 宿主对齐：项目内 skills 与全局 skills 同时扫描，且项目内优先级更高（同名覆盖）
+    const projectRoots = [
+      join(this.projectRoot, 'skills'),
+      join(this.projectRoot, '.skills'),
+      join(this.projectRoot, '.codex', 'skills'),
+      join(this.projectRoot, '.claude', 'skills'),
+      join(this.projectRoot, '.opencode', 'skills'),
+      join(this.projectRoot, '.agents', 'skills'),
+    ];
+    const globalRoots = [
       ...configManager.getOriginPaths(),
       join(homedir(), '.agents', 'skills'),
       join(homedir(), '.codex', 'skills'),
-    ]);
+    ];
+    const candidateRoots = [...new Set<string>([...projectRoots, ...globalRoots])];
+    const selectedSourceBySkill = new Map<string, string>();
 
     const runtimes = configManager.getGlobalConfig().observer.enabled_runtimes;
     let discovered = 0;
@@ -107,7 +118,13 @@ export class ShadowManager {
         const skillPath = skillFileCandidates.find((p) => existsSync(p));
         if (!skillPath) continue;
 
+        // 同名 skill 冲突时保留先命中的来源（candidateRoots 已按优先级排序）
+        if (selectedSourceBySkill.has(skillId)) {
+          continue;
+        }
+
         discovered++;
+        selectedSourceBySkill.set(skillId, root);
 
         let content = '';
         try {
@@ -135,6 +152,12 @@ export class ShadowManager {
           if (!this.shadowRegistry.has(skillId, runtime)) {
             this.shadowRegistry.create(skillId, content, originVersion, runtime);
             createdShadows++;
+          } else {
+            // 已存在时也对齐到“当前优先来源”内容，确保项目同名 skill 能覆盖全局版本
+            const current = this.shadowRegistry.readContent(skillId, runtime);
+            if (current !== undefined && current !== content) {
+              this.shadowRegistry.updateContent(skillId, content, runtime);
+            }
           }
 
           const shadowEntry = this.shadowRegistry.get(skillId, runtime);
@@ -163,7 +186,9 @@ export class ShadowManager {
       discovered,
       registered,
       createdShadows,
-      roots: Array.from(candidateRoots),
+      roots: candidateRoots,
+      prioritizedProjectRoots: projectRoots,
+      selectedSkills: selectedSourceBySkill.size,
     });
   }
 

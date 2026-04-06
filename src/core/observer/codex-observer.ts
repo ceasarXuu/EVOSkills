@@ -35,6 +35,7 @@ export class CodexObserver extends BaseObserver {
   private currentSessionId: string | null = null;
   private turnCounter: number = 0;
   private processedFiles: Set<string> = new Set();
+  private processedLineCount: Map<string, number> = new Map();
 
   constructor(sessionsDir?: string) {
     super('codex');
@@ -77,10 +78,11 @@ export class CodexObserver extends BaseObserver {
     const watchPattern = join(this.sessionsDir, '**', '*.jsonl');
     this.watcher = watch(watchPattern, {
       persistent: true,
-      ignoreInitial: false,
+      // 紧急止血：避免启动时扫描全部历史会话导致 CPU 飙升
+      ignoreInitial: true,
       awaitWriteFinish: {
         stabilityThreshold: 500, // 文件写入完成需要一定时间
-        pollInterval: 100,
+        pollInterval: 300,
       },
     });
 
@@ -106,6 +108,7 @@ export class CodexObserver extends BaseObserver {
     }
 
     this.processedFiles.clear();
+    this.processedLineCount.clear();
     logger.info('Codex observer stopped');
   }
 
@@ -159,8 +162,11 @@ export class CodexObserver extends BaseObserver {
     try {
       const content = readFileSync(path, 'utf-8');
       const lines = content.split('\n').filter((line) => line.trim());
+      const prevProcessed = this.processedLineCount.get(path) ?? 0;
+      const startIndex = lines.length < prevProcessed ? 0 : prevProcessed;
+      const newLines = lines.slice(startIndex);
 
-      for (const line of lines) {
+      for (const line of newLines) {
         try {
           const event = JSON.parse(line) as CodexRawEvent;
           const preprocessed = this.preprocessEvent(sessionId, event);
@@ -177,7 +183,12 @@ export class CodexObserver extends BaseObserver {
         this.emitPreprocessedTraces(sessionId, traces);
       }
 
-      logger.debug(`Processed ${traces.length} traces from session ${sessionId}`);
+      this.processedLineCount.set(path, lines.length);
+
+      logger.debug(`Processed ${traces.length} incremental traces from session ${sessionId}`, {
+        totalLines: lines.length,
+        newLines: newLines.length,
+      });
     } catch (error) {
       logger.warn(`Failed to read session file: ${path}`, { error });
     }
@@ -418,11 +429,16 @@ export class CodexObserver extends BaseObserver {
       this.emitTrace(standardTrace);
     }
 
-    logger.info(`Session ${sessionId} trace summary`, {
+    const summary = {
       totalTraces: traces.length,
       typeBreakdown: Object.fromEntries(typeCount),
       detectedSkills: Array.from(skillRefs),
-    });
+    };
+    if (skillRefs.size > 0) {
+      logger.info(`Session ${sessionId} trace summary`, summary);
+    } else {
+      logger.debug(`Session ${sessionId} trace summary`, summary);
+    }
   }
 
   /**

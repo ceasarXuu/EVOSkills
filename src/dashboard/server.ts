@@ -30,6 +30,9 @@ import {
 import { getDashboardHtml } from './ui.js';
 import type { Language } from './i18n.js';
 import { createChildLogger } from '../utils/logger.js';
+import { createShadowRegistry } from '../core/shadow-registry/index.js';
+import { SkillVersionManager } from '../core/skill-version/index.js';
+import type { RuntimeType } from '../types/index.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -351,6 +354,81 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
             content,
             versions: skill?.versionsAvailable ?? [],
             status: skill?.status,
+          });
+          return;
+        }
+
+        // PUT /api/projects/:id/skills/:skillId
+        // Body: { content: string, runtime?: RuntimeType, reason?: string }
+        if (skillMatch && method === 'PUT') {
+          const skillId = decodeURIComponent(skillMatch[1]);
+          const body = (await parseBody(req)) as {
+            content?: unknown;
+            runtime?: unknown;
+            reason?: unknown;
+          };
+          if (typeof body.content !== 'string') {
+            json(res, { ok: false, error: 'content must be a string' }, 400);
+            return;
+          }
+
+          const runtimeFromBody = body.runtime;
+          const runtimeParam = url.searchParams.get('runtime');
+          const runtimeCandidate =
+            typeof runtimeFromBody === 'string' && runtimeFromBody.length > 0
+              ? runtimeFromBody
+              : runtimeParam;
+          const runtime: RuntimeType =
+            runtimeCandidate === 'claude' ||
+            runtimeCandidate === 'opencode' ||
+            runtimeCandidate === 'codex'
+              ? runtimeCandidate
+              : 'codex';
+
+          const oldContent = readSkillContent(projectPath, skillId, runtime);
+          if (oldContent === null) {
+            notFound(res);
+            return;
+          }
+
+          const newContent = body.content;
+          if (newContent === oldContent) {
+            json(res, { ok: true, unchanged: true });
+            return;
+          }
+
+          const shadowRegistry = createShadowRegistry(projectPath);
+          shadowRegistry.init();
+          const updated = shadowRegistry.updateContent(skillId, newContent, runtime);
+          if (!updated) {
+            notFound(res);
+            return;
+          }
+
+          const versionManager = new SkillVersionManager({
+            projectPath,
+            skillId,
+            runtime,
+          });
+          const reason =
+            typeof body.reason === 'string' && body.reason.trim().length > 0
+              ? body.reason.trim()
+              : 'Manual edit from dashboard';
+          const created = versionManager.createVersion(newContent, reason, []);
+
+          logger.info('Dashboard saved skill edit and created version', {
+            projectPath,
+            skillId,
+            runtime,
+            version: created.version,
+          });
+
+          json(res, {
+            ok: true,
+            skillId,
+            runtime,
+            version: created.version,
+            metadata: created.metadata,
           });
           return;
         }

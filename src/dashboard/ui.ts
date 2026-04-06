@@ -250,6 +250,22 @@ export function getDashboardHtml(_port: number, lang: Language = 'en'): string {
     font-family: var(--font); font-size: 12px; line-height: 1.6; color: var(--text);
     white-space: pre-wrap; word-break: break-word;
   }
+  .modal-editor {
+    width: 100%; min-height: 440px;
+    font-family: var(--font); font-size: 12px; line-height: 1.6;
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--bg0); color: var(--text); padding: 10px;
+    resize: vertical; outline: none;
+  }
+  .modal-editor:focus { border-color: var(--blue); }
+  .modal-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+  .modal-save-hint { font-size: 10px; color: var(--muted); }
+  .btn-primary {
+    font-family: var(--font); font-size: 11px; padding: 5px 12px; border-radius: 4px;
+    border: 1px solid var(--blue); background: var(--blue); color: #fff;
+    cursor: pointer; transition: opacity .1s;
+  }
+  .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
   .modal-history { padding: 12px; overflow-y: auto; }
   .modal-history h4 { font-size: 10px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; letter-spacing: .06em; }
   .version-item {
@@ -377,7 +393,11 @@ export function getDashboardHtml(_port: number, lang: Language = 'en'): string {
     </div>
     <div class="modal-body">
       <div class="modal-content">
-        <pre id="modalContent">${t.modalLoading}</pre>
+        <textarea id="modalContent" class="modal-editor" spellcheck="false">${t.modalLoading}</textarea>
+        <div class="modal-actions">
+          <span id="modalSaveHint" class="modal-save-hint"></span>
+          <button id="modalSaveBtn" class="btn-primary" onclick="saveCurrentSkill()">${lang === 'zh' ? '保存' : 'Save'}</button>
+        </div>
       </div>
       <div class="modal-history">
         <h4>${t.modalVersionHistory}</h4>
@@ -444,6 +464,7 @@ const state = {
   sortBy: 'name',
   sortOrder: 'asc',
   selectedMainTab: 'overview',
+  currentSkillRuntime: 'codex',
 };
 
 // ─── SSE Connection ──────────────────────────────────────────────────────────
@@ -917,9 +938,12 @@ function renderRecentTraces(traces) {
 // ─── Skill Modal ──────────────────────────────────────────────────────────────
 async function viewSkill(projectPath, skillId, runtime = 'codex') {
   state.currentSkillId = skillId;
+  state.currentSkillRuntime = runtime;
   const modal = document.getElementById('skillModal');
   modal.classList.add('visible');
   document.getElementById('modalSkillName').textContent = \`\${skillId} (\${runtime})\`;
+  document.getElementById('modalSaveHint').textContent = '';
+  document.getElementById('modalSaveBtn').disabled = false;
 
   // Look up skill in state
   const pd = state.projectData[projectPath];
@@ -930,7 +954,7 @@ async function viewSkill(projectPath, skillId, runtime = 'codex') {
   }
 
   // Load content
-  document.getElementById('modalContent').textContent = t('modalLoading');
+  document.getElementById('modalContent').value = t('modalLoading');
   try {
     const enc = encodeURIComponent(projectPath);
     const r = await fetch(\`/api/projects/\${enc}/skills/\${encodeURIComponent(skillId)}?runtime=\${encodeURIComponent(runtime)}\`);
@@ -938,7 +962,7 @@ async function viewSkill(projectPath, skillId, runtime = 'codex') {
       throw new Error(\`HTTP \${r.status}: \${r.statusText}\`);
     }
     const data = await r.json();
-    document.getElementById('modalContent').textContent = data.content ?? t('modalNoContent');
+    document.getElementById('modalContent').value = data.content ?? t('modalNoContent');
 
     // Render version history
     const versionList = document.getElementById('versionList');
@@ -948,23 +972,23 @@ async function viewSkill(projectPath, skillId, runtime = 'codex') {
     } else {
       versionList.innerHTML = versions.slice().reverse().map(v => {
         const isCurrent = v === Math.max(...versions);
-        return \`<div class="version-item \${isCurrent?'current':''}" onclick="loadVersion('\${enc}','\${encodeURIComponent(skillId)}',\${v})">
+        return \`<div class="version-item \${isCurrent?'current':''}" onclick="loadVersion('\${enc}','\${encodeURIComponent(skillId)}','\${encodeURIComponent(runtime)}',\${v})">
           <div class="version-num">v\${v} \${isCurrent ? '(' + t('modalCurrent') + ')':''}</div>
           <div id="vmeta_\${v}" class="version-meta">\${t('modalClickToLoad')}</div>
         </div>\`;
       }).join('');
       // Auto-load current version metadata
-      if (versions.length > 0) loadVersionMeta(enc, encodeURIComponent(skillId), Math.max(...versions));
+      if (versions.length > 0) loadVersionMeta(enc, encodeURIComponent(skillId), encodeURIComponent(runtime), Math.max(...versions));
     }
   } catch (e) {
     console.error('[dashboard] failed to load skill content', { projectPath, skillId, runtime, error: String(e) });
-    document.getElementById('modalContent').textContent = 'Error loading skill content.';
+    document.getElementById('modalContent').value = 'Error loading skill content.';
   }
 }
 
-async function loadVersionMeta(encProject, encSkill, version) {
+async function loadVersionMeta(encProject, encSkill, encRuntime, version) {
   try {
-    const r = await fetch(\`/api/projects/\${encProject}/skills/\${encSkill}/versions/\${version}\`);
+    const r = await fetch(\`/api/projects/\${encProject}/skills/\${encSkill}/versions/\${version}?runtime=\${encRuntime}\`);
     if (!r.ok) return;
     const data = await r.json();
     const el = document.getElementById(\`vmeta_\${version}\`);
@@ -978,17 +1002,68 @@ async function loadVersionMeta(encProject, encSkill, version) {
   }
 }
 
-async function loadVersion(encProject, encSkill, version) {
+async function loadVersion(encProject, encSkill, encRuntime, version) {
   try {
-    const r = await fetch(\`/api/projects/\${encProject}/skills/\${encSkill}/versions/\${version}\`);
+    const r = await fetch(\`/api/projects/\${encProject}/skills/\${encSkill}/versions/\${version}?runtime=\${encRuntime}\`);
     if (!r.ok) {
       throw new Error(\`HTTP \${r.status}: \${r.statusText}\`);
     }
     const data = await r.json();
-    document.getElementById('modalContent').textContent = data.content ?? t('modalNoContent');
-    await loadVersionMeta(encProject, encSkill, version);
+    document.getElementById('modalContent').value = data.content ?? t('modalNoContent');
+    await loadVersionMeta(encProject, encSkill, encRuntime, version);
   } catch (e) {
     console.error('[dashboard] failed to load version content', { encProject, encSkill, version, error: String(e) });
+  }
+}
+
+async function saveCurrentSkill() {
+  if (!state.selectedProjectId || !state.currentSkillId) return;
+
+  const saveBtn = document.getElementById('modalSaveBtn');
+  const hintEl = document.getElementById('modalSaveHint');
+  const contentEl = document.getElementById('modalContent');
+  const content = contentEl?.value ?? '';
+  const runtime = state.currentSkillRuntime || 'codex';
+
+  saveBtn.disabled = true;
+  hintEl.textContent = currentLang === 'zh' ? '保存中...' : 'Saving...';
+
+  try {
+    const encProject = encodeURIComponent(state.selectedProjectId);
+    const encSkill = encodeURIComponent(state.currentSkillId);
+    const r = await fetch(\`/api/projects/\${encProject}/skills/\${encSkill}?runtime=\${encodeURIComponent(runtime)}\`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content,
+        runtime,
+        reason: 'Manual edit from dashboard',
+      }),
+    });
+    if (!r.ok) {
+      throw new Error(\`HTTP \${r.status}: \${r.statusText}\`);
+    }
+    const data = await r.json();
+    hintEl.textContent = data.unchanged
+      ? (currentLang === 'zh' ? '内容未变化' : 'No changes detected')
+      : (currentLang === 'zh' ? \`保存成功，已创建 v\${data.version}\` : \`Saved. Created v\${data.version}\`);
+
+    const sr = await fetch(\`/api/projects/\${encProject}/snapshot\`);
+    if (sr.ok) {
+      state.projectData[state.selectedProjectId] = await sr.json();
+      if (state.selectedMainTab === 'skills') updateSkillsList();
+    }
+    await viewSkill(state.selectedProjectId, state.currentSkillId, runtime);
+  } catch (e) {
+    console.error('[dashboard] failed to save skill content', {
+      projectPath: state.selectedProjectId,
+      skillId: state.currentSkillId,
+      runtime,
+      error: String(e),
+    });
+    hintEl.textContent = currentLang === 'zh' ? '保存失败' : 'Save failed';
+  } finally {
+    saveBtn.disabled = false;
   }
 }
 

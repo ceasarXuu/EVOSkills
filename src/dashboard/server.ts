@@ -29,6 +29,7 @@ import {
 } from './data-reader.js';
 import { getDashboardHtml } from './ui.js';
 import type { Language } from './i18n.js';
+import { createChildLogger } from '../utils/logger.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,8 @@ interface SseClient {
   res: ServerResponse;
   id: string;
 }
+
+const logger = createChildLogger('dashboard');
 
 // ─── Server ───────────────────────────────────────────────────────────────────
 
@@ -86,6 +89,33 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
       });
       req.on('error', reject);
     });
+  }
+
+  function normalizeLanguage(lang?: string | null): Language {
+    return lang === 'zh' ? 'zh' : 'en';
+  }
+
+  function detectLangFromAcceptLanguage(acceptLanguageHeader?: string): Language {
+    if (!acceptLanguageHeader) return 'en';
+
+    const candidates = acceptLanguageHeader
+      .split(',')
+      .map((part) => {
+        const [tagPart, qPart] = part.trim().split(';');
+        const qMatch = qPart?.match(/q=([0-9.]+)/i);
+        const q = qMatch ? Number(qMatch[1]) : 1;
+        const tag = (tagPart ?? '').toLowerCase();
+        return { tag, q: Number.isFinite(q) ? q : 1 };
+      })
+      .filter((entry) => entry.tag.length > 0)
+      .sort((a, b) => b.q - a.q);
+
+    for (const { tag } of candidates) {
+      if (tag === 'zh' || tag.startsWith('zh-')) return 'zh';
+      if (tag === 'en' || tag.startsWith('en-')) return 'en';
+    }
+
+    return 'en';
   }
 
   function getProjectsWithStatus(): ProjectWithStatus[] {
@@ -160,6 +190,12 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
     try {
       // ── Dashboard HTML ──
       if (path === '/' && method === 'GET') {
+        const detectedLang = detectLangFromAcceptLanguage(req.headers['accept-language']);
+        currentLang = normalizeLanguage(detectedLang);
+        logger.debug('Resolved dashboard language from request', {
+          acceptLanguage: req.headers['accept-language'],
+          resolvedLang: currentLang,
+        });
         const html = getDashboardHtml(port, currentLang);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(html);
@@ -175,7 +211,7 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
         try {
           const body = (await parseBody(req)) as { lang?: string };
           if (body.lang === 'en' || body.lang === 'zh') {
-            currentLang = body.lang as Language;
+            currentLang = normalizeLanguage(body.lang);
             json(res, { ok: true, lang: currentLang });
           } else {
             json(res, { ok: false, error: 'Invalid language. Use "en" or "zh"' }, 400);

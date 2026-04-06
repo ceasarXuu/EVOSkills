@@ -401,11 +401,24 @@ function t(key) {
   return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.en && I18N.en[key]) || key;
 }
 
+function detectBrowserLang() {
+  const candidates = Array.isArray(navigator.languages) && navigator.languages.length > 0
+    ? navigator.languages
+    : [navigator.language];
+  for (const raw of candidates) {
+    const tag = String(raw || '').toLowerCase();
+    if (tag === 'zh' || tag.startsWith('zh-')) return 'zh';
+    if (tag === 'en' || tag.startsWith('en-')) return 'en';
+  }
+  return 'en';
+}
+
 function switchLang(lang) {
-  currentLang = lang;
+  currentLang = lang === 'zh' ? 'zh' : 'en';
+  document.documentElement.lang = currentLang;
   // Update active button
   document.querySelectorAll('.lang-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.textContent.trim() === (lang === 'en' ? 'EN' : '中文'));
+    btn.classList.toggle('active', btn.textContent.trim() === (currentLang === 'en' ? 'EN' : '中文'));
   });
   // Update static text
   document.getElementById('appVersion').textContent = t('headerVersion');
@@ -490,6 +503,9 @@ function setHeaderStatus(status) {
 
 // ─── Initial Load ────────────────────────────────────────────────────────────
 async function init() {
+  const browserLang = detectBrowserLang();
+  if (browserLang !== currentLang) switchLang(browserLang);
+
   try {
     const r = await fetch('/api/projects');
     const data = await r.json();

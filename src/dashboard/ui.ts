@@ -245,20 +245,23 @@ export function getDashboardHtml(_port: number, lang: Language = 'en'): string {
   }
   .modal-close:hover { color: var(--red); border-color: var(--red); }
   .modal-body { display: grid; grid-template-columns: 1fr 240px; flex: 1; overflow: hidden; }
-  .modal-content { padding: 12px; overflow-y: auto; border-right: 1px solid var(--border); }
+  .modal-content {
+    padding: 12px; border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 10px; min-height: 0;
+  }
   .modal-content pre {
     font-family: var(--font); font-size: 12px; line-height: 1.6; color: var(--text);
     white-space: pre-wrap; word-break: break-word;
   }
   .modal-editor {
-    width: 100%; min-height: 440px;
+    width: 100%; flex: 1; min-height: 0;
     font-family: var(--font); font-size: 12px; line-height: 1.6;
     border: 1px solid var(--border); border-radius: 6px;
     background: var(--bg0); color: var(--text); padding: 10px;
-    resize: vertical; outline: none;
+    resize: none; outline: none;
   }
   .modal-editor:focus { border-color: var(--blue); }
-  .modal-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+  .modal-actions { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
   .modal-save-hint { font-size: 10px; color: var(--muted); }
   .btn-primary {
     font-family: var(--font); font-size: 11px; padding: 5px 12px; border-radius: 4px;

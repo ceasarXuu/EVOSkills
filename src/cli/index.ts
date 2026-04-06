@@ -8,12 +8,18 @@ import { createLogCommand } from './commands/log.js';
 import { createDiffCommand } from './commands/diff.js';
 import { createFreezeCommand, createUnfreezeCommand } from './commands/freeze.js';
 import { createSyncCommand } from './commands/sync.js';
-import { createDaemonCommand, createStartCommand, createStopCommand } from './commands/daemon.js';
+import {
+  createDaemonCommand,
+  createStartCommand,
+  createStopCommand,
+  createRestartCommand,
+} from './commands/daemon.js';
 import { createLogsCommand } from './commands/logs.js';
 import { createPreviewCommand } from './commands/preview.js';
 import { createCompletionCommand } from './commands/completion.js';
 import { createConfigCommand } from './commands/config.js';
 import { createTopLevelStatusCommand } from './commands/top-level-status.js';
+import { createDashboardCommand } from './commands/dashboard.js';
 import { initCommand } from '../commands/init.js';
 import { logger } from '../utils/logger.js';
 
@@ -58,6 +64,9 @@ program.addCommand(createStartCommand());
 // Stop 命令 (简化版 daemon stop)
 program.addCommand(createStopCommand());
 
+// Restart 命令 (简化版 daemon restart)
+program.addCommand(createRestartCommand());
+
 // Status 命令 (整体状态概览)
 program.addCommand(createTopLevelStatusCommand());
 
@@ -72,6 +81,9 @@ program.addCommand(createCompletionCommand());
 
 // Config 命令
 program.addCommand(createConfigCommand());
+
+// Dashboard 命令
+program.addCommand(createDashboardCommand());
 
 // 解析命令行参数
 program.parse();

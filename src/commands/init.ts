@@ -6,6 +6,7 @@
 import { mkdir, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { logger } from '../utils/logger.js';
+import { registerProject } from '../dashboard/projects-registry.js';
 
 export interface InitOptions {
   force?: boolean;
@@ -50,6 +51,14 @@ export async function initCommand(
 
   logger.info('\n✅ Ornn Skills initialized successfully!');
   logger.info(`Project path: ${projectPath}`);
+
+  // Register project in the global dashboard registry
+  try {
+    registerProject(projectPath);
+  } catch {
+    // Non-fatal: dashboard registry is best-effort
+  }
+
   logger.info('\nNext steps:');
   logger.info('  1. Run "ornn config" to configure LLM provider');
   logger.info('  2. Run "ornn daemon start" to start the background daemon');

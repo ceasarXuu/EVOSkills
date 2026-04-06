@@ -4,6 +4,7 @@ import { join, dirname } from 'node:path';
 import { createChildLogger } from '../utils/logger.js';
 import { createShadowManager } from '../core/shadow-manager/index.js';
 import { createCodexObserver } from '../core/observer/codex-observer.js';
+import { touchProject } from '../dashboard/projects-registry.js';
 
 const logger = createChildLogger('daemon');
 
@@ -111,6 +112,13 @@ export class Daemon {
       // 6. 设置状态为运行中
       this.isRunning = true;
       this.startedAt = new Date().toISOString();
+
+      // Update global project registry so dashboard can discover this project
+      try {
+        touchProject(this.projectRoot);
+      } catch {
+        // Non-fatal
+      }
 
       // 7. 注册优雅退出处理
       this.registerShutdownHooks();

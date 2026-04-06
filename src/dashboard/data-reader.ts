@@ -157,6 +157,8 @@ export function readSkills(projectRoot: string): SkillInfo[] {
     const entries = Array.isArray(parsed) ? parsed : Object.values(parsed);
     return entries.map((entry) => ({
       ...entry,
+      // Dashboard 列表与 SSE 不需要完整正文，避免大 payload 导致前端卡顿
+      content: '',
       runtime: entry.runtime ?? 'codex',
       versionsAvailable: listVersionsForSkill(projectRoot, entry.skillId),
     }));

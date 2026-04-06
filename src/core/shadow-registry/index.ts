@@ -167,13 +167,26 @@ export class ShadowRegistry {
 
     try {
       const data = readFileSync(this.indexPath, 'utf-8');
-      const entries = JSON.parse(data) as ShadowEntry[];
-      this.index = new Map(
-        entries.map((e) => [
+      const entries = JSON.parse(data) as Array<Partial<ShadowEntry>>;
+      const mappedEntries: Array<[string, ShadowEntry]> = [];
+      for (const e of entries) {
+        if (!e.skillId) continue;
+        mappedEntries.push([
           this.buildScopedKey(e.skillId, this.normalizeRuntime(e.runtime)),
-          { ...e, runtime: this.normalizeRuntime(e.runtime) },
-        ])
-      );
+          {
+            skillId: e.skillId,
+            runtime: this.normalizeRuntime(e.runtime),
+            version: e.version ?? '',
+            content: e.content ?? '',
+            status: e.status ?? 'pending',
+            createdAt: e.createdAt ?? new Date().toISOString(),
+            updatedAt: e.updatedAt ?? new Date().toISOString(),
+            traceCount: e.traceCount ?? 0,
+            analysisResult: e.analysisResult,
+          },
+        ]);
+      }
+      this.index = new Map(mappedEntries);
       logger.debug(`Loaded ${entries.length} shadow entries from index`);
     } catch (error) {
       logger.error('Failed to load shadow index:', error);
@@ -186,7 +199,8 @@ export class ShadowRegistry {
    */
   private saveIndex(): void {
     try {
-      const entries = Array.from(this.index.values());
+      // 索引只保存元数据，正文始终从磁盘 shadow 文件按需读取
+      const entries = Array.from(this.index.values()).map(({ content: _content, ...meta }) => meta);
       writeFileSync(this.indexPath, JSON.stringify(entries, null, 2), 'utf-8');
       logger.debug(`Saved ${entries.length} shadow entries to index`);
     } catch (error) {

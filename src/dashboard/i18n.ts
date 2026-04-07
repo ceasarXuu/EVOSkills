@@ -183,9 +183,9 @@ const en: I18nStrings = {
   configRuntimeSyncHelp:
     'When enabled, latest skill content is synced back to project skills so all runtimes share the same optimized version.',
   configProvidersHelp:
-    'Provider list in JSON array format. Each item must include: provider, modelName, apiKeyEnvVar.',
+    'Configure providers with dropdown + inputs. Pick provider, choose or type model, and set API key env var.',
   configProvidersExample:
-    'Example: [{"provider":"openai","modelName":"openai/gpt-4o-mini","apiKeyEnvVar":"OPENAI_API_KEY"}]',
+    '',
   configCheckConnectivity: 'Check Connectivity',
   configConnectivityChecking: 'Checking...',
   configConnectivityTitle: 'Provider Connectivity',
@@ -319,9 +319,9 @@ const zh: I18nStrings = {
   configRuntimeSyncHelp:
     '开启后，会把最新技能内容同步回项目 skills，保证不同 runtime 使用同一份优化结果。',
   configProvidersHelp:
-    'provider 列表，JSON 数组格式。每一项必须包含：provider、modelName、apiKeyEnvVar。',
+    '通过下拉和输入框配置 provider：选择 provider，选择或输入 model，并填写 API key 环境变量名。',
   configProvidersExample:
-    '示例：[{"provider":"openai","modelName":"openai/gpt-4o-mini","apiKeyEnvVar":"OPENAI_API_KEY"}]',
+    '',
   configCheckConnectivity: '检查连通性',
   configConnectivityChecking: '检查中...',
   configConnectivityTitle: 'Provider 连通性',

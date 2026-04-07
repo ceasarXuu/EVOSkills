@@ -35,6 +35,7 @@ import { SkillVersionManager } from '../core/skill-version/index.js';
 import type { RuntimeType } from '../types/index.js';
 import { createSkillDeployer } from '../core/skill-deployer/index.js';
 import { readDashboardConfig, writeDashboardConfig, checkProvidersConnectivity } from '../config/manager.js';
+import { getAllProviders } from '../config/providers.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -321,6 +322,19 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
       // ── API: List projects ──
       if (path === '/api/projects' && method === 'GET') {
         json(res, { projects: getProjectsWithStatus() });
+        return;
+      }
+
+      // ── API: Provider catalog ──
+      if (path === '/api/providers/catalog' && method === 'GET') {
+        const providers = getAllProviders().map((item) => ({
+          id: item.id,
+          name: item.name,
+          models: item.models,
+          defaultModel: item.defaultModel,
+          apiKeyEnvVar: item.apiKeyEnvVar || `${item.id.toUpperCase()}_API_KEY`,
+        }));
+        json(res, { providers });
         return;
       }
 

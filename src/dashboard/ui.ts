@@ -406,6 +406,32 @@ export function getDashboardHtml(_port: number, lang: Language = 'en'): string {
   .config-textarea { min-height: 220px; resize: vertical; }
   .config-check { display: flex; align-items: center; gap: 8px; font-size: 11px; }
   .config-actions { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .providers-editor { display: flex; flex-direction: column; gap: 8px; }
+  .provider-row {
+    display: grid;
+    grid-template-columns: minmax(160px,1fr) minmax(220px,1.2fr) minmax(220px,2fr) minmax(200px,1.5fr) auto;
+    gap: 8px;
+    align-items: center;
+    background: var(--bg0);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+  }
+  @media (max-width: 1100px) {
+    .provider-row {
+      grid-template-columns: 1fr;
+    }
+  }
+  .btn-danger {
+    font-family: var(--font); font-size: 10px; padding: 4px 8px; border-radius: 4px;
+    border: 1px solid rgba(248,81,73,.6); background: rgba(248,81,73,.1); color: var(--red);
+    cursor: pointer;
+  }
+  .btn-secondary {
+    font-family: var(--font); font-size: 10px; padding: 4px 8px; border-radius: 4px;
+    border: 1px solid var(--border); background: var(--bg2); color: var(--text);
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -540,6 +566,7 @@ const state = {
   businessEventsByProject: {},
   seenTraceIdsByProject: {},
   providerHealthByProject: {},
+  providerCatalog: [],
 };
 
 // ─── SSE Connection ──────────────────────────────────────────────────────────
@@ -582,9 +609,16 @@ function handleUpdate(data) {
   if (state.selectedProjectId && shouldRerenderMain) {
     const activeEl = document.activeElement;
     const isSearchFocused = activeEl && activeEl.id === 'skillSearchInput';
+    const isConfigEditing =
+      state.selectedMainTab === 'config' &&
+      activeEl &&
+      (String(activeEl.id || '').startsWith('cfg_') ||
+       String(activeEl.className || '').includes('config-'));
     if (isSearchFocused) {
       // 用户正在输入时只刷新技能列表，避免整面板重绘导致焦点抖动
       updateSkillsList();
+    } else if (isConfigEditing) {
+      // 配置编辑中，避免 SSE 重绘覆盖输入
     } else {
       renderMainPanel(state.selectedProjectId);
     }
@@ -623,6 +657,17 @@ async function init() {
     const data = await fetchJsonWithTimeout('/api/projects', 6000);
     state.projects = data.projects || [];
     renderSidebar();
+
+    fetchJsonWithTimeout('/api/providers/catalog', 6000)
+      .then((catalogData) => {
+        state.providerCatalog = Array.isArray(catalogData.providers) ? catalogData.providers : [];
+        if (state.selectedMainTab === 'config' && state.selectedProjectId) {
+          renderMainPanel(state.selectedProjectId);
+        }
+      })
+      .catch((e) => {
+        console.warn('[dashboard] provider catalog fetch skipped', { error: String(e) });
+      });
 
     // 日志异步加载，不阻塞主页面渲染，避免 dashboard 卡在 loading
     fetchJsonWithTimeout('/api/logs', 5000)
@@ -1185,7 +1230,10 @@ function renderConfigPanel(projectPath) {
     return \`<div class="empty-state">\${t('configLoading')}</div>\`;
   }
 
-  const providersJson = escHtml(JSON.stringify(config.providers || [], null, 2));
+  const providers = Array.isArray(config.providers) ? config.providers : [];
+  const rowsHtml = providers.length > 0
+    ? providers.map((row, index) => renderProviderRow(row, index)).join('')
+    : \`<div class="config-help">\${currentLang === 'zh' ? '暂无 provider，请点击下方按钮添加。' : 'No provider yet. Use the button below to add one.'}</div>\`;
 
   return \`
     <div class="config-intro">\${t('configIntro')}</div>
@@ -1204,10 +1252,12 @@ function renderConfigPanel(projectPath) {
       </div>
     </div>
     <div class="config-field" style="margin-top:10px">
-      <label class="config-label">providers (JSON array)</label>
-      <textarea id="cfg_providers" class="config-textarea">\${providersJson}</textarea>
+      <label class="config-label">providers</label>
+      <div class="providers-editor" id="cfg_providers_rows">\${rowsHtml}</div>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="btn-secondary" type="button" onclick="addProviderRow()">\${currentLang === 'zh' ? '新增 Provider' : 'Add Provider'}</button>
+      </div>
       <div class="config-help">\${t('configProvidersHelp')}</div>
-      <div class="config-example">\${t('configProvidersExample')}</div>
       <div class="config-connectivity" id="cfg_connectivity">
         <div class="config-connectivity-title">\${t('configConnectivityTitle')}</div>
       </div>
@@ -1220,6 +1270,137 @@ function renderConfigPanel(projectPath) {
       </div>
     </div>
   \`;
+}
+
+function renderProviderRow(row, index) {
+  const normalizedProvider = String(row.provider || '');
+  const knownProvider = isKnownProvider(normalizedProvider);
+  const providerOptions = getProviderOptionsHtml(knownProvider ? normalizedProvider : '__custom__');
+  const modelDatalistId = 'cfg_models_' + index;
+  const models = getModelsByProvider(normalizedProvider);
+  const modelOptions = models.map((m) => '<option value="' + escHtml(m) + '"></option>').join('');
+  return \`
+    <div class="provider-row" data-row-index="\${index}">
+      <select class="config-select cfg_provider" onchange="handleProviderChange(this)">
+        \${providerOptions}
+      </select>
+      <input class="config-input cfg_provider_custom" value="\${knownProvider ? '' : escHtml(normalizedProvider)}" placeholder="\${currentLang === 'zh' ? '自定义 provider id（例如：xai）' : 'Custom provider id (e.g. xai)'}" style="\${knownProvider ? 'display:none;' : ''}" />
+      <div>
+        <input class="config-input cfg_model" list="\${modelDatalistId}" value="\${escHtml(row.modelName || '')}" placeholder="\${currentLang === 'zh' ? '输入或选择模型' : 'Select or input model'}" />
+        <datalist id="\${modelDatalistId}">\${modelOptions}</datalist>
+      </div>
+      <input class="config-input cfg_env" value="\${escHtml(row.apiKeyEnvVar || '')}" placeholder="OPENAI_API_KEY" />
+      <button class="btn-danger" type="button" onclick="removeProviderRow(this)">\${currentLang === 'zh' ? '删除' : 'Remove'}</button>
+    </div>
+  \`;
+}
+
+function getProviderOptionsHtml(selectedProvider) {
+  const catalog = Array.isArray(state.providerCatalog) ? state.providerCatalog : [];
+  if (catalog.length === 0) {
+    const only = selectedProvider || '';
+    return '<option value="__custom__">' + escHtml(currentLang === 'zh' ? '自定义' : 'Custom...') + '</option>';
+  }
+  return catalog
+    .map((item) => {
+      const selected = item.id === selectedProvider ? 'selected' : '';
+      return '<option value="' + escHtml(item.id) + '" ' + selected + '>' + escHtml(item.name + ' (' + item.id + ')') + '</option>';
+    })
+    .join('') + '<option value="__custom__" ' + (selectedProvider === '__custom__' ? 'selected' : '') + '>' + escHtml(currentLang === 'zh' ? '自定义' : 'Custom...') + '</option>';
+}
+
+function isKnownProvider(providerId) {
+  if (!providerId) return false;
+  const catalog = Array.isArray(state.providerCatalog) ? state.providerCatalog : [];
+  return catalog.some((item) => item.id === providerId);
+}
+
+function getModelsByProvider(providerId) {
+  const catalog = Array.isArray(state.providerCatalog) ? state.providerCatalog : [];
+  const item = catalog.find((p) => p.id === providerId);
+  return Array.isArray(item?.models) ? item.models : [];
+}
+
+function guessApiKeyEnvVar(providerId) {
+  const catalog = Array.isArray(state.providerCatalog) ? state.providerCatalog : [];
+  const item = catalog.find((p) => p.id === providerId);
+  if (item && item.apiKeyEnvVar) return item.apiKeyEnvVar;
+  const normalized = String(providerId || '').toUpperCase().replace(/[^A-Z0-9]/g, '_');
+  return normalized ? (normalized + '_API_KEY') : '';
+}
+
+function collectProvidersFromConfigEditor() {
+  const rows = Array.from(document.querySelectorAll('#cfg_providers_rows .provider-row'));
+  const providers = rows.map((row) => {
+    const providerSelect = row.querySelector('.cfg_provider')?.value?.trim() || '';
+    const providerCustom = row.querySelector('.cfg_provider_custom')?.value?.trim() || '';
+    const provider = providerSelect === '__custom__' ? providerCustom : providerSelect;
+    const modelName = row.querySelector('.cfg_model')?.value?.trim() || '';
+    const apiKeyEnvVar = row.querySelector('.cfg_env')?.value?.trim() || '';
+    return { provider, modelName, apiKeyEnvVar };
+  }).filter((item) => item.provider || item.modelName || item.apiKeyEnvVar);
+
+  for (let i = 0; i < providers.length; i++) {
+    const item = providers[i];
+    if (!item.provider || !item.modelName || !item.apiKeyEnvVar) {
+      throw new Error(\`providers[\${i}] must include non-empty provider/modelName/apiKeyEnvVar\`);
+    }
+  }
+  return providers;
+}
+
+function handleProviderChange(selectEl) {
+  const row = selectEl.closest('.provider-row');
+  if (!row) return;
+  const providerId = selectEl.value;
+  const customInput = row.querySelector('.cfg_provider_custom');
+  const envInput = row.querySelector('.cfg_env');
+  const modelInput = row.querySelector('.cfg_model');
+  if (customInput) {
+    customInput.style.display = providerId === '__custom__' ? '' : 'none';
+  }
+  if (providerId === '__custom__') {
+    return;
+  }
+  if (envInput && !envInput.value.trim()) {
+    envInput.value = guessApiKeyEnvVar(providerId);
+  }
+  const models = getModelsByProvider(providerId);
+  if (modelInput && models.length > 0 && !modelInput.value.trim()) {
+    modelInput.value = models[0];
+  }
+}
+
+function addProviderRow() {
+  if (!state.selectedProjectId) return;
+  const config = state.configByProject[state.selectedProjectId] || {};
+  const rows = document.getElementById('cfg_providers_rows')
+    ? collectProvidersFromConfigEditor()
+    : (Array.isArray(config.providers) ? config.providers.slice() : []);
+  const firstCatalog = Array.isArray(state.providerCatalog) && state.providerCatalog.length > 0 ? state.providerCatalog[0] : null;
+  rows.push({
+    provider: firstCatalog?.id || '',
+    modelName: firstCatalog?.defaultModel || '',
+    apiKeyEnvVar: firstCatalog?.apiKeyEnvVar || guessApiKeyEnvVar(firstCatalog?.id || ''),
+  });
+  state.configByProject[state.selectedProjectId] = { ...config, providers: rows };
+  renderMainPanel(state.selectedProjectId);
+}
+
+function removeProviderRow(btn) {
+  if (!state.selectedProjectId) return;
+  const row = btn.closest('.provider-row');
+  if (!row) return;
+  const index = Number(row.getAttribute('data-row-index'));
+  const config = state.configByProject[state.selectedProjectId] || {};
+  const rows = document.getElementById('cfg_providers_rows')
+    ? collectProvidersFromConfigEditor()
+    : (Array.isArray(config.providers) ? config.providers.slice() : []);
+  if (Number.isInteger(index) && index >= 0 && index < rows.length) {
+    rows.splice(index, 1);
+  }
+  state.configByProject[state.selectedProjectId] = { ...config, providers: rows };
+  renderMainPanel(state.selectedProjectId);
 }
 
 async function ensureProjectConfig(projectPath) {
@@ -1240,23 +1421,7 @@ async function saveProjectConfig() {
   if (!state.selectedProjectId) return;
   const hintEl = document.getElementById('cfg_save_hint');
   try {
-    const providers = JSON.parse(document.getElementById('cfg_providers').value || '[]');
-    if (!Array.isArray(providers)) {
-      throw new Error('providers must be a JSON array');
-    }
-    for (let i = 0; i < providers.length; i++) {
-      const item = providers[i] || {};
-      if (
-        typeof item.provider !== 'string' ||
-        typeof item.modelName !== 'string' ||
-        typeof item.apiKeyEnvVar !== 'string' ||
-        item.provider.trim() === '' ||
-        item.modelName.trim() === '' ||
-        item.apiKeyEnvVar.trim() === ''
-      ) {
-        throw new Error(\`providers[\${i}] must include non-empty provider/modelName/apiKeyEnvVar\`);
-      }
-    }
+    const providers = collectProvidersFromConfigEditor();
     const payload = {
       config: {
         autoOptimize: document.getElementById('cfg_auto_optimize').checked,
@@ -1310,7 +1475,7 @@ async function checkProvidersConnectivity() {
     btn.textContent = t('configConnectivityChecking');
   }
   try {
-    const providers = JSON.parse(document.getElementById('cfg_providers').value || '[]');
+    const providers = collectProvidersFromConfigEditor();
     const enc = encodeURIComponent(state.selectedProjectId);
     const data = await fetchJsonWithTimeout('/api/projects/' + enc + '/config/providers/connectivity', 15000, {
       method: 'POST',

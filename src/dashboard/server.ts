@@ -34,7 +34,7 @@ import { createShadowRegistry } from '../core/shadow-registry/index.js';
 import { SkillVersionManager } from '../core/skill-version/index.js';
 import type { RuntimeType } from '../types/index.js';
 import { createSkillDeployer } from '../core/skill-deployer/index.js';
-import { readDashboardConfig, writeDashboardConfig } from '../config/manager.js';
+import { readDashboardConfig, writeDashboardConfig, checkProvidersConnectivity } from '../config/manager.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -521,6 +521,20 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
             providers: body.config.providers ?? [],
           });
           json(res, { ok: true });
+          return;
+        }
+
+        // POST /api/projects/:id/config/providers/connectivity
+        if (subPath === '/config/providers/connectivity' && method === 'POST') {
+          const body = (await parseBody(req)) as {
+            providers?: Array<{
+              provider: string;
+              modelName: string;
+              apiKeyEnvVar: string;
+            }>;
+          };
+          const results = await checkProvidersConnectivity(projectPath, body.providers);
+          json(res, { results });
           return;
         }
       }

@@ -8,6 +8,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { existsSync, mkdirSync } from "node:fs";
 import { parse } from "smol-toml";
 import { logger } from "../utils/logger.js";
+import { createLiteLLMClient } from "../llm/litellm-client.js";
 
 export interface ProviderConfig {
   provider: string;
@@ -291,6 +292,14 @@ export interface DashboardConfig {
   providers: DashboardProviderConfig[];
 }
 
+export interface ProviderConnectivityResult {
+  provider: string;
+  modelName: string;
+  ok: boolean;
+  message: string;
+  durationMs: number;
+}
+
 export async function readDashboardConfig(projectPath: string): Promise<DashboardConfig> {
   const config = await readConfig(projectPath);
   const providers = await listConfiguredProviders(projectPath);
@@ -334,4 +343,88 @@ export async function writeDashboardConfig(
     }
   );
   await writeFile(join(configDir, "settings.toml"), content, "utf-8");
+}
+
+function parseEnvFile(content: string): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const idx = trimmed.indexOf("=");
+    if (idx <= 0) continue;
+    const key = trimmed.slice(0, idx).trim();
+    const val = trimmed.slice(idx + 1).trim().replace(/^['"]|['"]$/g, "");
+    if (key) env[key] = val;
+  }
+  return env;
+}
+
+async function readProjectEnv(projectPath: string): Promise<Record<string, string>> {
+  const envPath = join(projectPath, ".env.local");
+  if (!existsSync(envPath)) return {};
+  try {
+    const content = await readFile(envPath, "utf-8");
+    return parseEnvFile(content);
+  } catch {
+    return {};
+  }
+}
+
+export async function checkProvidersConnectivity(
+  projectPath: string,
+  providersInput?: DashboardProviderConfig[]
+): Promise<ProviderConnectivityResult[]> {
+  const envVars = await readProjectEnv(projectPath);
+  const providers = providersInput && providersInput.length > 0
+    ? providersInput
+    : (await readDashboardConfig(projectPath)).providers;
+
+  const results: ProviderConnectivityResult[] = [];
+  for (const providerConfig of providers) {
+    const start = Date.now();
+    const apiKey = envVars[providerConfig.apiKeyEnvVar] || process.env[providerConfig.apiKeyEnvVar] || "";
+    if (!apiKey) {
+      results.push({
+        provider: providerConfig.provider,
+        modelName: providerConfig.modelName,
+        ok: false,
+        message: `Missing API key env var: ${providerConfig.apiKeyEnvVar}`,
+        durationMs: Date.now() - start,
+      });
+      continue;
+    }
+
+    try {
+      const client = createLiteLLMClient({
+        provider: providerConfig.provider,
+        modelName: providerConfig.modelName,
+        apiKey,
+        maxTokens: 8,
+      });
+      await client.completion({
+        prompt: "ping",
+        maxTokens: 8,
+        temperature: 0,
+        timeout: 10000,
+      });
+      results.push({
+        provider: providerConfig.provider,
+        modelName: providerConfig.modelName,
+        ok: true,
+        message: "OK",
+        durationMs: Date.now() - start,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      results.push({
+        provider: providerConfig.provider,
+        modelName: providerConfig.modelName,
+        ok: false,
+        message,
+        durationMs: Date.now() - start,
+      });
+    }
+  }
+
+  return results;
 }

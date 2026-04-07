@@ -354,6 +354,15 @@ export function getDashboardHtml(_port: number, lang: Language = 'en'): string {
     padding: 8px; white-space: pre-wrap; word-break: break-all;
     font-family: var(--font); font-size: 10px; color: var(--muted);
   }
+  .config-connectivity {
+    margin-top: 10px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--bg0); padding: 8px; font-size: 11px;
+  }
+  .config-connectivity-title { color: var(--muted); margin-bottom: 6px; }
+  .config-connectivity-item { padding: 4px 0; border-top: 1px dashed rgba(240,246,252,.08); }
+  .config-connectivity-item:first-of-type { border-top: none; }
+  .conn-ok { color: var(--green); }
+  .conn-fail { color: var(--red); }
   .config-input, .config-select, .config-textarea {
     width: 100%; background: var(--bg0); border: 1px solid var(--border); border-radius: 6px;
     color: var(--text); font-family: var(--font); font-size: 11px; padding: 8px;
@@ -868,10 +877,16 @@ function renderConfigPanel(projectPath) {
       <textarea id="cfg_providers" class="config-textarea">\${providersJson}</textarea>
       <div class="config-help">\${t('configProvidersHelp')}</div>
       <div class="config-example">\${t('configProvidersExample')}</div>
+      <div class="config-connectivity" id="cfg_connectivity">
+        <div class="config-connectivity-title">\${t('configConnectivityTitle')}</div>
+      </div>
     </div>
     <div class="config-actions">
       <span id="cfg_save_hint" class="config-label"></span>
-      <button class="btn-primary" onclick="saveProjectConfig()">\${t('configSave')}</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-primary" id="cfg_check_btn" onclick="checkProvidersConnectivity()">\${t('configCheckConnectivity')}</button>
+        <button class="btn-primary" onclick="saveProjectConfig()">\${t('configSave')}</button>
+      </div>
     </div>
   \`;
 }
@@ -930,6 +945,53 @@ async function saveProjectConfig() {
   } catch (e) {
     console.error('[dashboard] failed to save config', { error: String(e) });
     hintEl.textContent = t('configSaveFailed');
+  }
+}
+
+function renderConnectivityResults(results) {
+  const el = document.getElementById('cfg_connectivity');
+  if (!el) return;
+  const title = '<div class="config-connectivity-title">' + t('configConnectivityTitle') + '</div>';
+  if (!Array.isArray(results) || results.length === 0) {
+    el.innerHTML = title + '<div class="config-help">No providers</div>';
+    return;
+  }
+  const rows = results.map((r) => {
+    const statusClass = r.ok ? 'conn-ok' : 'conn-fail';
+    const statusText = r.ok ? 'OK' : 'FAIL';
+    return '<div class="config-connectivity-item">' +
+      '<span class="' + statusClass + '">[' + statusText + ']</span> ' +
+      escHtml(r.provider + ' / ' + r.modelName) +
+      ' (' + String(r.durationMs || 0) + 'ms)' +
+      '<div class="config-help">' + escHtml(r.message || '') + '</div>' +
+      '</div>';
+  }).join('');
+  el.innerHTML = title + rows;
+}
+
+async function checkProvidersConnectivity() {
+  if (!state.selectedProjectId) return;
+  const btn = document.getElementById('cfg_check_btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = t('configConnectivityChecking');
+  }
+  try {
+    const providers = JSON.parse(document.getElementById('cfg_providers').value || '[]');
+    const enc = encodeURIComponent(state.selectedProjectId);
+    const data = await fetchJsonWithTimeout('/api/projects/' + enc + '/config/providers/connectivity', 15000, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providers }),
+    });
+    renderConnectivityResults(data.results || []);
+  } catch (e) {
+    renderConnectivityResults([{ ok: false, provider: 'n/a', modelName: 'n/a', durationMs: 0, message: String(e) }]);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = t('configCheckConnectivity');
+    }
   }
 }
 

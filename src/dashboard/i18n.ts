@@ -50,6 +50,9 @@ export interface I18nStrings {
   configRuntimeSyncHelp: string;
   configProvidersHelp: string;
   configProvidersExample: string;
+  configCheckConnectivity: string;
+  configConnectivityChecking: string;
+  configConnectivityTitle: string;
 
   // Stats
   statShadowSkills: string;
@@ -173,6 +176,9 @@ const en: I18nStrings = {
     'Provider list in JSON array format. Each item must include: provider, modelName, apiKeyEnvVar.',
   configProvidersExample:
     'Example: [{"provider":"openai","modelName":"openai/gpt-4o-mini","apiKeyEnvVar":"OPENAI_API_KEY"}]',
+  configCheckConnectivity: 'Check Connectivity',
+  configConnectivityChecking: 'Checking...',
+  configConnectivityTitle: 'Provider Connectivity',
 
   // Stats
   statShadowSkills: 'Shadow Skills',
@@ -296,6 +302,9 @@ const zh: I18nStrings = {
     'provider 列表，JSON 数组格式。每一项必须包含：provider、modelName、apiKeyEnvVar。',
   configProvidersExample:
     '示例：[{"provider":"openai","modelName":"openai/gpt-4o-mini","apiKeyEnvVar":"OPENAI_API_KEY"}]',
+  configCheckConnectivity: '检查连通性',
+  configConnectivityChecking: '检查中...',
+  configConnectivityTitle: 'Provider 连通性',
 
   // Stats
   statShadowSkills: 'Shadow 技能',

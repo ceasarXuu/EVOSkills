@@ -169,4 +169,41 @@ describe('Config File Operations', () => {
     expect(content).toContain('ORNN_DEEPSEEK_API_KEY=sk-key-1');
     expect(content).toContain('ORNN_OPENAI_API_KEY=sk-key-2');
   });
+
+  it('should check providers connectivity with litellm client path', async () => {
+    const { checkProvidersConnectivity } = await import('../../src/config/manager.js');
+    const envPath = join(testDir, '.env.local');
+    writeFileSync(envPath, 'OPENAI_API_KEY=sk-test-openai\n', 'utf-8');
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: 'pong', role: 'assistant' }, finish_reason: 'stop', index: 0 }],
+          model: 'gpt-4o-mini',
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )) as typeof fetch;
+
+    try {
+      const result = await checkProvidersConnectivity(testDir, [
+        { provider: 'openai', modelName: 'openai/gpt-4o-mini', apiKeyEnvVar: 'OPENAI_API_KEY' },
+      ]);
+      expect(result.length).toBe(1);
+      expect(result[0].ok).toBe(true);
+      expect(result[0].provider).toBe('openai');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('should return missing api key error when env var is absent', async () => {
+    const { checkProvidersConnectivity } = await import('../../src/config/manager.js');
+    const result = await checkProvidersConnectivity(testDir, [
+      { provider: 'openai', modelName: 'openai/gpt-4o-mini', apiKeyEnvVar: 'OPENAI_API_KEY' },
+    ]);
+    expect(result.length).toBe(1);
+    expect(result[0].ok).toBe(false);
+    expect(result[0].message).toContain('Missing API key env var');
+  });
 });

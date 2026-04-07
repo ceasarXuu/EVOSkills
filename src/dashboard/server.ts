@@ -48,6 +48,14 @@ interface SseClient {
   id: string;
 }
 
+interface ProviderHealthSummary {
+  level: 'ok' | 'warn';
+  code: 'ok' | 'provider_not_configured' | 'provider_connectivity_failed';
+  message: string;
+  checkedAt: string;
+  results: Awaited<ReturnType<typeof checkProvidersConnectivity>>;
+}
+
 const logger = createChildLogger('dashboard');
 
 // ─── Server ───────────────────────────────────────────────────────────────────
@@ -146,6 +154,47 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
       skills: readSkills(projectPath),
       traceStats: computeTraceStats(traces),
       recentTraces: traces,
+    };
+  }
+
+  async function getProviderHealthSummary(projectPath: string): Promise<ProviderHealthSummary> {
+    const checkedAt = new Date().toISOString();
+    const config = await readDashboardConfig(projectPath);
+    const providers = config.providers ?? [];
+
+    if (providers.length === 0) {
+      logger.warn('Provider health check warning: provider not configured', { projectPath });
+      return {
+        level: 'warn',
+        code: 'provider_not_configured',
+        message: 'No provider configured',
+        checkedAt,
+        results: [],
+      };
+    }
+
+    const results = await checkProvidersConnectivity(projectPath, providers);
+    const failed = results.filter((item) => !item.ok);
+    if (failed.length > 0) {
+      logger.warn('Provider health check warning: provider connectivity failed', {
+        projectPath,
+        failedProviders: failed.map((item) => `${item.provider}/${item.modelName}`),
+      });
+      return {
+        level: 'warn',
+        code: 'provider_connectivity_failed',
+        message: `${failed.length}/${results.length} provider(s) connectivity check failed`,
+        checkedAt,
+        results,
+      };
+    }
+
+    return {
+      level: 'ok',
+      code: 'ok',
+      message: 'All providers are healthy',
+      checkedAt,
+      results,
     };
   }
 
@@ -535,6 +584,13 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
           };
           const results = await checkProvidersConnectivity(projectPath, body.providers);
           json(res, { results });
+          return;
+        }
+
+        // GET /api/projects/:id/provider-health
+        if (subPath === '/provider-health' && method === 'GET') {
+          const health = await getProviderHealthSummary(projectPath);
+          json(res, { health });
           return;
         }
       }

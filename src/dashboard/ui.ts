@@ -110,6 +110,26 @@ export function getDashboardHtml(_port: number, lang: Language = 'en'): string {
     display: flex; align-items: center; justify-content: center;
     height: 100%; color: var(--muted); font-size: 13px;
   }
+  .provider-alert {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid rgba(210,153,34,.45);
+    border-left: 3px solid var(--yellow);
+    border-radius: 6px;
+    background: rgba(210,153,34,.12);
+  }
+  .provider-alert-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--yellow);
+    box-shadow: 0 0 8px rgba(210,153,34,.8);
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+  .provider-alert-title { font-size: 12px; color: var(--yellow); font-weight: 600; }
+  .provider-alert-message { font-size: 11px; color: var(--text); margin-top: 3px; }
+  .provider-alert-hint { font-size: 10px; color: var(--muted); margin-top: 4px; }
 
   /* ─── Cards ──────────────────────────────────────── */
   .card { background: var(--bg1); border: 1px solid var(--border); border-radius: 6px; }
@@ -519,6 +539,7 @@ const state = {
   activityTagFilter: 'all',
   businessEventsByProject: {},
   seenTraceIdsByProject: {},
+  providerHealthByProject: {},
 };
 
 // ─── SSE Connection ──────────────────────────────────────────────────────────
@@ -675,8 +696,68 @@ async function selectProject(path) {
       return;
     }
   }
+  await ensureProviderHealth(path);
   renderMainPanel(path);
   renderSidebar();
+}
+
+async function ensureProviderHealth(projectPath, force = false) {
+  if (!force && state.providerHealthByProject[projectPath]) return;
+  try {
+    const enc = encodeURIComponent(projectPath);
+    const data = await fetchJsonWithTimeout('/api/projects/' + enc + '/provider-health', 20000);
+    state.providerHealthByProject[projectPath] = data.health || null;
+  } catch (e) {
+    console.warn('[dashboard] failed to load provider health', { projectPath, error: String(e) });
+    state.providerHealthByProject[projectPath] = {
+      level: 'warn',
+      code: 'provider_connectivity_failed',
+      message: String(e),
+      checkedAt: new Date().toISOString(),
+      results: [],
+    };
+  }
+}
+
+function providerAlertTitle(code) {
+  if (code === 'provider_not_configured') {
+    return currentLang === 'zh' ? 'Provider 未配置' : 'Provider Not Configured';
+  }
+  if (code === 'provider_connectivity_failed') {
+    return currentLang === 'zh' ? 'Provider 无法连通' : 'Provider Connectivity Failed';
+  }
+  return currentLang === 'zh' ? 'Provider 检查异常' : 'Provider Health Warning';
+}
+
+function renderProviderAlert(projectPath) {
+  const health = state.providerHealthByProject[projectPath];
+  if (!health || health.level !== 'warn') return '';
+
+  let message = health.message || '';
+  if (health.code === 'provider_not_configured') {
+    message = currentLang === 'zh'
+      ? '当前项目尚未配置任何 provider。'
+      : 'No provider is configured for this project.';
+  } else if (health.code === 'provider_connectivity_failed' && Array.isArray(health.results) && health.results.length > 0) {
+    const failed = health.results.filter((item) => !item.ok);
+    const failedText = failed.slice(0, 3).map((item) => item.provider + '/' + item.modelName).join(', ');
+    message = currentLang === 'zh'
+      ? '检测到 provider 连通失败：' + failedText
+      : 'Failed provider connectivity: ' + failedText;
+  }
+
+  return '<div class="provider-alert">' +
+    '<span class="provider-alert-dot"></span>' +
+    '<div>' +
+      '<div class="provider-alert-title">⚠ ' + escHtml(providerAlertTitle(health.code)) + '</div>' +
+      '<div class="provider-alert-message">' + escHtml(message) + '</div>' +
+      '<div class="provider-alert-hint">' +
+        (currentLang === 'zh'
+          ? '请在 Config 页补充 provider 配置并完成连通性检查。'
+          : 'Open the Config tab to set provider and re-run connectivity check.') +
+      '</div>' +
+    '</div>' +
+  '</div>';
 }
 
 function skillKey(skill) {
@@ -913,6 +994,8 @@ function renderMainPanel(projectPath) {
       <button class="main-tab \${state.selectedMainTab === 'logs' ? 'active' : ''}" onclick="selectMainTab('logs')">\${t('mainTabLogs')}</button>
       <button class="main-tab \${state.selectedMainTab === 'config' ? 'active' : ''}" onclick="selectMainTab('config')">\${t('mainTabConfig')}</button>
     </div>
+
+    \${renderProviderAlert(projectPath)}
 
     \${state.selectedMainTab === 'overview' ? \`
     <div class="stats-row">
@@ -1189,6 +1272,8 @@ async function saveProjectConfig() {
       body: JSON.stringify(payload),
     });
     state.configByProject[state.selectedProjectId] = payload.config;
+    await ensureProviderHealth(state.selectedProjectId, true);
+    renderMainPanel(state.selectedProjectId);
     hintEl.textContent = t('configSaved');
   } catch (e) {
     console.error('[dashboard] failed to save config', { error: String(e) });
@@ -1233,6 +1318,8 @@ async function checkProvidersConnectivity() {
       body: JSON.stringify({ providers }),
     });
     renderConnectivityResults(data.results || []);
+    await ensureProviderHealth(state.selectedProjectId, true);
+    renderMainPanel(state.selectedProjectId);
   } catch (e) {
     renderConnectivityResults([{ ok: false, provider: 'n/a', modelName: 'n/a', durationMs: 0, message: String(e) }]);
   } finally {

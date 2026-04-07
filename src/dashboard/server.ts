@@ -500,8 +500,6 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
         if (subPath === '/config' && method === 'POST') {
           const body = (await parseBody(req)) as {
             config?: {
-              logLevel?: string;
-              defaultProvider?: string;
               autoOptimize?: boolean;
               userConfirm?: boolean;
               runtimeSync?: boolean;
@@ -517,8 +515,6 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
             return;
           }
           await writeDashboardConfig(projectPath, {
-            logLevel: body.config.logLevel ?? 'info',
-            defaultProvider: body.config.defaultProvider ?? '',
             autoOptimize: body.config.autoOptimize ?? true,
             userConfirm: body.config.userConfirm ?? false,
             runtimeSync: body.config.runtimeSync ?? true,

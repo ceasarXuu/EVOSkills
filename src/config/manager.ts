@@ -285,8 +285,6 @@ export interface DashboardProviderConfig {
 }
 
 export interface DashboardConfig {
-  logLevel: string;
-  defaultProvider: string;
   autoOptimize: boolean;
   userConfirm: boolean;
   runtimeSync: boolean;
@@ -296,10 +294,7 @@ export interface DashboardConfig {
 export async function readDashboardConfig(projectPath: string): Promise<DashboardConfig> {
   const config = await readConfig(projectPath);
   const providers = await listConfiguredProviders(projectPath);
-  const defaultProvider = config?.llm?.default_provider || providers[0]?.provider || "";
   return {
-    logLevel: config?.ornn?.log_level || DEFAULT_LOG_LEVEL,
-    defaultProvider,
     autoOptimize: config?.tracking?.auto_optimize ?? true,
     userConfirm: config?.tracking?.user_confirm ?? false,
     runtimeSync: config?.tracking?.runtime_sync ?? true,
@@ -315,15 +310,23 @@ export async function writeDashboardConfig(
   if (!existsSync(configDir)) {
     mkdirSync(configDir, { recursive: true });
   }
+  const existing = await readConfig(projectPath);
+  const existingDefaultProvider = existing?.llm?.default_provider || "";
+  const providers = payload.providers.map((p) => ({
+    provider: p.provider,
+    modelName: p.modelName,
+    apiKeyEnvVar: p.apiKeyEnvVar,
+  }));
+  const defaultProvider =
+    providers.find((p) => p.provider === existingDefaultProvider)?.provider ||
+    providers[0]?.provider ||
+    existingDefaultProvider;
+
   const content = generateConfigContent(
     projectPath,
-    payload.providers.map((p) => ({
-      provider: p.provider,
-      modelName: p.modelName,
-      apiKeyEnvVar: p.apiKeyEnvVar,
-    })),
-    payload.defaultProvider,
-    payload.logLevel || DEFAULT_LOG_LEVEL,
+    providers,
+    defaultProvider,
+    existing?.ornn?.log_level || DEFAULT_LOG_LEVEL,
     {
       autoOptimize: payload.autoOptimize,
       userConfirm: payload.userConfirm,

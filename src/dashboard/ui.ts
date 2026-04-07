@@ -846,29 +846,10 @@ function renderConfigPanel(projectPath) {
   }
 
   const providersJson = escHtml(JSON.stringify(config.providers || [], null, 2));
-  const logLevel = escHtml(config.logLevel || 'info');
-  const defaultProvider = escHtml(config.defaultProvider || '');
 
   return \`
     <div class="config-intro">\${t('configIntro')}</div>
     <div class="config-grid">
-      <div class="config-field">
-        <label class="config-label">log_level</label>
-        <select id="cfg_log_level" class="config-select">
-          <option value="debug" \${logLevel === 'debug' ? 'selected' : ''}>debug</option>
-          <option value="info" \${logLevel === 'info' ? 'selected' : ''}>info</option>
-          <option value="warn" \${logLevel === 'warn' ? 'selected' : ''}>warn</option>
-          <option value="error" \${logLevel === 'error' ? 'selected' : ''}>error</option>
-        </select>
-        <div class="config-help">\${t('configLogLevelHelp')}</div>
-      </div>
-      <div class="config-field">
-        <label class="config-label">default_provider</label>
-        <input id="cfg_default_provider" class="config-input" value="\${defaultProvider}" />
-        <div class="config-help">\${t('configDefaultProviderHelp')}</div>
-      </div>
-    </div>
-    <div style="margin-top:10px" class="config-grid">
       <div class="config-field">
         <label class="config-check"><input type="checkbox" id="cfg_auto_optimize" \${config.autoOptimize ? 'checked' : ''}/> tracking.auto_optimize</label>
         <div class="config-help">\${t('configAutoOptimizeHelp')}</div>
@@ -914,10 +895,24 @@ async function saveProjectConfig() {
   const hintEl = document.getElementById('cfg_save_hint');
   try {
     const providers = JSON.parse(document.getElementById('cfg_providers').value || '[]');
+    if (!Array.isArray(providers)) {
+      throw new Error('providers must be a JSON array');
+    }
+    for (let i = 0; i < providers.length; i++) {
+      const item = providers[i] || {};
+      if (
+        typeof item.provider !== 'string' ||
+        typeof item.modelName !== 'string' ||
+        typeof item.apiKeyEnvVar !== 'string' ||
+        item.provider.trim() === '' ||
+        item.modelName.trim() === '' ||
+        item.apiKeyEnvVar.trim() === ''
+      ) {
+        throw new Error(\`providers[\${i}] must include non-empty provider/modelName/apiKeyEnvVar\`);
+      }
+    }
     const payload = {
       config: {
-        logLevel: document.getElementById('cfg_log_level').value,
-        defaultProvider: document.getElementById('cfg_default_provider').value.trim(),
         autoOptimize: document.getElementById('cfg_auto_optimize').checked,
         userConfirm: document.getElementById('cfg_user_confirm').checked,
         runtimeSync: document.getElementById('cfg_runtime_sync').checked,

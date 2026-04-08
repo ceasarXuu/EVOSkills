@@ -589,6 +589,8 @@ const state = {
 const clientErrorQueue = [];
 let clientErrorFlushTimer = null;
 let clientErrorFlushing = false;
+let hasRequestedHardReload = false;
+let bootstrapRecoveryTimer = null;
 
 function toErrorMessage(value) {
   if (value instanceof Error) return value.message || String(value);
@@ -682,6 +684,14 @@ async function loadRuntimeInfo() {
       el.textContent = currentLang === 'zh'
         ? ('版本不一致 ui#' + DASHBOARD_BUILD_SHORT + ' / svr#' + runtimeBuildShort)
         : ('build mismatch ui#' + DASHBOARD_BUILD_SHORT + ' / svr#' + runtimeBuildShort);
+      if (!hasRequestedHardReload) {
+        hasRequestedHardReload = true;
+        console.warn('[dashboard] build mismatch detected, forcing reload', {
+          uiBuildId: DASHBOARD_BUILD_ID,
+          runtimeBuildId,
+        });
+        setTimeout(() => location.reload(), 150);
+      }
       return;
     }
     const pidSuffix = runtime.pid ? (' pid:' + runtime.pid) : '';
@@ -784,8 +794,38 @@ function getErrorStack(error) {
   return '';
 }
 
+function scheduleBootstrapRecovery() {
+  if (bootstrapRecoveryTimer !== null) {
+    clearTimeout(bootstrapRecoveryTimer);
+  }
+  bootstrapRecoveryTimer = setTimeout(() => {
+    bootstrapRecoveryTimer = null;
+    void recoverDashboardBootstrap();
+  }, 4000);
+}
+
+async function recoverDashboardBootstrap() {
+  if (state.selectedProjectId && state.projectData[state.selectedProjectId]) return;
+  try {
+    const data = await fetchJsonWithTimeout('/api/projects', 6000);
+    const projects = Array.isArray(data.projects) ? data.projects : [];
+    if (projects.length === 0) return;
+    state.projects = projects;
+    renderSidebar();
+    if (!state.selectedProjectId || !state.projectData[state.selectedProjectId]) {
+      console.warn('[dashboard] bootstrap recovery activated', {
+        projectCount: projects.length,
+      });
+      await selectProject(projects[0].path);
+    }
+  } catch (err) {
+    console.warn('[dashboard] bootstrap recovery failed', { error: String(err) });
+  }
+}
+
 // ─── Initial Load ────────────────────────────────────────────────────────────
 async function init() {
+  scheduleBootstrapRecovery();
   try {
     const browserLang = detectBrowserLang();
     if (browserLang !== currentLang) {

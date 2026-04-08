@@ -567,6 +567,9 @@ const state = {
   seenTraceIdsByProject: {},
   providerHealthByProject: {},
   providerCatalog: [],
+  configUiByProject: {},
+  configLoadingByProject: {},
+  configLoadErrorByProject: {},
 };
 
 // ─── SSE Connection ──────────────────────────────────────────────────────────
@@ -609,16 +612,11 @@ function handleUpdate(data) {
   if (state.selectedProjectId && shouldRerenderMain) {
     const activeEl = document.activeElement;
     const isSearchFocused = activeEl && activeEl.id === 'skillSearchInput';
-    const isConfigEditing =
-      state.selectedMainTab === 'config' &&
-      activeEl &&
-      (String(activeEl.id || '').startsWith('cfg_') ||
-       String(activeEl.className || '').includes('config-'));
     if (isSearchFocused) {
       // 用户正在输入时只刷新技能列表，避免整面板重绘导致焦点抖动
       updateSkillsList();
-    } else if (isConfigEditing) {
-      // 配置编辑中，避免 SSE 重绘覆盖输入
+    } else if (state.selectedMainTab === 'config') {
+      // Config 页由用户操作驱动刷新，避免 SSE 覆盖用户输入/操作反馈
     } else {
       renderMainPanel(state.selectedProjectId);
     }
@@ -732,18 +730,57 @@ async function selectProject(path) {
     document.getElementById('mainPanel').innerHTML = '<div class="panel-inner"><div class="no-project">' + t('mainLoading') + '</div></div>';
     try {
       const enc = encodeURIComponent(path);
-      const data = await fetchJsonWithTimeout(\`/api/projects/\${enc}/snapshot\`, 8000);
-      updateBusinessEvents(path, state.projectData[path], data);
+      let data = null;
+      try {
+        data = await fetchJsonWithTimeout(\`/api/projects/\${enc}/snapshot\`, 8000);
+      } catch (firstErr) {
+        console.warn('[dashboard] first snapshot fetch failed, retrying', { path, error: String(firstErr) });
+        data = await fetchJsonWithTimeout(\`/api/projects/\${enc}/snapshot\`, 12000);
+      }
+      try {
+        updateBusinessEvents(path, state.projectData[path], data);
+      } catch (evtErr) {
+        console.error('[dashboard] updateBusinessEvents failed; continuing with snapshot', {
+          path,
+          error: String(evtErr),
+        });
+      }
       state.projectData[path] = data;
     } catch (e) {
-      console.error('Failed to load project', e);
-      document.getElementById('mainPanel').innerHTML = '<div class="panel-inner"><div class="no-project" style="color:var(--red)">Failed to load project data. Please try again.</div></div>';
-      return;
+      console.error('[dashboard] failed to load project snapshot', { path, error: String(e) });
+      state.projectData[path] = {
+        daemon: {
+          isRunning: false,
+          pid: null,
+          startedAt: null,
+          processedTraces: 0,
+          lastCheckpointAt: null,
+          retryQueueSize: 0,
+          optimizationStatus: {
+            currentState: 'idle',
+            currentSkillId: null,
+            lastOptimizationAt: null,
+            lastError: null,
+            queueSize: 0,
+          },
+        },
+        skills: [],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+      };
     }
   }
-  await ensureProviderHealth(path);
   renderMainPanel(path);
   renderSidebar();
+  void ensureProviderHealth(path)
+    .then(() => {
+      if (state.selectedProjectId === path) {
+        renderMainPanel(path);
+      }
+    })
+    .catch(() => {
+      // ensureProviderHealth already degrades internally
+    });
 }
 
 async function ensureProviderHealth(projectPath, force = false) {
@@ -1226,9 +1263,23 @@ function setActivityTagFilter(tag) {
 
 function renderConfigPanel(projectPath) {
   const config = state.configByProject[projectPath];
+  const loading = !!state.configLoadingByProject[projectPath];
+  const loadError = state.configLoadErrorByProject[projectPath] || '';
   if (!config) {
+    if (loading) {
+      return \`<div class="empty-state">\${t('configLoading')}</div>\`;
+    }
+    if (loadError) {
+      return \`
+        <div class="empty-state" style="text-align:left">
+          <div style="color:var(--red);margin-bottom:8px">Failed to load config: \${escHtml(loadError)}</div>
+          <button class="btn-secondary" type="button" onclick="retryLoadConfig()">\${currentLang === 'zh' ? '重试加载配置' : 'Retry Load Config'}</button>
+        </div>
+      \`;
+    }
     return \`<div class="empty-state">\${t('configLoading')}</div>\`;
   }
+  const configUi = state.configUiByProject[projectPath] || {};
 
   const providers = Array.isArray(config.providers) ? config.providers : [];
   const rowsHtml = providers.length > 0
@@ -1259,17 +1310,30 @@ function renderConfigPanel(projectPath) {
       </div>
       <div class="config-help">\${t('configProvidersHelp')}</div>
       <div class="config-connectivity" id="cfg_connectivity">
-        <div class="config-connectivity-title">\${t('configConnectivityTitle')}</div>
+        \${renderConnectivityResultsHtml(configUi.connectivityResults)}
       </div>
     </div>
     <div class="config-actions">
-      <span id="cfg_save_hint" class="config-label"></span>
+      <span id="cfg_save_hint" class="config-label">\${escHtml(configUi.saveHint || '')}</span>
       <div style="display:flex;gap:8px;">
         <button class="btn-primary" id="cfg_check_btn" onclick="checkProvidersConnectivity()">\${t('configCheckConnectivity')}</button>
         <button class="btn-primary" onclick="saveProjectConfig()">\${t('configSave')}</button>
       </div>
     </div>
   \`;
+}
+
+function retryLoadConfig() {
+  if (!state.selectedProjectId) return;
+  delete state.configByProject[state.selectedProjectId];
+  state.configLoadErrorByProject[state.selectedProjectId] = '';
+  void ensureProjectConfig(state.selectedProjectId);
+  renderMainPanel(state.selectedProjectId);
+}
+
+function setConfigUi(projectPath, patch) {
+  const prev = state.configUiByProject[projectPath] || {};
+  state.configUiByProject[projectPath] = { ...prev, ...patch };
 }
 
 function renderProviderRow(row, index) {
@@ -1448,21 +1512,38 @@ function removeProviderRow(btn) {
 
 async function ensureProjectConfig(projectPath) {
   if (state.configByProject[projectPath]) return;
+  if (state.configLoadingByProject[projectPath]) return;
+  state.configLoadingByProject[projectPath] = true;
+  state.configLoadErrorByProject[projectPath] = '';
   try {
     const enc = encodeURIComponent(projectPath);
-    const data = await fetchJsonWithTimeout(\`/api/projects/\${enc}/config\`, 6000);
+    let data = null;
+    try {
+      data = await fetchJsonWithTimeout(\`/api/projects/\${enc}/config\`, 6000);
+    } catch (firstErr) {
+      console.warn('[dashboard] first config fetch failed, retrying', { projectPath, error: String(firstErr) });
+      data = await fetchJsonWithTimeout(\`/api/projects/\${enc}/config\`, 12000);
+    }
     state.configByProject[projectPath] = data.config || {};
+    state.configLoadErrorByProject[projectPath] = '';
     if (state.selectedMainTab === 'config' && state.selectedProjectId === projectPath) {
       renderMainPanel(projectPath);
     }
   } catch (e) {
-    console.error('[dashboard] failed to load config', { projectPath, error: String(e) });
+    const message = String(e);
+    console.error('[dashboard] failed to load config', { projectPath, error: message });
+    state.configLoadErrorByProject[projectPath] = message;
+    if (state.selectedMainTab === 'config' && state.selectedProjectId === projectPath) {
+      renderMainPanel(projectPath);
+    }
+  } finally {
+    state.configLoadingByProject[projectPath] = false;
   }
 }
 
 async function saveProjectConfig() {
   if (!state.selectedProjectId) return;
-  const hintEl = document.getElementById('cfg_save_hint');
+  const projectPath = state.selectedProjectId;
   try {
     const providers = collectProvidersFromConfigEditor();
     const payload = {
@@ -1473,29 +1554,27 @@ async function saveProjectConfig() {
         providers,
       },
     };
-    const enc = encodeURIComponent(state.selectedProjectId);
+    const enc = encodeURIComponent(projectPath);
     await fetchJsonWithTimeout(\`/api/projects/\${enc}/config\`, 8000, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    state.configByProject[state.selectedProjectId] = payload.config;
-    await ensureProviderHealth(state.selectedProjectId, true);
-    renderMainPanel(state.selectedProjectId);
-    hintEl.textContent = t('configSaved');
+    state.configByProject[projectPath] = payload.config;
+    setConfigUi(projectPath, { saveHint: t('configSaved') });
+    await ensureProviderHealth(projectPath, true);
+    renderMainPanel(projectPath);
   } catch (e) {
     console.error('[dashboard] failed to save config', { error: String(e) });
-    hintEl.textContent = t('configSaveFailed');
+    setConfigUi(projectPath, { saveHint: t('configSaveFailed') + ': ' + String(e) });
+    renderMainPanel(projectPath);
   }
 }
 
-function renderConnectivityResults(results) {
-  const el = document.getElementById('cfg_connectivity');
-  if (!el) return;
+function renderConnectivityResultsHtml(results) {
   const title = '<div class="config-connectivity-title">' + t('configConnectivityTitle') + '</div>';
   if (!Array.isArray(results) || results.length === 0) {
-    el.innerHTML = title + '<div class="config-help">No providers</div>';
-    return;
+    return title + '<div class="config-help">No providers</div>';
   }
   const rows = results.map((r) => {
     const statusClass = r.ok ? 'conn-ok' : 'conn-fail';
@@ -1507,29 +1586,41 @@ function renderConnectivityResults(results) {
       '<div class="config-help">' + escHtml(r.message || '') + '</div>' +
       '</div>';
   }).join('');
-  el.innerHTML = title + rows;
+  return title + rows;
 }
 
 async function checkProvidersConnectivity() {
   if (!state.selectedProjectId) return;
+  const projectPath = state.selectedProjectId;
   const btn = document.getElementById('cfg_check_btn');
   if (btn) {
     btn.disabled = true;
     btn.textContent = t('configConnectivityChecking');
   }
+  setConfigUi(projectPath, {
+    saveHint: currentLang === 'zh' ? '连通性检查中...' : 'Checking connectivity...',
+  });
+  renderMainPanel(projectPath);
   try {
     const providers = collectProvidersFromConfigEditor();
-    const enc = encodeURIComponent(state.selectedProjectId);
+    const enc = encodeURIComponent(projectPath);
     const data = await fetchJsonWithTimeout('/api/projects/' + enc + '/config/providers/connectivity', 15000, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ providers }),
     });
-    renderConnectivityResults(data.results || []);
-    await ensureProviderHealth(state.selectedProjectId, true);
-    renderMainPanel(state.selectedProjectId);
+    setConfigUi(projectPath, {
+      connectivityResults: data.results || [],
+      saveHint: currentLang === 'zh' ? '连通性检查完成' : 'Connectivity check completed',
+    });
+    await ensureProviderHealth(projectPath, true);
+    renderMainPanel(projectPath);
   } catch (e) {
-    renderConnectivityResults([{ ok: false, provider: 'n/a', modelName: 'n/a', durationMs: 0, message: String(e) }]);
+    setConfigUi(projectPath, {
+      connectivityResults: [{ ok: false, provider: 'n/a', modelName: 'n/a', durationMs: 0, message: String(e) }],
+      saveHint: currentLang === 'zh' ? ('连通性检查失败: ' + String(e)) : ('Connectivity check failed: ' + String(e)),
+    });
+    renderMainPanel(projectPath);
   } finally {
     if (btn) {
       btn.disabled = false;

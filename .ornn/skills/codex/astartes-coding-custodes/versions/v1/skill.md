@@ -3,19 +3,11 @@ name: astartes-coding-custodes
 description: Use this skill when iterative AI-assisted coding starts to degrade code quality, architecture consistency, or maintainability. It enforces staged implementation, architecture guardrails, duplication control, strict review, and entropy-reduction refactors.
 ---
 
-<!-- Ornn Version: v2 -->
-<!-- Origin: /Users/xuzhang/OrnnSkills/.ornn/skills/codex/astartes-coding-custodes -->
-<!-- Runtime: codex -->
-<!-- Project: /Users/xuzhang/OrnnSkills -->
-<!-- Last Optimized: 2026-04-06T15:31:46.469Z -->
-<!-- Optimization Reason: Manual edit from dashboard -->
-
-
 # astartes-coding-custodes
 
 ## Purpose
 
-Prevent quality decay during repeated AI-assisted coding iterations.2
+Prevent quality decay during repeated AI-assisted coding iterations.
 
 Use it when:
 

@@ -8,8 +8,9 @@
 
 import { getI18n, type Language } from './i18n.js';
 
-export function getDashboardHtml(_port: number, lang: Language = 'en'): string {
+export function getDashboardHtml(_port: number, lang: Language = 'en', buildId = 'dev'): string {
   const t = getI18n(lang);
+  const shortBuildId = buildId.slice(-8);
 
   return /* html */ `<!DOCTYPE html>
 <html lang="${lang}">
@@ -409,9 +410,9 @@ export function getDashboardHtml(_port: number, lang: Language = 'en'): string {
   .providers-editor { display: flex; flex-direction: column; gap: 8px; }
   .provider-row {
     display: grid;
-    grid-template-columns: minmax(160px,1fr) minmax(220px,1.2fr) minmax(220px,2fr) minmax(200px,1.5fr) auto;
+    grid-template-columns: minmax(140px,1fr) minmax(160px,1fr) minmax(220px,1.8fr) minmax(180px,1.2fr) auto;
     gap: 8px;
-    align-items: center;
+    align-items: start;
     background: var(--bg0);
     border: 1px solid var(--border);
     border-radius: 6px;
@@ -442,6 +443,7 @@ export function getDashboardHtml(_port: number, lang: Language = 'en'): string {
     <div class="header-left">
       <span class="header-logo">🔧 OrnnSkills</span>
       <span class="header-version" id="appVersion">${t.headerVersion}</span>
+      <span class="header-version" id="appBuild">build #${shortBuildId}</span>
     </div>
     <div style="display:flex;align-items:center;gap:16px;">
       <div class="lang-switcher">
@@ -506,6 +508,8 @@ export function getDashboardHtml(_port: number, lang: Language = 'en'): string {
 // ─── i18n ─────────────────────────────────────────────────────────────────────
 const I18N = ${JSON.stringify({ en: getI18n('en'), zh: getI18n('zh') })};
 let currentLang = '${lang}';
+const DASHBOARD_BUILD_ID = '${buildId}';
+const DASHBOARD_BUILD_SHORT = DASHBOARD_BUILD_ID.slice(-8);
 
 function t(key) {
   return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.en && I18N.en[key]) || key;
@@ -567,10 +571,121 @@ const state = {
   seenTraceIdsByProject: {},
   providerHealthByProject: {},
   providerCatalog: [],
+  providerCatalogLoading: false,
+  providerCatalogError: '',
   configUiByProject: {},
   configLoadingByProject: {},
   configLoadErrorByProject: {},
 };
+
+// ─── Browser Runtime Error Reporting ─────────────────────────────────────────
+const clientErrorQueue = [];
+let clientErrorFlushTimer = null;
+let clientErrorFlushing = false;
+
+function toErrorMessage(value) {
+  if (value instanceof Error) return value.message || String(value);
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function enqueueClientError(event) {
+  const item = {
+    message: String(event.message || '').slice(0, 1000),
+    stack: String(event.stack || '').slice(0, 4000),
+    source: String(event.source || '').slice(0, 1000),
+    lineno: Number(event.lineno || 0) || undefined,
+    colno: Number(event.colno || 0) || undefined,
+    href: String(location.href || '').slice(0, 1000),
+    ua: String(navigator.userAgent || '').slice(0, 500),
+    timestamp: new Date().toISOString(),
+    buildId: DASHBOARD_BUILD_ID,
+  };
+  clientErrorQueue.push(item);
+  if (clientErrorQueue.length > 100) {
+    clientErrorQueue.splice(0, clientErrorQueue.length - 100);
+  }
+  scheduleClientErrorFlush();
+}
+
+function scheduleClientErrorFlush() {
+  if (clientErrorFlushTimer !== null) return;
+  clientErrorFlushTimer = setTimeout(() => {
+    clientErrorFlushTimer = null;
+    void flushClientErrors();
+  }, 250);
+}
+
+async function flushClientErrors() {
+  if (clientErrorFlushing) return;
+  if (clientErrorQueue.length === 0) return;
+  clientErrorFlushing = true;
+  const batch = clientErrorQueue.splice(0, 20);
+  try {
+    await fetch('/api/dashboard/client-errors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ events: batch }),
+    });
+  } catch (err) {
+    console.warn('[dashboard] failed to report client errors', { error: String(err) });
+    const rollback = batch.slice(0, 20);
+    clientErrorQueue.unshift(...rollback);
+    if (clientErrorQueue.length > 100) {
+      clientErrorQueue.splice(0, clientErrorQueue.length - 100);
+    }
+  } finally {
+    clientErrorFlushing = false;
+    if (clientErrorQueue.length > 0) scheduleClientErrorFlush();
+  }
+}
+
+window.addEventListener('error', (event) => {
+  enqueueClientError({
+    message: event.message || 'window error',
+    stack: event.error && event.error.stack ? event.error.stack : '',
+    source: event.filename || '',
+    lineno: event.lineno || 0,
+    colno: event.colno || 0,
+  });
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  enqueueClientError({
+    message: 'Unhandled promise rejection: ' + toErrorMessage(event.reason),
+    stack: event.reason && event.reason.stack ? event.reason.stack : '',
+    source: 'unhandledrejection',
+  });
+});
+
+async function loadRuntimeInfo() {
+  const el = document.getElementById('appBuild');
+  if (!el) return;
+  el.textContent = 'build #' + DASHBOARD_BUILD_SHORT;
+  try {
+    const runtime = await fetchJsonWithTimeout('/api/dashboard/runtime', 3000);
+    const runtimeBuildId = String(runtime.buildId || '');
+    const runtimeBuildShort = runtimeBuildId ? runtimeBuildId.slice(-8) : 'unknown';
+    if (runtimeBuildId && runtimeBuildId !== DASHBOARD_BUILD_ID) {
+      el.style.color = 'var(--yellow)';
+      el.textContent = currentLang === 'zh'
+        ? ('版本不一致 ui#' + DASHBOARD_BUILD_SHORT + ' / svr#' + runtimeBuildShort)
+        : ('build mismatch ui#' + DASHBOARD_BUILD_SHORT + ' / svr#' + runtimeBuildShort);
+      return;
+    }
+    const pidSuffix = runtime.pid ? (' pid:' + runtime.pid) : '';
+    el.style.color = 'var(--muted)';
+    el.textContent = 'build #' + runtimeBuildShort + pidSuffix;
+  } catch (err) {
+    el.style.color = 'var(--yellow)';
+    el.textContent = currentLang === 'zh' ? ('build #' + DASHBOARD_BUILD_SHORT + ' (运行信息不可用)') : ('build #' + DASHBOARD_BUILD_SHORT + ' (runtime unavailable)');
+    console.warn('[dashboard] runtime info unavailable', { error: String(err) });
+  }
+}
 
 // ─── SSE Connection ──────────────────────────────────────────────────────────
 function connectSSE() {
@@ -655,17 +770,9 @@ async function init() {
     const data = await fetchJsonWithTimeout('/api/projects', 6000);
     state.projects = data.projects || [];
     renderSidebar();
+    void loadRuntimeInfo();
 
-    fetchJsonWithTimeout('/api/providers/catalog', 6000)
-      .then((catalogData) => {
-        state.providerCatalog = Array.isArray(catalogData.providers) ? catalogData.providers : [];
-        if (state.selectedMainTab === 'config' && state.selectedProjectId) {
-          renderMainPanel(state.selectedProjectId);
-        }
-      })
-      .catch((e) => {
-        console.error('[dashboard] provider catalog fetch failed', { error: String(e) });
-      });
+    void loadProviderCatalog();
 
     // 日志异步加载，不阻塞主页面渲染，避免 dashboard 卡在 loading
     fetchJsonWithTimeout('/api/logs', 5000)
@@ -1244,6 +1351,9 @@ function renderMainPanel(projectPath) {
 
 function selectMainTab(tab) {
   state.selectedMainTab = tab;
+  if (tab === 'config' && state.providerCatalog.length === 0) {
+    void loadProviderCatalog(true);
+  }
   if (state.selectedProjectId) {
     renderMainPanel(state.selectedProjectId);
   }
@@ -1262,23 +1372,14 @@ function setActivityTagFilter(tag) {
 }
 
 function renderConfigPanel(projectPath) {
-  const config = state.configByProject[projectPath];
+  const config = state.configByProject[projectPath] || {
+    autoOptimize: true,
+    userConfirm: false,
+    runtimeSync: true,
+    providers: [],
+  };
   const loading = !!state.configLoadingByProject[projectPath];
   const loadError = state.configLoadErrorByProject[projectPath] || '';
-  if (!config) {
-    if (loading) {
-      return \`<div class="empty-state">\${t('configLoading')}</div>\`;
-    }
-    if (loadError) {
-      return \`
-        <div class="empty-state" style="text-align:left">
-          <div style="color:var(--red);margin-bottom:8px">Failed to load config: \${escHtml(loadError)}</div>
-          <button class="btn-secondary" type="button" onclick="retryLoadConfig()">\${currentLang === 'zh' ? '重试加载配置' : 'Retry Load Config'}</button>
-        </div>
-      \`;
-    }
-    return \`<div class="empty-state">\${t('configLoading')}</div>\`;
-  }
   const configUi = state.configUiByProject[projectPath] || {};
 
   const providers = Array.isArray(config.providers) ? config.providers : [];
@@ -1287,6 +1388,10 @@ function renderConfigPanel(projectPath) {
     : \`<div class="config-help">\${currentLang === 'zh' ? '暂无 provider，请点击下方按钮添加。' : 'No provider yet. Use the button below to add one.'}</div>\`;
 
   return \`
+    \${state.providerCatalogLoading ? \`<div class="config-help" style="margin-bottom:8px">\${currentLang === 'zh' ? 'LiteLLM 列表加载中...' : 'Loading LiteLLM catalog...'}</div>\` : ''}
+    \${state.providerCatalogError ? \`<div class="config-help" style="margin-bottom:8px;color:var(--red)">LiteLLM catalog error: \${escHtml(state.providerCatalogError)} <button class="btn-secondary" type="button" onclick="reloadProviderCatalog()">\${currentLang === 'zh' ? '重试' : 'Retry'}</button></div>\` : ''}
+    \${loading ? \`<div class="config-help" style="margin-bottom:8px">\${t('configLoading')}</div>\` : ''}
+    \${loadError ? \`<div class="config-help" style="margin-bottom:8px;color:var(--red)">Failed to load remote config: \${escHtml(loadError)}</div>\` : ''}
     <div class="config-intro">\${t('configIntro')}</div>
     <div class="config-grid">
       <div class="config-field">
@@ -1331,6 +1436,43 @@ function retryLoadConfig() {
   renderMainPanel(state.selectedProjectId);
 }
 
+async function loadProviderCatalog(force = false) {
+  if (state.providerCatalogLoading) return;
+  if (!force && state.providerCatalog.length > 0) return;
+  state.providerCatalogLoading = true;
+  state.providerCatalogError = '';
+  if (state.selectedMainTab === 'config' && state.selectedProjectId) {
+    renderMainPanel(state.selectedProjectId);
+  }
+  try {
+    let data = null;
+    try {
+      data = await fetchJsonWithTimeout('/api/providers/catalog', 20000);
+    } catch (firstErr) {
+      console.warn('[dashboard] first provider catalog fetch failed, retrying', { error: String(firstErr) });
+      data = await fetchJsonWithTimeout('/api/providers/catalog', 30000);
+    }
+    const providers = Array.isArray(data.providers) ? data.providers : [];
+    if (providers.length === 0) {
+      throw new Error('empty provider catalog');
+    }
+    state.providerCatalog = providers;
+    state.providerCatalogError = '';
+  } catch (e) {
+    state.providerCatalogError = String(e);
+    console.error('[dashboard] provider catalog fetch failed', { error: String(e) });
+  } finally {
+    state.providerCatalogLoading = false;
+    if (state.selectedMainTab === 'config' && state.selectedProjectId) {
+      renderMainPanel(state.selectedProjectId);
+    }
+  }
+}
+
+function reloadProviderCatalog() {
+  void loadProviderCatalog(true);
+}
+
 function setConfigUi(projectPath, patch) {
   const prev = state.configUiByProject[projectPath] || {};
   state.configUiByProject[projectPath] = { ...prev, ...patch };
@@ -1364,13 +1506,12 @@ function renderProviderRow(row, index) {
 function getProviderOptionsHtml(selectedProvider) {
   const catalog = Array.isArray(state.providerCatalog) ? state.providerCatalog : [];
   if (catalog.length === 0) {
-    const only = selectedProvider || '';
-    return '<option value="__custom__">' + escHtml(currentLang === 'zh' ? '自定义' : 'Custom...') + '</option>';
+    return '<option value="__custom__">' + escHtml(currentLang === 'zh' ? 'LiteLLM 列表未就绪（仅可自定义）' : 'LiteLLM catalog not ready (custom only)') + '</option>';
   }
   return catalog
     .map((item) => {
       const selected = item.id === selectedProvider ? 'selected' : '';
-      return '<option value="' + escHtml(item.id) + '" ' + selected + '>' + escHtml(item.name + ' (' + item.id + ')') + '</option>';
+      return '<option value="' + escHtml(item.id) + '" ' + selected + '>' + escHtml(item.id) + '</option>';
     })
     .join('') + '<option value="__custom__" ' + (selectedProvider === '__custom__' ? 'selected' : '') + '>' + escHtml(currentLang === 'zh' ? '自定义' : 'Custom...') + '</option>';
 }

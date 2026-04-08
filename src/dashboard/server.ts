@@ -49,6 +49,18 @@ interface SseClient {
   id: string;
 }
 
+interface DashboardClientErrorEvent {
+  message?: string;
+  stack?: string;
+  source?: string;
+  lineno?: number;
+  colno?: number;
+  href?: string;
+  ua?: string;
+  timestamp?: string;
+  buildId?: string;
+}
+
 interface ProviderHealthSummary {
   level: 'ok' | 'warn';
   code: 'ok' | 'provider_not_configured' | 'provider_connectivity_failed';
@@ -66,6 +78,9 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
   const clients: Set<SseClient> = new Set();
   let sseInterval: ReturnType<typeof setInterval> | null = null;
   let logByteOffset = 0;
+  const buildId = `${Date.now()}`;
+  const startedAt = new Date().toISOString();
+  const clientErrors: DashboardClientErrorEvent[] = [];
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -263,8 +278,14 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
           acceptLanguage: req.headers['accept-language'],
           resolvedLang: currentLang,
         });
-        const html = getDashboardHtml(port, currentLang);
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        const html = getDashboardHtml(port, currentLang, buildId);
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          Pragma: 'no-cache',
+          Expires: '0',
+          'X-Dashboard-Build': buildId,
+        });
         res.end(html);
         return;
       }
@@ -272,6 +293,52 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
       // ── API: Get/Set language ──
       if (path === '/api/lang' && method === 'GET') {
         json(res, { lang: currentLang });
+        return;
+      }
+
+      // ── API: Dashboard runtime info ──
+      if (path === '/api/dashboard/runtime' && method === 'GET') {
+        json(res, {
+          buildId,
+          startedAt,
+          pid: process.pid,
+          clientErrorCount: clientErrors.length,
+        });
+        return;
+      }
+
+      // ── API: Browser client error report ──
+      if (path === '/api/dashboard/client-errors' && method === 'POST') {
+        const body = (await parseBody(req)) as DashboardClientErrorEvent | { events?: DashboardClientErrorEvent[] };
+        const events = Array.isArray((body as { events?: DashboardClientErrorEvent[] }).events)
+          ? (body as { events?: DashboardClientErrorEvent[] }).events ?? []
+          : [body as DashboardClientErrorEvent];
+        for (const event of events) {
+          if (!event || typeof event !== 'object') continue;
+          clientErrors.unshift({
+            message: String(event.message ?? ''),
+            stack: String(event.stack ?? ''),
+            source: String(event.source ?? ''),
+            lineno: Number(event.lineno ?? 0) || undefined,
+            colno: Number(event.colno ?? 0) || undefined,
+            href: String(event.href ?? ''),
+            ua: String(event.ua ?? ''),
+            timestamp: String(event.timestamp ?? new Date().toISOString()),
+          });
+        }
+        if (clientErrors.length > 200) {
+          clientErrors.length = 200;
+        }
+        if (events.length > 0) {
+          const latest = clientErrors[0];
+          logger.error('Dashboard client runtime error reported', {
+            message: latest?.message ?? '',
+            source: latest?.source ?? '',
+            line: latest?.lineno ?? 0,
+            col: latest?.colno ?? 0,
+          });
+        }
+        json(res, { ok: true, accepted: events.length });
         return;
       }
       if (path === '/api/lang' && method === 'POST') {
@@ -327,12 +394,20 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
 
       // ── API: Provider catalog ──
       if (path === '/api/providers/catalog' && method === 'GET') {
+        const started = Date.now();
         try {
           const providers = await getLiteLLMCatalog();
+          logger.info('Dashboard provider catalog loaded', {
+            providerCount: providers.length,
+            durationMs: Date.now() - started,
+          });
           json(res, { providers, source: 'litellm' });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          logger.error('Failed to load LiteLLM catalog', { error: message });
+          logger.error('Failed to load LiteLLM catalog', {
+            error: message,
+            durationMs: Date.now() - started,
+          });
           json(res, { error: message }, 503);
         }
         return;
@@ -554,13 +629,20 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
 
         // GET /api/projects/:id/config
         if (subPath === '/config' && method === 'GET') {
+          const started = Date.now();
           const config = await readDashboardConfig(projectPath);
+          logger.info('Dashboard config loaded', {
+            projectPath,
+            providerCount: config.providers.length,
+            durationMs: Date.now() - started,
+          });
           json(res, { config });
           return;
         }
 
         // POST /api/projects/:id/config
         if (subPath === '/config' && method === 'POST') {
+          const started = Date.now();
           const body = (await parseBody(req)) as {
             config?: {
               autoOptimize?: boolean;
@@ -583,12 +665,21 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
             runtimeSync: body.config.runtimeSync ?? true,
             providers: body.config.providers ?? [],
           });
+          logger.info('Dashboard config saved', {
+            projectPath,
+            providerCount: (body.config.providers ?? []).length,
+            autoOptimize: body.config.autoOptimize ?? true,
+            userConfirm: body.config.userConfirm ?? false,
+            runtimeSync: body.config.runtimeSync ?? true,
+            durationMs: Date.now() - started,
+          });
           json(res, { ok: true });
           return;
         }
 
         // POST /api/projects/:id/config/providers/connectivity
         if (subPath === '/config/providers/connectivity' && method === 'POST') {
+          const started = Date.now();
           const body = (await parseBody(req)) as {
             providers?: Array<{
               provider: string;
@@ -597,13 +688,27 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
             }>;
           };
           const results = await checkProvidersConnectivity(projectPath, body.providers);
+          const failedCount = results.filter((item) => !item.ok).length;
+          logger.info('Dashboard provider connectivity checked', {
+            projectPath,
+            providerCount: results.length,
+            failedCount,
+            durationMs: Date.now() - started,
+          });
           json(res, { results });
           return;
         }
 
         // GET /api/projects/:id/provider-health
         if (subPath === '/provider-health' && method === 'GET') {
+          const started = Date.now();
           const health = await getProviderHealthSummary(projectPath);
+          logger.info('Dashboard provider health fetched', {
+            projectPath,
+            level: health.level,
+            code: health.code,
+            durationMs: Date.now() - started,
+          });
           json(res, { health });
           return;
         }
@@ -611,7 +716,17 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
 
       notFound(res);
     } catch (err) {
-      json(res, { error: 'Internal server error', detail: String(err) }, 500);
+      const message = err instanceof Error ? err.message : String(err);
+      if (message === 'Invalid JSON' || message === 'Request body too large') {
+        json(res, { error: message }, 400);
+        return;
+      }
+      logger.error('Dashboard request failed', {
+        method,
+        path,
+        error: message,
+      });
+      json(res, { error: 'Internal server error', detail: message }, 500);
     }
   });
 

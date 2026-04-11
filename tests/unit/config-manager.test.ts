@@ -236,11 +236,18 @@ runtime_sync = true
 `,
       'utf-8'
     );
+    writeFileSync(
+      join(testDir, '.env.local'),
+      'OPENAI_API_KEY=openai-secret\nDEEPSEEK_API_KEY=deepseek-secret\n',
+      'utf-8'
+    );
 
     const config = await readDashboardConfig(testDir);
     expect(config.defaultProvider).toBe('openai');
     expect(config.logLevel).toBe('debug');
     expect(config.providers).toHaveLength(2);
+    expect(config.providers[0]?.apiKey).toBe('openai-secret');
+    expect(config.providers[1]?.apiKey).toBe('deepseek-secret');
   });
 
   it('should persist dashboard default provider and log level when writing config', async () => {

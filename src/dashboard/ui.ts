@@ -954,7 +954,7 @@ function sanitizeProvidersForState(providers) {
     provider: provider.provider,
     modelName: provider.modelName,
     apiKeyEnvVar: provider.apiKeyEnvVar,
-    apiKey: '',
+    apiKey: provider.apiKey || '',
     hasApiKey: Boolean(provider.hasApiKey || (provider.apiKey && provider.apiKey.trim())),
   }));
 }
@@ -2487,10 +2487,10 @@ function renderProviderRow(row, index, activeProviderIndex) {
   const normalizedModel = String(row.modelName || '');
   const modelOptions = getModelOptionsHtml(normalizedProvider, normalizedModel);
   const modelIsCustom = !isKnownModel(normalizedProvider, normalizedModel);
-  const hasApiKey = !!row.hasApiKey;
+  const apiKey = String(row.apiKey || '');
   const apiKeyEnvVar = String(row.apiKeyEnvVar || guessApiKeyEnvVar(normalizedProvider));
   return \`
-    <div class="provider-row" data-row-index="\${index}" data-has-api-key="\${hasApiKey ? 'true' : 'false'}" data-api-key-env-var="\${escHtml(apiKeyEnvVar)}">
+    <div class="provider-row" data-row-index="\${index}" data-has-api-key="\${row.hasApiKey ? 'true' : 'false'}" data-api-key-env-var="\${escHtml(apiKeyEnvVar)}">
       <select class="config-select cfg_provider" onchange="handleProviderChange(this)">
         \${providerOptions}
       </select>
@@ -2502,7 +2502,7 @@ function renderProviderRow(row, index, activeProviderIndex) {
         <input class="config-input cfg_model_custom" value="\${modelIsCustom ? escHtml(normalizedModel) : ''}" placeholder="\${t('configCustomModelPlaceholder')}" style="margin-top:6px;\${modelIsCustom ? '' : 'display:none;'}" oninput="scheduleProjectConfigSave(500)" />
       </div>
       <div>
-        <input class="config-input cfg_api_key" type="password" value="" placeholder="\${hasApiKey ? t('configApiKeyStoredPlaceholder') : t('configApiKeyPastePlaceholder')}" oninput="scheduleProjectConfigSave(500)" />
+        <input class="config-input cfg_api_key" type="text" value="\${escHtml(apiKey)}" placeholder="\${t('configApiKeyPastePlaceholder')}" oninput="scheduleProjectConfigSave(500)" />
       </div>
       <label class="config-check" style="height:100%;justify-content:center;">
         <input type="radio" class="cfg_provider_active" name="cfg_provider_active" value="\${index}" \${index === activeProviderIndex ? 'checked' : ''} onchange="scheduleProjectConfigSave(150)"/>

@@ -316,6 +316,7 @@ export async function readDashboardConfig(projectPath: string): Promise<Dashboar
     logLevel: config?.ornn?.log_level ?? DEFAULT_LOG_LEVEL,
     providers: providers.map((provider) => ({
       ...provider,
+      apiKey: envVars[provider.apiKeyEnvVar] || process.env[provider.apiKeyEnvVar] || '',
       hasApiKey: Boolean(envVars[provider.apiKeyEnvVar] || process.env[provider.apiKeyEnvVar]),
     })),
   };

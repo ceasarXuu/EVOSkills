@@ -978,7 +978,7 @@ describe('dashboard ui recovery', () => {
         defaultProvider: 'openai',
         logLevel: 'info',
         providers: [
-          { provider: 'custom-provider', modelName: 'custom-model', apiKeyEnvVar: 'OPENAI_API_KEY', hasApiKey: true },
+          { provider: 'custom-provider', modelName: 'custom-model', apiKeyEnvVar: 'OPENAI_API_KEY', apiKey: 'plain-visible-key', hasApiKey: true },
         ],
       },
     };
@@ -1001,7 +1001,8 @@ describe('dashboard ui recovery', () => {
     expect(html).not.toContain('Save Config');
     expect(html).toContain('Custom provider id (e.g. xai)');
     expect(html).toContain('Custom model (e.g. grok-3)');
-    expect(html).toContain('API key stored; leave blank to keep');
+    expect(html).toContain('type="text"');
+    expect(html).toContain('value="plain-visible-key"');
     expect(html).toContain('mark exactly one provider as active');
     expect(html).toContain('cfg_provider_active');
     expect(html).toContain('scheduleProjectConfigSave(500)');

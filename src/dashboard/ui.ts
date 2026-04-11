@@ -1285,6 +1285,110 @@ function getActivityScopeId(event) {
   return null;
 }
 
+function describeAnalysisFailure(row) {
+  const technical = [row && row.rawReason, row && row.rawDetail]
+    .filter((item, index, list) => item && list.indexOf(item) === index)
+    .join(' | ');
+  const haystack = technical.toLowerCase();
+  const isZh = currentLang === 'zh';
+
+  if (haystack.includes('provider_not_configured')) {
+    return {
+      summary: isZh
+        ? '当前项目没有可用的模型服务配置，所以这轮分析没有开始。'
+        : 'This analysis did not start because no model provider is configured for the project.',
+      impact: isZh
+        ? '这属于配置缺失，不代表 skill 本身已经确认有问题。'
+        : 'This is a configuration gap, not confirmed evidence that the skill itself is wrong.',
+      action: isZh
+        ? '请先在 Config 页面补充 provider、API Key，并完成连通性检查。'
+        : 'Configure a provider, add an API key, and verify connectivity in Config first.',
+      technical,
+    };
+  }
+
+  if (haystack.includes('invalid_analysis_json')) {
+    return {
+      summary: isZh
+        ? '模型返回了内容，但格式不符合系统要求，所以这轮分析结果无法解析。'
+        : 'The model replied, but the response did not match the required format, so the analysis result could not be parsed.',
+      impact: isZh
+        ? '这更像是分析链路的输出格式异常，不代表 skill 本身已经确认有问题。'
+        : 'This points to an analysis pipeline formatting issue, not confirmed evidence that the skill is faulty.',
+      action: isZh
+        ? '建议保留这次原始返回并继续观察；如果连续出现，优先检查结构化输出协议。'
+        : 'Keep the raw response for inspection and monitor recurrence; if it repeats, check the structured output protocol first.',
+      technical,
+    };
+  }
+
+  if (haystack.includes('empty content in llm response') || haystack.includes('empty_llm_response')) {
+    return {
+      summary: isZh
+        ? '模型接口返回了空内容，所以这轮分析没有拿到可用结果。'
+        : 'The model API returned empty content, so this analysis produced no usable result.',
+      impact: isZh
+        ? '这通常是模型服务瞬时异常或响应被截断，不代表 skill 本身已经确认有问题。'
+        : 'This usually indicates a transient provider issue or truncated response, not confirmed evidence against the skill.',
+      action: isZh
+        ? '建议优先观察 provider 稳定性，并检查是否存在超时、重试或响应截断。'
+        : 'Check provider stability first, including timeout, retry, and truncation behavior.',
+      technical,
+    };
+  }
+
+  if (haystack.includes('llm api error:')) {
+    return {
+      summary: isZh
+        ? '模型服务调用失败，所以这轮分析没有完成。'
+        : 'The model provider request failed, so this analysis did not complete.',
+      impact: isZh
+        ? '这属于外部服务异常，不代表 skill 本身已经确认有问题。'
+        : 'This is an external service failure, not confirmed evidence that the skill is faulty.',
+      action: isZh
+        ? '建议先检查 provider 连通性、鉴权和限流状态。'
+        : 'Check provider connectivity, authentication, and rate limits first.',
+      technical,
+    };
+  }
+
+  if (haystack.includes('timeout')) {
+    return {
+      summary: isZh
+        ? '分析请求超时了，所以这轮分析没有完成。'
+        : 'The analysis request timed out before a usable result was returned.',
+      impact: isZh
+        ? '这更像是时延问题，不代表 skill 本身已经确认有问题。'
+        : 'This looks like a latency problem, not confirmed evidence that the skill is faulty.',
+      action: isZh
+        ? '建议检查模型超时配置、分析窗口大小以及 provider 响应速度。'
+        : 'Check model timeout settings, analysis window size, and provider latency.',
+      technical,
+    };
+  }
+
+  return {
+    summary: isZh
+      ? '分析链路在执行过程中发生异常，所以这轮分析没有产出可用结论。'
+      : 'The analysis pipeline hit an unexpected error before it could produce a usable conclusion.',
+    impact: isZh
+      ? '当前只能确认分析没有完成，不能据此直接判定 skill 已有问题。'
+      : 'At this point we only know the analysis did not complete; this alone does not prove the skill is faulty.',
+    action: isZh
+      ? '建议结合原始技术信息继续排查分析链路，而不是直接修改 skill。'
+      : 'Investigate the analysis pipeline using the technical detail before changing the skill itself.',
+    technical,
+  };
+}
+
+function formatActivityPreview(row) {
+  if (!row) return t('activityDetailFallback');
+  if (row.tag === 'analysis_failed') {
+    return describeAnalysisFailure(row).summary;
+  }
+  return row.detail || formatBusinessEvent(row) || t('activityDetailFallback');
+}
+
 function loadSavedActivityColumnWidths() {
   try {
     const raw = localStorage.getItem('ornn-dashboard-activity-columns');
@@ -1352,6 +1456,26 @@ function summarizeTraceEventType(trace) {
 
 function buildActivityDetail(row) {
   if (!row) return t('activityDetailEmpty');
+  if (row.tag === 'analysis_failed') {
+    const failure = describeAnalysisFailure(row);
+    const lines = [
+      t('traceTime') + ': ' + (row.timestamp || '—'),
+      t('traceRuntime') + ': ' + (row.runtime || t('activityHostFallback')),
+      t('traceEvent') + ': ' + businessEventLabel(row.tag),
+      t('activitySkillLabel') + ': ' + (row.skillId || '—'),
+      t('traceStatus') + ': ' + (row.status || t('activityStatusFallback')),
+      t('traceScope') + ': ' + (row.scopeId || t('activityScopeFallback')),
+      (currentLang === 'zh' ? '失败原因' : 'Failure Cause') + ': ' + failure.summary,
+      (currentLang === 'zh' ? '对结果的影响' : 'Impact') + ': ' + failure.impact,
+      (currentLang === 'zh' ? '建议动作' : 'Suggested Action') + ': ' + failure.action,
+    ];
+    if (failure.technical) {
+      lines.push((currentLang === 'zh' ? '原始技术信息' : 'Technical Detail') + ': ' + failure.technical);
+    }
+    if (row.traceId) lines.push(t('traceId') + ': ' + row.traceId);
+    if (row.sessionId) lines.push(t('activitySessionIdLabel') + ': ' + row.sessionId);
+    return lines.join('\\n');
+  }
   const lines = [
     t('traceTime') + ': ' + (row.timestamp || '—'),
     t('traceRuntime') + ': ' + (row.runtime || t('activityHostFallback')),
@@ -1400,6 +1524,9 @@ function buildActivityRows(projectPath) {
       status: event.status || (tag === 'analysis_failed' ? 'failed' : t('activityStatusFallback')),
       scopeId: scopeId || null,
       detail: event.detail || event.reason || formatBusinessEvent(event),
+      rawDetail: event.detail || null,
+      rawReason: event.reason || null,
+      evidence: event.evidence || null,
       sourceLabel: t('activitySourceDecision'),
       traceId: event.traceId || null,
       sessionId: event.sessionId || null,
@@ -1546,7 +1673,7 @@ function renderBusinessEvents(projectPath) {
             <td style="color:var(--muted);\${getActivityColumnStyle('status', 140)}">\${escHtml(e.status || t('activityStatusFallback'))}</td>
             <td style="\${getActivityColumnStyle('scope', 180)}">\${escHtml(e.scopeId || t('activityScopeFallback'))}</td>
             <td style="\${getActivityColumnStyle('detail', 520)}">
-              <div class="business-detail-preview">\${escHtml(e.detail || formatBusinessEvent(e) || t('activityDetailFallback'))}</div>
+              <div class="business-detail-preview">\${escHtml(formatActivityPreview(e))}</div>
               <div class="business-detail-actions">
                 <button class="detail-copy-btn" onclick="copyActivityDetail('\${escJsStr(projectPath)}','\${escJsStr(e.id)}')">\${t('activityCopy')}</button>
                 <button class="detail-view-btn" onclick="openActivityDetail('\${escJsStr(projectPath)}','\${escJsStr(e.id)}')">\${t('activityViewDetails')}</button>

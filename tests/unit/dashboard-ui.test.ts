@@ -659,6 +659,47 @@ describe('dashboard ui recovery', () => {
     expect(traceRow?.scopeId).toBe('scope-trace-1');
   });
 
+  it('renders user-friendly analysis failure detail while preserving technical info in the modal', async () => {
+    const { dashboard, getElement } = loadDashboardTestHarness({}, { lang: 'zh' });
+    const projectPath = '/tmp/ornn-project';
+
+    dashboard.state.selectedMainTab = 'activity';
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [{ skillId: 'vercel-react-best-practices', runtime: 'codex' }],
+        traceStats: { total: 1, byRuntime: { codex: 1 }, byStatus: { failed: 1 }, byEventType: { status: 1 } },
+        recentTraces: [],
+        decisionEvents: [{
+          id: 'evt-failure',
+          timestamp: '2026-04-10T05:23:01.000Z',
+          tag: 'analysis_failed',
+          traceId: 'trace-failed-1',
+          sessionId: 'session-failed-1',
+          runtime: 'codex',
+          skillId: 'vercel-react-best-practices',
+          status: 'failed',
+          windowId: 'scope-failed-1',
+          detail: 'Empty content in LLM response',
+          reason: 'invalid_analysis_json',
+        }],
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+      },
+    };
+
+    dashboard.renderMainPanel(projectPath);
+    const html = getElement('mainPanel').innerHTML;
+    expect(html).toContain('模型返回了内容，但格式不符合系统要求');
+    expect(html).not.toContain('Empty content in LLM response');
+
+    await dashboard.openActivityDetail(projectPath, 'decision:evt-failure');
+    const detail = getElement('eventModalContent').textContent;
+    expect(detail).toContain('失败原因: 模型返回了内容，但格式不符合系统要求');
+    expect(detail).toContain('对结果的影响: 这更像是分析链路的输出格式异常');
+    expect(detail).toContain('建议动作: 建议保留这次原始返回并继续观察');
+    expect(detail).toContain('原始技术信息: invalid_analysis_json | Empty content in LLM response');
+  });
+
   it('filters out unknown skill refs such as repo-x from the business activity table', () => {
     const { dashboard } = loadDashboardTestHarness();
     const projectPath = '/tmp/ornn-project';

@@ -62,8 +62,10 @@ describe('SkillCallAnalyzer', () => {
     expect(result).toMatchObject({
       success: false,
       error: 'provider_not_configured',
+      errorCode: 'provider_not_configured',
       model: 'none',
     });
+    expect(result.userMessage).toContain('no model provider');
   });
 
   it('marks invalid JSON responses as analysis failures', async () => {
@@ -93,7 +95,8 @@ describe('SkillCallAnalyzer', () => {
     } as never, 'content');
 
     expect(result.success).toBe(false);
-    expect(result.error).toBeTruthy();
+    expect(result.error).toBe('invalid_analysis_json');
+    expect(result.userMessage).toContain('required JSON format');
   });
 
   it('retries deepseek json-mode calls when the first response has empty content', async () => {
@@ -173,5 +176,37 @@ describe('SkillCallAnalyzer', () => {
       model: 'deepseek-chat',
       response_format: { type: 'json_object' },
     });
+  });
+
+  it('maps empty model responses to a user-friendly failure reason', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: '',
+            },
+          },
+        ],
+      }),
+    }));
+
+    const analyzer = createSkillCallAnalyzer();
+    const result = await analyzer.analyzeWindow('/tmp/project', {
+      windowId: 'window-4',
+      skillId: 'test-skill',
+      runtime: 'codex',
+      sessionId: 'session-1',
+      closeReason: 'completed',
+      startedAt: '2026-04-10T00:00:00.000Z',
+      lastTraceAt: '2026-04-10T00:01:00.000Z',
+      traces: [],
+    } as never, 'content');
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('empty_llm_response');
+    expect(result.userMessage).toContain('empty response');
+    expect(result.technicalDetail).toContain('Empty content in LLM response');
   });
 });

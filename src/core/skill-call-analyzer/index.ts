@@ -24,6 +24,9 @@ export interface SkillCallAnalysisResult {
   evaluation?: EvaluationResult;
   model: string;
   error?: string;
+  errorCode?: string;
+  userMessage?: string;
+  technicalDetail?: string;
   tokenUsage: {
     promptTokens: number;
     completionTokens: number;
@@ -176,6 +179,72 @@ function normalizeEvidence(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => String(item)) : [];
 }
 
+function describeAnalysisFailure(
+  rawError: string,
+  lang: Language
+): { errorCode: string; userMessage: string; technicalDetail: string } {
+  const isZh = lang === 'zh';
+  const normalized = String(rawError || '').trim();
+
+  if (normalized === 'provider_not_configured') {
+    return {
+      errorCode: 'provider_not_configured',
+      userMessage: isZh
+        ? '当前项目没有可用的模型服务配置，所以这轮分析没有开始。'
+        : 'This analysis did not start because no model provider is configured for the project.',
+      technicalDetail: normalized,
+    };
+  }
+
+  if (normalized === 'invalid_analysis_json') {
+    return {
+      errorCode: 'invalid_analysis_json',
+      userMessage: isZh
+        ? '模型返回了内容，但格式不符合系统要求，所以这轮分析结果无法解析。'
+        : 'The model replied, but the response did not match the required JSON format, so the analysis could not be parsed.',
+      technicalDetail: normalized,
+    };
+  }
+
+  if (normalized.includes('Empty content in LLM response')) {
+    return {
+      errorCode: 'empty_llm_response',
+      userMessage: isZh
+        ? '模型接口返回了空内容，所以这轮分析没有拿到可用结果。'
+        : 'The model API returned an empty response, so this analysis produced no usable result.',
+      technicalDetail: normalized,
+    };
+  }
+
+  if (normalized.toLowerCase().includes('timeout')) {
+    return {
+      errorCode: 'analysis_timeout',
+      userMessage: isZh
+        ? '分析请求超时了，所以这轮分析没有完成。'
+        : 'The analysis request timed out before a usable result was returned.',
+      technicalDetail: normalized,
+    };
+  }
+
+  if (normalized.startsWith('LLM API error:')) {
+    return {
+      errorCode: 'provider_request_failed',
+      userMessage: isZh
+        ? '模型服务调用失败，所以这轮分析没有完成。'
+        : 'The model provider request failed, so this analysis did not complete.',
+      technicalDetail: normalized,
+    };
+  }
+
+  return {
+    errorCode: 'analysis_runtime_error',
+    userMessage: isZh
+      ? '分析链路执行时发生异常，所以这轮分析没有产生可用结果。'
+      : 'The analysis pipeline hit an unexpected error before it could produce a usable result.',
+    technicalDetail: normalized || (isZh ? '未知错误' : 'unknown error'),
+  };
+}
+
 function parseEvaluationPayload(
   payload: AnalyzerResponsePayload,
   window: SkillCallWindow,
@@ -221,7 +290,8 @@ export class SkillCallAnalyzer {
     const config = await readDashboardConfig(projectPath);
     const activeProvider = config.providers[0];
 
-    if (!activeProvider || !activeProvider.apiKey) {
+      if (!activeProvider || !activeProvider.apiKey) {
+      const failure = describeAnalysisFailure('provider_not_configured', lang);
       logger.warn('Skill call analysis blocked: provider not configured', {
         projectPath,
         windowId: window.windowId,
@@ -230,7 +300,10 @@ export class SkillCallAnalyzer {
       return {
         success: false,
         model: 'none',
-        error: 'provider_not_configured',
+        error: failure.errorCode,
+        errorCode: failure.errorCode,
+        userMessage: failure.userMessage,
+        technicalDetail: failure.technicalDetail,
         tokenUsage: {
           promptTokens: 0,
           completionTokens: 0,
@@ -271,6 +344,7 @@ export class SkillCallAnalyzer {
       });
       const jsonText = extractJsonObject(raw);
       if (!jsonText) {
+        const failure = describeAnalysisFailure('invalid_analysis_json', lang);
         logger.warn('Skill call analysis failed to return JSON', {
           projectPath,
           windowId: window.windowId,
@@ -280,7 +354,10 @@ export class SkillCallAnalyzer {
         return {
           success: false,
           model,
-          error: 'invalid_analysis_json',
+          error: failure.errorCode,
+          errorCode: failure.errorCode,
+          userMessage: failure.userMessage,
+          technicalDetail: failure.technicalDetail,
           tokenUsage: usage,
         };
       }
@@ -305,17 +382,22 @@ export class SkillCallAnalyzer {
       };
     } catch (error) {
       const usage = client.getTokenUsage();
+      const rawMessage = error instanceof Error ? error.message : String(error);
+      const failure = describeAnalysisFailure(rawMessage, lang);
       logger.error('Skill call analysis failed', {
         projectPath,
         windowId: window.windowId,
         skillId: window.skillId,
         model,
-        error: error instanceof Error ? error.message : String(error),
+        error: rawMessage,
       });
       return {
         success: false,
         model,
-        error: error instanceof Error ? error.message : String(error),
+        error: failure.errorCode,
+        errorCode: failure.errorCode,
+        userMessage: failure.userMessage,
+        technicalDetail: failure.technicalDetail,
         tokenUsage: usage,
       };
     }

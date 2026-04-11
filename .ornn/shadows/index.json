@@ -6,7 +6,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.099Z",
     "updatedAt": "2026-04-06T11:24:05.099Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "business-opportunity-assessment",
+    "created_at": "2026-04-06T11:24:05.099Z",
+    "last_optimized_at": "2026-04-06T11:24:05.099Z",
+    "current_revision": 0
   },
   {
     "skillId": "business-opportunity-assessment",
@@ -15,7 +19,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.101Z",
     "updatedAt": "2026-04-06T11:24:05.101Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "business-opportunity-assessment",
+    "created_at": "2026-04-06T11:24:05.101Z",
+    "last_optimized_at": "2026-04-06T11:24:05.101Z",
+    "current_revision": 0
   },
   {
     "skillId": "business-opportunity-assessment",
@@ -24,7 +32,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.103Z",
     "updatedAt": "2026-04-06T11:24:05.103Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "business-opportunity-assessment",
+    "created_at": "2026-04-06T11:24:05.103Z",
+    "last_optimized_at": "2026-04-06T11:24:05.103Z",
+    "current_revision": 0
   },
   {
     "skillId": "competitive-gap-analysis",
@@ -33,7 +45,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.105Z",
     "updatedAt": "2026-04-06T11:24:05.105Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "competitive-gap-analysis",
+    "created_at": "2026-04-06T11:24:05.105Z",
+    "last_optimized_at": "2026-04-06T11:24:05.105Z",
+    "current_revision": 0
   },
   {
     "skillId": "competitive-gap-analysis",
@@ -42,7 +58,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.108Z",
     "updatedAt": "2026-04-06T11:24:05.108Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "competitive-gap-analysis",
+    "created_at": "2026-04-06T11:24:05.108Z",
+    "last_optimized_at": "2026-04-06T11:24:05.108Z",
+    "current_revision": 0
   },
   {
     "skillId": "competitive-gap-analysis",
@@ -51,7 +71,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.109Z",
     "updatedAt": "2026-04-06T11:24:05.109Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "competitive-gap-analysis",
+    "created_at": "2026-04-06T11:24:05.109Z",
+    "last_optimized_at": "2026-04-06T11:24:05.109Z",
+    "current_revision": 0
   },
   {
     "skillId": "competitor-tracking",
@@ -60,7 +84,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.111Z",
     "updatedAt": "2026-04-06T11:24:05.111Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "competitor-tracking",
+    "created_at": "2026-04-06T11:24:05.111Z",
+    "last_optimized_at": "2026-04-06T11:24:05.111Z",
+    "current_revision": 0
   },
   {
     "skillId": "competitor-tracking",
@@ -69,7 +97,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.112Z",
     "updatedAt": "2026-04-06T11:24:05.112Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "competitor-tracking",
+    "created_at": "2026-04-06T11:24:05.112Z",
+    "last_optimized_at": "2026-04-06T11:24:05.112Z",
+    "current_revision": 0
   },
   {
     "skillId": "competitor-tracking",
@@ -78,7 +110,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.113Z",
     "updatedAt": "2026-04-06T11:24:05.113Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "competitor-tracking",
+    "created_at": "2026-04-06T11:24:05.113Z",
+    "last_optimized_at": "2026-04-06T11:24:05.113Z",
+    "current_revision": 0
   },
   {
     "skillId": "cost-structure-analysis",
@@ -87,7 +123,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.115Z",
     "updatedAt": "2026-04-06T11:24:05.115Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "cost-structure-analysis",
+    "created_at": "2026-04-06T11:24:05.115Z",
+    "last_optimized_at": "2026-04-06T11:24:05.115Z",
+    "current_revision": 0
   },
   {
     "skillId": "cost-structure-analysis",
@@ -96,7 +136,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.116Z",
     "updatedAt": "2026-04-06T11:24:05.116Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "cost-structure-analysis",
+    "created_at": "2026-04-06T11:24:05.116Z",
+    "last_optimized_at": "2026-04-06T11:24:05.116Z",
+    "current_revision": 0
   },
   {
     "skillId": "cost-structure-analysis",
@@ -105,7 +149,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.117Z",
     "updatedAt": "2026-04-06T11:24:05.117Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "cost-structure-analysis",
+    "created_at": "2026-04-06T11:24:05.117Z",
+    "last_optimized_at": "2026-04-06T11:24:05.117Z",
+    "current_revision": 0
   },
   {
     "skillId": "data-analysis",
@@ -114,7 +162,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.120Z",
     "updatedAt": "2026-04-06T11:24:05.120Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "data-analysis",
+    "created_at": "2026-04-06T11:24:05.120Z",
+    "last_optimized_at": "2026-04-06T11:24:05.120Z",
+    "current_revision": 0
   },
   {
     "skillId": "data-analysis",
@@ -123,7 +175,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.121Z",
     "updatedAt": "2026-04-06T11:24:05.121Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "data-analysis",
+    "created_at": "2026-04-06T11:24:05.121Z",
+    "last_optimized_at": "2026-04-06T11:24:05.121Z",
+    "current_revision": 0
   },
   {
     "skillId": "data-analysis",
@@ -132,7 +188,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.122Z",
     "updatedAt": "2026-04-06T11:24:05.122Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "data-analysis",
+    "created_at": "2026-04-06T11:24:05.122Z",
+    "last_optimized_at": "2026-04-06T11:24:05.122Z",
+    "current_revision": 0
   },
   {
     "skillId": "decision-and-mvp",
@@ -141,7 +201,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.125Z",
     "updatedAt": "2026-04-06T11:24:05.125Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "decision-and-mvp",
+    "created_at": "2026-04-06T11:24:05.125Z",
+    "last_optimized_at": "2026-04-06T11:24:05.125Z",
+    "current_revision": 0
   },
   {
     "skillId": "decision-and-mvp",
@@ -150,7 +214,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.126Z",
     "updatedAt": "2026-04-06T11:24:05.126Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "decision-and-mvp",
+    "created_at": "2026-04-06T11:24:05.126Z",
+    "last_optimized_at": "2026-04-06T11:24:05.126Z",
+    "current_revision": 0
   },
   {
     "skillId": "decision-and-mvp",
@@ -159,7 +227,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.127Z",
     "updatedAt": "2026-04-06T11:24:05.127Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "decision-and-mvp",
+    "created_at": "2026-04-06T11:24:05.127Z",
+    "last_optimized_at": "2026-04-06T11:24:05.127Z",
+    "current_revision": 0
   },
   {
     "skillId": "directed-report-template",
@@ -168,7 +240,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.130Z",
     "updatedAt": "2026-04-06T11:24:05.130Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "directed-report-template",
+    "created_at": "2026-04-06T11:24:05.130Z",
+    "last_optimized_at": "2026-04-06T11:24:05.130Z",
+    "current_revision": 0
   },
   {
     "skillId": "directed-report-template",
@@ -177,7 +253,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.131Z",
     "updatedAt": "2026-04-06T11:24:05.131Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "directed-report-template",
+    "created_at": "2026-04-06T11:24:05.131Z",
+    "last_optimized_at": "2026-04-06T11:24:05.131Z",
+    "current_revision": 0
   },
   {
     "skillId": "directed-report-template",
@@ -186,7 +266,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.132Z",
     "updatedAt": "2026-04-06T11:24:05.132Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "directed-report-template",
+    "created_at": "2026-04-06T11:24:05.132Z",
+    "last_optimized_at": "2026-04-06T11:24:05.132Z",
+    "current_revision": 0
   },
   {
     "skillId": "exploratory-report-template",
@@ -195,7 +279,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.134Z",
     "updatedAt": "2026-04-06T11:24:05.134Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "exploratory-report-template",
+    "created_at": "2026-04-06T11:24:05.134Z",
+    "last_optimized_at": "2026-04-06T11:24:05.134Z",
+    "current_revision": 0
   },
   {
     "skillId": "exploratory-report-template",
@@ -204,7 +292,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.135Z",
     "updatedAt": "2026-04-06T11:24:05.135Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "exploratory-report-template",
+    "created_at": "2026-04-06T11:24:05.135Z",
+    "last_optimized_at": "2026-04-06T11:24:05.135Z",
+    "current_revision": 0
   },
   {
     "skillId": "exploratory-report-template",
@@ -213,7 +305,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.136Z",
     "updatedAt": "2026-04-06T11:24:05.136Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "exploratory-report-template",
+    "created_at": "2026-04-06T11:24:05.136Z",
+    "last_optimized_at": "2026-04-06T11:24:05.136Z",
+    "current_revision": 0
   },
   {
     "skillId": "jtbd-root-cause",
@@ -222,7 +318,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.138Z",
     "updatedAt": "2026-04-06T11:24:05.138Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "jtbd-root-cause",
+    "created_at": "2026-04-06T11:24:05.138Z",
+    "last_optimized_at": "2026-04-06T11:24:05.138Z",
+    "current_revision": 0
   },
   {
     "skillId": "jtbd-root-cause",
@@ -231,7 +331,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.139Z",
     "updatedAt": "2026-04-06T11:24:05.139Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "jtbd-root-cause",
+    "created_at": "2026-04-06T11:24:05.139Z",
+    "last_optimized_at": "2026-04-06T11:24:05.139Z",
+    "current_revision": 0
   },
   {
     "skillId": "jtbd-root-cause",
@@ -240,7 +344,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.140Z",
     "updatedAt": "2026-04-06T11:24:05.140Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "jtbd-root-cause",
+    "created_at": "2026-04-06T11:24:05.140Z",
+    "last_optimized_at": "2026-04-06T11:24:05.140Z",
+    "current_revision": 0
   },
   {
     "skillId": "market-sizing",
@@ -249,7 +357,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.142Z",
     "updatedAt": "2026-04-06T11:24:05.142Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "market-sizing",
+    "created_at": "2026-04-06T11:24:05.142Z",
+    "last_optimized_at": "2026-04-06T11:24:05.142Z",
+    "current_revision": 0
   },
   {
     "skillId": "market-sizing",
@@ -258,7 +370,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.143Z",
     "updatedAt": "2026-04-06T11:24:05.143Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "market-sizing",
+    "created_at": "2026-04-06T11:24:05.143Z",
+    "last_optimized_at": "2026-04-06T11:24:05.143Z",
+    "current_revision": 0
   },
   {
     "skillId": "market-sizing",
@@ -267,7 +383,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.145Z",
     "updatedAt": "2026-04-06T11:24:05.145Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "market-sizing",
+    "created_at": "2026-04-06T11:24:05.145Z",
+    "last_optimized_at": "2026-04-06T11:24:05.145Z",
+    "current_revision": 0
   },
   {
     "skillId": "operation-burden-analysis",
@@ -276,7 +396,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.147Z",
     "updatedAt": "2026-04-06T11:24:05.147Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "operation-burden-analysis",
+    "created_at": "2026-04-06T11:24:05.147Z",
+    "last_optimized_at": "2026-04-06T11:24:05.147Z",
+    "current_revision": 0
   },
   {
     "skillId": "operation-burden-analysis",
@@ -285,7 +409,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.149Z",
     "updatedAt": "2026-04-06T11:24:05.149Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "operation-burden-analysis",
+    "created_at": "2026-04-06T11:24:05.149Z",
+    "last_optimized_at": "2026-04-06T11:24:05.149Z",
+    "current_revision": 0
   },
   {
     "skillId": "operation-burden-analysis",
@@ -294,7 +422,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.150Z",
     "updatedAt": "2026-04-06T11:24:05.150Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "operation-burden-analysis",
+    "created_at": "2026-04-06T11:24:05.150Z",
+    "last_optimized_at": "2026-04-06T11:24:05.150Z",
+    "current_revision": 0
   },
   {
     "skillId": "pain-validation",
@@ -303,7 +435,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.152Z",
     "updatedAt": "2026-04-06T11:24:05.152Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "pain-validation",
+    "created_at": "2026-04-06T11:24:05.152Z",
+    "last_optimized_at": "2026-04-06T11:24:05.152Z",
+    "current_revision": 0
   },
   {
     "skillId": "pain-validation",
@@ -312,7 +448,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.153Z",
     "updatedAt": "2026-04-06T11:24:05.153Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "pain-validation",
+    "created_at": "2026-04-06T11:24:05.153Z",
+    "last_optimized_at": "2026-04-06T11:24:05.153Z",
+    "current_revision": 0
   },
   {
     "skillId": "pain-validation",
@@ -321,7 +461,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.154Z",
     "updatedAt": "2026-04-06T11:24:05.154Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "pain-validation",
+    "created_at": "2026-04-06T11:24:05.154Z",
+    "last_optimized_at": "2026-04-06T11:24:05.154Z",
+    "current_revision": 0
   },
   {
     "skillId": "pattern-synthesis",
@@ -330,7 +474,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.157Z",
     "updatedAt": "2026-04-06T11:24:05.157Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "pattern-synthesis",
+    "created_at": "2026-04-06T11:24:05.157Z",
+    "last_optimized_at": "2026-04-06T11:24:05.157Z",
+    "current_revision": 0
   },
   {
     "skillId": "pattern-synthesis",
@@ -339,7 +487,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.158Z",
     "updatedAt": "2026-04-06T11:24:05.158Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "pattern-synthesis",
+    "created_at": "2026-04-06T11:24:05.158Z",
+    "last_optimized_at": "2026-04-06T11:24:05.158Z",
+    "current_revision": 0
   },
   {
     "skillId": "pattern-synthesis",
@@ -348,7 +500,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.160Z",
     "updatedAt": "2026-04-06T11:24:05.160Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "pattern-synthesis",
+    "created_at": "2026-04-06T11:24:05.160Z",
+    "last_optimized_at": "2026-04-06T11:24:05.160Z",
+    "current_revision": 0
   },
   {
     "skillId": "report-generation",
@@ -357,7 +513,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.162Z",
     "updatedAt": "2026-04-06T11:24:05.162Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "report-generation",
+    "created_at": "2026-04-06T11:24:05.162Z",
+    "last_optimized_at": "2026-04-06T11:24:05.162Z",
+    "current_revision": 0
   },
   {
     "skillId": "report-generation",
@@ -366,7 +526,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.163Z",
     "updatedAt": "2026-04-06T11:24:05.163Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "report-generation",
+    "created_at": "2026-04-06T11:24:05.163Z",
+    "last_optimized_at": "2026-04-06T11:24:05.163Z",
+    "current_revision": 0
   },
   {
     "skillId": "report-generation",
@@ -375,7 +539,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.165Z",
     "updatedAt": "2026-04-06T11:24:05.165Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "report-generation",
+    "created_at": "2026-04-06T11:24:05.165Z",
+    "last_optimized_at": "2026-04-06T11:24:05.165Z",
+    "current_revision": 0
   },
   {
     "skillId": "research-sop",
@@ -384,7 +552,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.167Z",
     "updatedAt": "2026-04-06T11:24:05.167Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "research-sop",
+    "created_at": "2026-04-06T11:24:05.167Z",
+    "last_optimized_at": "2026-04-06T11:24:05.167Z",
+    "current_revision": 0
   },
   {
     "skillId": "research-sop",
@@ -393,7 +565,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.169Z",
     "updatedAt": "2026-04-06T11:24:05.169Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "research-sop",
+    "created_at": "2026-04-06T11:24:05.169Z",
+    "last_optimized_at": "2026-04-06T11:24:05.169Z",
+    "current_revision": 0
   },
   {
     "skillId": "research-sop",
@@ -402,7 +578,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.171Z",
     "updatedAt": "2026-04-06T11:24:05.171Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "research-sop",
+    "created_at": "2026-04-06T11:24:05.171Z",
+    "last_optimized_at": "2026-04-06T11:24:05.171Z",
+    "current_revision": 0
   },
   {
     "skillId": "responsibility-risk-assessment",
@@ -411,7 +591,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.173Z",
     "updatedAt": "2026-04-06T11:24:05.173Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "responsibility-risk-assessment",
+    "created_at": "2026-04-06T11:24:05.173Z",
+    "last_optimized_at": "2026-04-06T11:24:05.173Z",
+    "current_revision": 0
   },
   {
     "skillId": "responsibility-risk-assessment",
@@ -420,7 +604,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.175Z",
     "updatedAt": "2026-04-06T11:24:05.175Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "responsibility-risk-assessment",
+    "created_at": "2026-04-06T11:24:05.175Z",
+    "last_optimized_at": "2026-04-06T11:24:05.175Z",
+    "current_revision": 0
   },
   {
     "skillId": "responsibility-risk-assessment",
@@ -429,7 +617,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.177Z",
     "updatedAt": "2026-04-06T11:24:05.177Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "responsibility-risk-assessment",
+    "created_at": "2026-04-06T11:24:05.177Z",
+    "last_optimized_at": "2026-04-06T11:24:05.177Z",
+    "current_revision": 0
   },
   {
     "skillId": "revenue-model-validation",
@@ -438,7 +630,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.181Z",
     "updatedAt": "2026-04-06T11:24:05.181Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "revenue-model-validation",
+    "created_at": "2026-04-06T11:24:05.181Z",
+    "last_optimized_at": "2026-04-06T11:24:05.181Z",
+    "current_revision": 0
   },
   {
     "skillId": "revenue-model-validation",
@@ -447,7 +643,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.186Z",
     "updatedAt": "2026-04-06T11:24:05.186Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "revenue-model-validation",
+    "created_at": "2026-04-06T11:24:05.186Z",
+    "last_optimized_at": "2026-04-06T11:24:05.186Z",
+    "current_revision": 0
   },
   {
     "skillId": "revenue-model-validation",
@@ -456,7 +656,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.187Z",
     "updatedAt": "2026-04-06T11:24:05.187Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "revenue-model-validation",
+    "created_at": "2026-04-06T11:24:05.187Z",
+    "last_optimized_at": "2026-04-06T11:24:05.187Z",
+    "current_revision": 0
   },
   {
     "skillId": "risk-assessment",
@@ -465,7 +669,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.190Z",
     "updatedAt": "2026-04-06T11:24:05.190Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "risk-assessment",
+    "created_at": "2026-04-06T11:24:05.190Z",
+    "last_optimized_at": "2026-04-06T11:24:05.190Z",
+    "current_revision": 0
   },
   {
     "skillId": "risk-assessment",
@@ -474,7 +682,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.192Z",
     "updatedAt": "2026-04-06T11:24:05.192Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "risk-assessment",
+    "created_at": "2026-04-06T11:24:05.192Z",
+    "last_optimized_at": "2026-04-06T11:24:05.192Z",
+    "current_revision": 0
   },
   {
     "skillId": "risk-assessment",
@@ -483,7 +695,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.193Z",
     "updatedAt": "2026-04-06T11:24:05.193Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "risk-assessment",
+    "created_at": "2026-04-06T11:24:05.193Z",
+    "last_optimized_at": "2026-04-06T11:24:05.193Z",
+    "current_revision": 0
   },
   {
     "skillId": "search-strategy",
@@ -492,7 +708,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.196Z",
     "updatedAt": "2026-04-06T11:24:05.196Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "search-strategy",
+    "created_at": "2026-04-06T11:24:05.196Z",
+    "last_optimized_at": "2026-04-06T11:24:05.196Z",
+    "current_revision": 0
   },
   {
     "skillId": "search-strategy",
@@ -501,7 +721,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.199Z",
     "updatedAt": "2026-04-06T11:24:05.199Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "search-strategy",
+    "created_at": "2026-04-06T11:24:05.199Z",
+    "last_optimized_at": "2026-04-06T11:24:05.199Z",
+    "current_revision": 0
   },
   {
     "skillId": "search-strategy",
@@ -510,7 +734,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.201Z",
     "updatedAt": "2026-04-06T11:24:05.201Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "search-strategy",
+    "created_at": "2026-04-06T11:24:05.201Z",
+    "last_optimized_at": "2026-04-06T11:24:05.201Z",
+    "current_revision": 0
   },
   {
     "skillId": "sentiment-analysis",
@@ -519,7 +747,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.203Z",
     "updatedAt": "2026-04-06T11:24:05.203Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "sentiment-analysis",
+    "created_at": "2026-04-06T11:24:05.203Z",
+    "last_optimized_at": "2026-04-06T11:24:05.203Z",
+    "current_revision": 0
   },
   {
     "skillId": "sentiment-analysis",
@@ -528,7 +760,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.205Z",
     "updatedAt": "2026-04-06T11:24:05.205Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "sentiment-analysis",
+    "created_at": "2026-04-06T11:24:05.205Z",
+    "last_optimized_at": "2026-04-06T11:24:05.205Z",
+    "current_revision": 0
   },
   {
     "skillId": "sentiment-analysis",
@@ -537,7 +773,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.207Z",
     "updatedAt": "2026-04-06T11:24:05.207Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "sentiment-analysis",
+    "created_at": "2026-04-06T11:24:05.207Z",
+    "last_optimized_at": "2026-04-06T11:24:05.207Z",
+    "current_revision": 0
   },
   {
     "skillId": "source-vetting",
@@ -546,7 +786,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.210Z",
     "updatedAt": "2026-04-06T11:24:05.210Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "source-vetting",
+    "created_at": "2026-04-06T11:24:05.210Z",
+    "last_optimized_at": "2026-04-06T11:24:05.210Z",
+    "current_revision": 0
   },
   {
     "skillId": "source-vetting",
@@ -555,7 +799,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.211Z",
     "updatedAt": "2026-04-06T11:24:05.211Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "source-vetting",
+    "created_at": "2026-04-06T11:24:05.211Z",
+    "last_optimized_at": "2026-04-06T11:24:05.211Z",
+    "current_revision": 0
   },
   {
     "skillId": "source-vetting",
@@ -564,7 +812,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.213Z",
     "updatedAt": "2026-04-06T11:24:05.213Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "source-vetting",
+    "created_at": "2026-04-06T11:24:05.213Z",
+    "last_optimized_at": "2026-04-06T11:24:05.213Z",
+    "current_revision": 0
   },
   {
     "skillId": "three-firewall-check",
@@ -573,7 +825,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.216Z",
     "updatedAt": "2026-04-06T11:24:05.216Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "three-firewall-check",
+    "created_at": "2026-04-06T11:24:05.216Z",
+    "last_optimized_at": "2026-04-06T11:24:05.216Z",
+    "current_revision": 0
   },
   {
     "skillId": "three-firewall-check",
@@ -582,7 +838,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.217Z",
     "updatedAt": "2026-04-06T11:24:05.217Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "three-firewall-check",
+    "created_at": "2026-04-06T11:24:05.217Z",
+    "last_optimized_at": "2026-04-06T11:24:05.217Z",
+    "current_revision": 0
   },
   {
     "skillId": "three-firewall-check",
@@ -591,7 +851,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.220Z",
     "updatedAt": "2026-04-06T11:24:05.220Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "three-firewall-check",
+    "created_at": "2026-04-06T11:24:05.220Z",
+    "last_optimized_at": "2026-04-06T11:24:05.220Z",
+    "current_revision": 0
   },
   {
     "skillId": "trend-analysis",
@@ -600,7 +864,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.222Z",
     "updatedAt": "2026-04-06T11:24:05.222Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "trend-analysis",
+    "created_at": "2026-04-06T11:24:05.222Z",
+    "last_optimized_at": "2026-04-06T11:24:05.222Z",
+    "current_revision": 0
   },
   {
     "skillId": "trend-analysis",
@@ -609,7 +877,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.224Z",
     "updatedAt": "2026-04-06T11:24:05.224Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "trend-analysis",
+    "created_at": "2026-04-06T11:24:05.224Z",
+    "last_optimized_at": "2026-04-06T11:24:05.224Z",
+    "current_revision": 0
   },
   {
     "skillId": "trend-analysis",
@@ -618,7 +890,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.226Z",
     "updatedAt": "2026-04-06T11:24:05.226Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "trend-analysis",
+    "created_at": "2026-04-06T11:24:05.226Z",
+    "last_optimized_at": "2026-04-06T11:24:05.226Z",
+    "current_revision": 0
   },
   {
     "skillId": "unit-economics-modeling",
@@ -627,7 +903,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.230Z",
     "updatedAt": "2026-04-06T11:24:05.230Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "unit-economics-modeling",
+    "created_at": "2026-04-06T11:24:05.230Z",
+    "last_optimized_at": "2026-04-06T11:24:05.230Z",
+    "current_revision": 0
   },
   {
     "skillId": "unit-economics-modeling",
@@ -636,7 +916,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.232Z",
     "updatedAt": "2026-04-06T11:24:05.232Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "unit-economics-modeling",
+    "created_at": "2026-04-06T11:24:05.232Z",
+    "last_optimized_at": "2026-04-06T11:24:05.232Z",
+    "current_revision": 0
   },
   {
     "skillId": "unit-economics-modeling",
@@ -645,7 +929,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.234Z",
     "updatedAt": "2026-04-06T11:24:05.234Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "unit-economics-modeling",
+    "created_at": "2026-04-06T11:24:05.234Z",
+    "last_optimized_at": "2026-04-06T11:24:05.234Z",
+    "current_revision": 0
   },
   {
     "skillId": "user-journey-mapping",
@@ -654,7 +942,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.237Z",
     "updatedAt": "2026-04-06T11:24:05.237Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "user-journey-mapping",
+    "created_at": "2026-04-06T11:24:05.237Z",
+    "last_optimized_at": "2026-04-06T11:24:05.237Z",
+    "current_revision": 0
   },
   {
     "skillId": "user-journey-mapping",
@@ -663,7 +955,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.239Z",
     "updatedAt": "2026-04-06T11:24:05.239Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "user-journey-mapping",
+    "created_at": "2026-04-06T11:24:05.239Z",
+    "last_optimized_at": "2026-04-06T11:24:05.239Z",
+    "current_revision": 0
   },
   {
     "skillId": "user-journey-mapping",
@@ -672,7 +968,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.242Z",
     "updatedAt": "2026-04-06T11:24:05.242Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "user-journey-mapping",
+    "created_at": "2026-04-06T11:24:05.242Z",
+    "last_optimized_at": "2026-04-06T11:24:05.242Z",
+    "current_revision": 0
   },
   {
     "skillId": "web-scraping",
@@ -681,7 +981,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.246Z",
     "updatedAt": "2026-04-06T11:24:05.246Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "web-scraping",
+    "created_at": "2026-04-06T11:24:05.246Z",
+    "last_optimized_at": "2026-04-06T11:24:05.246Z",
+    "current_revision": 0
   },
   {
     "skillId": "web-scraping",
@@ -690,7 +994,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.248Z",
     "updatedAt": "2026-04-06T11:24:05.248Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "web-scraping",
+    "created_at": "2026-04-06T11:24:05.248Z",
+    "last_optimized_at": "2026-04-06T11:24:05.248Z",
+    "current_revision": 0
   },
   {
     "skillId": "web-scraping",
@@ -699,7 +1007,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.250Z",
     "updatedAt": "2026-04-06T11:24:05.250Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "web-scraping",
+    "created_at": "2026-04-06T11:24:05.250Z",
+    "last_optimized_at": "2026-04-06T11:24:05.250Z",
+    "current_revision": 0
   },
   {
     "skillId": "astartes-coding-custodes",
@@ -711,7 +1023,7 @@
     "traceCount": 0,
     "skill_id": "astartes-coding-custodes",
     "created_at": "2026-04-06T11:24:05.256Z",
-    "last_optimized_at": "2026-04-06T15:31:46.469Z",
+    "last_optimized_at": "2026-04-06T15:38:35.657Z",
     "current_revision": 0
   },
   {
@@ -721,7 +1033,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.258Z",
     "updatedAt": "2026-04-06T11:24:05.258Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "astartes-coding-custodes",
+    "created_at": "2026-04-06T11:24:05.258Z",
+    "last_optimized_at": "2026-04-06T11:24:05.258Z",
+    "current_revision": 0
   },
   {
     "skillId": "astartes-coding-custodes",
@@ -730,7 +1046,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.260Z",
     "updatedAt": "2026-04-06T11:24:05.260Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "astartes-coding-custodes",
+    "created_at": "2026-04-06T11:24:05.260Z",
+    "last_optimized_at": "2026-04-06T11:24:05.260Z",
+    "current_revision": 0
   },
   {
     "skillId": "find-skills",
@@ -739,7 +1059,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.279Z",
     "updatedAt": "2026-04-06T11:24:05.279Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "find-skills",
+    "created_at": "2026-04-06T11:24:05.279Z",
+    "last_optimized_at": "2026-04-06T11:24:05.279Z",
+    "current_revision": 0
   },
   {
     "skillId": "find-skills",
@@ -748,7 +1072,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.282Z",
     "updatedAt": "2026-04-06T11:24:05.282Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "find-skills",
+    "created_at": "2026-04-06T11:24:05.282Z",
+    "last_optimized_at": "2026-04-06T11:24:05.282Z",
+    "current_revision": 0
   },
   {
     "skillId": "find-skills",
@@ -757,7 +1085,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.284Z",
     "updatedAt": "2026-04-06T11:24:05.284Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "find-skills",
+    "created_at": "2026-04-06T11:24:05.284Z",
+    "last_optimized_at": "2026-04-06T11:24:05.284Z",
+    "current_revision": 0
   },
   {
     "skillId": "frontend-design",
@@ -766,7 +1098,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.287Z",
     "updatedAt": "2026-04-06T11:24:05.287Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "frontend-design",
+    "created_at": "2026-04-06T11:24:05.287Z",
+    "last_optimized_at": "2026-04-06T11:24:05.287Z",
+    "current_revision": 0
   },
   {
     "skillId": "frontend-design",
@@ -775,7 +1111,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.290Z",
     "updatedAt": "2026-04-06T11:24:05.290Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "frontend-design",
+    "created_at": "2026-04-06T11:24:05.290Z",
+    "last_optimized_at": "2026-04-06T11:24:05.290Z",
+    "current_revision": 0
   },
   {
     "skillId": "frontend-design",
@@ -784,7 +1124,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.292Z",
     "updatedAt": "2026-04-06T11:24:05.292Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "frontend-design",
+    "created_at": "2026-04-06T11:24:05.292Z",
+    "last_optimized_at": "2026-04-06T11:24:05.292Z",
+    "current_revision": 0
   },
   {
     "skillId": "show-my-repo",
@@ -793,7 +1137,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.322Z",
     "updatedAt": "2026-04-06T11:24:05.322Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "show-my-repo",
+    "created_at": "2026-04-06T11:24:05.322Z",
+    "last_optimized_at": "2026-04-06T11:24:05.322Z",
+    "current_revision": 0
   },
   {
     "skillId": "show-my-repo",
@@ -802,7 +1150,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.324Z",
     "updatedAt": "2026-04-06T11:24:05.324Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "show-my-repo",
+    "created_at": "2026-04-06T11:24:05.324Z",
+    "last_optimized_at": "2026-04-06T11:24:05.324Z",
+    "current_revision": 0
   },
   {
     "skillId": "show-my-repo",
@@ -811,7 +1163,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.327Z",
     "updatedAt": "2026-04-06T11:24:05.327Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "show-my-repo",
+    "created_at": "2026-04-06T11:24:05.327Z",
+    "last_optimized_at": "2026-04-06T11:24:05.327Z",
+    "current_revision": 0
   },
   {
     "skillId": "skill-creator",
@@ -820,7 +1176,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.332Z",
     "updatedAt": "2026-04-06T11:24:05.332Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "skill-creator",
+    "created_at": "2026-04-06T11:24:05.332Z",
+    "last_optimized_at": "2026-04-06T11:24:05.332Z",
+    "current_revision": 0
   },
   {
     "skillId": "skill-creator",
@@ -829,7 +1189,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.334Z",
     "updatedAt": "2026-04-06T11:24:05.334Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "skill-creator",
+    "created_at": "2026-04-06T11:24:05.334Z",
+    "last_optimized_at": "2026-04-06T11:24:05.334Z",
+    "current_revision": 0
   },
   {
     "skillId": "skill-creator",
@@ -838,7 +1202,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.336Z",
     "updatedAt": "2026-04-06T11:24:05.336Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "skill-creator",
+    "created_at": "2026-04-06T11:24:05.336Z",
+    "last_optimized_at": "2026-04-06T11:24:05.336Z",
+    "current_revision": 0
   },
   {
     "skillId": "summary-my-repo",
@@ -847,7 +1215,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.344Z",
     "updatedAt": "2026-04-06T11:24:05.344Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "summary-my-repo",
+    "created_at": "2026-04-06T11:24:05.344Z",
+    "last_optimized_at": "2026-04-06T11:24:05.344Z",
+    "current_revision": 0
   },
   {
     "skillId": "summary-my-repo",
@@ -856,7 +1228,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.347Z",
     "updatedAt": "2026-04-06T11:24:05.347Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "summary-my-repo",
+    "created_at": "2026-04-06T11:24:05.347Z",
+    "last_optimized_at": "2026-04-06T11:24:05.347Z",
+    "current_revision": 0
   },
   {
     "skillId": "summary-my-repo",
@@ -865,7 +1241,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.349Z",
     "updatedAt": "2026-04-06T11:24:05.349Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "summary-my-repo",
+    "created_at": "2026-04-06T11:24:05.349Z",
+    "last_optimized_at": "2026-04-06T11:24:05.349Z",
+    "current_revision": 0
   },
   {
     "skillId": "systematic-debugging",
@@ -873,8 +1253,12 @@
     "version": "4999cb851360485eca5074e727bbdd62ef20549c5d5b01216fcbf5831badb473",
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.353Z",
-    "updatedAt": "2026-04-06T11:24:05.353Z",
-    "traceCount": 0
+    "updatedAt": "2026-04-11T18:40:46.900Z",
+    "traceCount": 1,
+    "skill_id": "systematic-debugging",
+    "created_at": "2026-04-06T11:24:05.353Z",
+    "last_optimized_at": "2026-04-06T11:24:05.353Z",
+    "current_revision": 0
   },
   {
     "skillId": "systematic-debugging",
@@ -883,7 +1267,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.356Z",
     "updatedAt": "2026-04-06T11:24:05.356Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "systematic-debugging",
+    "created_at": "2026-04-06T11:24:05.356Z",
+    "last_optimized_at": "2026-04-06T11:24:05.356Z",
+    "current_revision": 0
   },
   {
     "skillId": "systematic-debugging",
@@ -892,7 +1280,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.358Z",
     "updatedAt": "2026-04-06T11:24:05.358Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "systematic-debugging",
+    "created_at": "2026-04-06T11:24:05.358Z",
+    "last_optimized_at": "2026-04-06T11:24:05.358Z",
+    "current_revision": 0
   },
   {
     "skillId": "test-driven-development",
@@ -900,8 +1292,12 @@
     "version": "7dee67b4af6bdccc7a914ca34533184d64592d0f5b23aeae631538168db14994",
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.361Z",
-    "updatedAt": "2026-04-06T11:24:05.361Z",
-    "traceCount": 0
+    "updatedAt": "2026-04-11T18:40:46.903Z",
+    "traceCount": 1,
+    "skill_id": "test-driven-development",
+    "created_at": "2026-04-06T11:24:05.361Z",
+    "last_optimized_at": "2026-04-06T11:24:05.361Z",
+    "current_revision": 0
   },
   {
     "skillId": "test-driven-development",
@@ -910,7 +1306,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.364Z",
     "updatedAt": "2026-04-06T11:24:05.364Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "test-driven-development",
+    "created_at": "2026-04-06T11:24:05.364Z",
+    "last_optimized_at": "2026-04-06T11:24:05.364Z",
+    "current_revision": 0
   },
   {
     "skillId": "test-driven-development",
@@ -919,7 +1319,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.367Z",
     "updatedAt": "2026-04-06T11:24:05.367Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "test-driven-development",
+    "created_at": "2026-04-06T11:24:05.367Z",
+    "last_optimized_at": "2026-04-06T11:24:05.367Z",
+    "current_revision": 0
   },
   {
     "skillId": "vercel-react-best-practices",
@@ -928,7 +1332,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.378Z",
     "updatedAt": "2026-04-06T11:24:05.378Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "vercel-react-best-practices",
+    "created_at": "2026-04-06T11:24:05.378Z",
+    "last_optimized_at": "2026-04-06T11:24:05.378Z",
+    "current_revision": 0
   },
   {
     "skillId": "vercel-react-best-practices",
@@ -937,7 +1345,11 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.382Z",
     "updatedAt": "2026-04-06T11:24:05.382Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "vercel-react-best-practices",
+    "created_at": "2026-04-06T11:24:05.382Z",
+    "last_optimized_at": "2026-04-06T11:24:05.382Z",
+    "current_revision": 0
   },
   {
     "skillId": "vercel-react-best-practices",
@@ -946,6 +1358,10 @@
     "status": "pending",
     "createdAt": "2026-04-06T11:24:05.385Z",
     "updatedAt": "2026-04-06T11:24:05.385Z",
-    "traceCount": 0
+    "traceCount": 0,
+    "skill_id": "vercel-react-best-practices",
+    "created_at": "2026-04-06T11:24:05.385Z",
+    "last_optimized_at": "2026-04-06T11:24:05.385Z",
+    "current_revision": 0
   }
 ]

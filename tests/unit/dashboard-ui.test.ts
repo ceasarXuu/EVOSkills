@@ -945,7 +945,72 @@ describe('dashboard ui recovery', () => {
     dashboard.renderMainPanel(projectPath);
     html = getElement('mainPanel').innerHTML;
     expect(html).toContain('追踪 ID');
+    expect(html).toContain('范围');
+    expect(html).toContain('详情');
+    expect(html).toContain('操作');
     expect(html).not.toContain('<th>Trace ID</th>');
+  });
+
+  it('renders raw trace rows with scope and detail actions', async () => {
+    const { dashboard, getElement, getCopiedText } = loadDashboardTestHarness({}, { lang: 'zh' });
+    const projectPath = '/tmp/ornn-project';
+
+    getElement('mainPanel');
+    getElement('eventModalTitle');
+    getElement('eventModalContent');
+    getElement('eventModal');
+
+    dashboard.state.selectedMainTab = 'activity';
+    dashboard.state.activityLayer = 'raw';
+    dashboard.state.selectedProjectId = projectPath;
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [{ skillId: 'test-driven-development', runtime: 'codex' }],
+        traceStats: { total: 1, byRuntime: { codex: 1 }, byStatus: { success: 1 }, byEventType: { tool_call: 1 } },
+        recentTraces: [{
+          trace_id: 'trace-raw-1',
+          session_id: 'session-raw-1',
+          runtime: 'codex',
+          timestamp: '2026-04-10T05:23:00.000Z',
+          event_type: 'tool_call',
+          tool_name: 'exec_command',
+          tool_args: { cmd: 'npm run build' },
+          skill_refs: ['test-driven-development'],
+          status: 'success',
+        }],
+        decisionEvents: [{
+          id: 'evt-raw-1',
+          timestamp: '2026-04-10T05:23:01.000Z',
+          tag: 'evaluation_result',
+          traceId: 'trace-raw-1',
+          sessionId: 'session-raw-1',
+          runtime: 'codex',
+          skillId: 'test-driven-development',
+          status: 'no_patch_needed',
+          windowId: 'scope-raw-1',
+          detail: 'same trace scope',
+        }],
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+      },
+    };
+
+    dashboard.renderMainPanel(projectPath);
+    const html = getElement('mainPanel').innerHTML;
+    expect(html).toContain('scope-raw-1');
+    expect(html).toContain('复制');
+    expect(html).toContain('查看详情');
+    expect(html).toContain('exec_command');
+
+    await dashboard.copyActivityDetail(projectPath, 'raw:trace-raw-1');
+    expect(getCopiedText()).toContain('scope-raw-1');
+    expect(getCopiedText()).toContain('exec_command');
+    expect(getCopiedText()).toContain('trace-raw-1');
+
+    await dashboard.openActivityDetail(projectPath, 'raw:trace-raw-1');
+    const detail = getElement('eventModalContent').textContent;
+    expect(detail).toContain('exec_command');
+    expect(detail).toContain('npm run build');
   });
 
   it('renders provider editor rows and alerts with localized English copy', () => {

@@ -744,6 +744,7 @@ const state = {
   activityLayer: 'business',
   activityTagFilter: 'all',
   activityRowsByProject: {},
+  rawActivityRowsByProject: {},
   activityColumnWidths: loadSavedActivityColumnWidths(),
   lastCopiedActivityText: '',
   providerHealthByProject: {},
@@ -1476,6 +1477,9 @@ function summarizeTraceEventType(trace) {
 
 function buildActivityDetail(row) {
   if (!row) return t('activityDetailEmpty');
+  if (row.rawTrace) {
+    return buildRawTraceDetail(row);
+  }
   if (row.tag === 'analysis_failed') {
     const failure = describeAnalysisFailure(row);
     const lines = [
@@ -1508,6 +1512,61 @@ function buildActivityDetail(row) {
   ];
   if (row.traceId) lines.push(t('traceId') + ': ' + row.traceId);
   if (row.sessionId) lines.push(t('activitySessionIdLabel') + ': ' + row.sessionId);
+  return lines.join('\\n');
+}
+
+function stringifyRawTraceValue(value) {
+  if (value == null) return '—';
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function formatRawTracePreview(trace) {
+  if (!trace) return t('activityDetailFallback');
+  if (trace.event_type === 'tool_call') {
+    const name = trace.tool_name || 'unknown_tool';
+    const argsText = trace.tool_args ? stringifyRawTraceValue(trace.tool_args) : '';
+    return argsText ? (name + ' ' + argsText) : name;
+  }
+  if (trace.event_type === 'tool_result') return stringifyRawTraceValue(trace.tool_result);
+  if (trace.event_type === 'assistant_output') return trace.assistant_output || t('activityDetailFallback');
+  if (trace.event_type === 'user_input') return trace.user_input || t('activityDetailFallback');
+  if (trace.event_type === 'file_change') {
+    return Array.isArray(trace.files_changed) && trace.files_changed.length > 0
+      ? trace.files_changed.join(', ')
+      : t('activityDetailFallback');
+  }
+  return stringifyRawTraceValue(trace.metadata || trace.event_type || t('activityDetailFallback'));
+}
+
+function buildRawTraceDetail(row) {
+  const trace = row && row.rawTrace ? row.rawTrace : null;
+  if (!trace) return t('activityDetailEmpty');
+  const isZh = currentLang === 'zh';
+  const lines = [
+    t('traceTime') + ': ' + (trace.timestamp || '—'),
+    t('traceRuntime') + ': ' + (trace.runtime || t('activityHostFallback')),
+    t('traceEvent') + ': ' + summarizeTraceEventType(trace),
+    t('traceStatus') + ': ' + (trace.status || t('activityStatusFallback')),
+    t('traceScope') + ': ' + (row.scopeId || t('activityScopeFallback')),
+    t('traceSession') + ': ' + (trace.session_id || '—'),
+    t('traceId') + ': ' + (trace.trace_id || '—'),
+  ];
+  if (trace.tool_name) lines.push((isZh ? '工具' : 'Tool') + ': ' + trace.tool_name);
+  if (trace.tool_args) lines.push((isZh ? '参数' : 'Arguments') + ': ' + stringifyRawTraceValue(trace.tool_args));
+  if (trace.tool_result) lines.push((isZh ? '结果' : 'Result') + ': ' + stringifyRawTraceValue(trace.tool_result));
+  if (trace.user_input) lines.push((isZh ? '用户输入' : 'User Input') + ': ' + trace.user_input);
+  if (trace.assistant_output) lines.push((isZh ? '助手输出' : 'Assistant Output') + ': ' + trace.assistant_output);
+  if (Array.isArray(trace.files_changed) && trace.files_changed.length > 0) {
+    lines.push((isZh ? '文件变更' : 'Files Changed') + ': ' + trace.files_changed.join(', '));
+  }
+  if (Array.isArray(trace.skill_refs) && trace.skill_refs.length > 0) {
+    lines.push(t('activitySkillLabel') + ': ' + trace.skill_refs.join(', '));
+  }
   return lines.join('\\n');
 }
 
@@ -1629,7 +1688,7 @@ function buildActivityRows(projectPath) {
 }
 
 function getActivityRow(projectPath, rowId) {
-  const rows = state.activityRowsByProject[projectPath] || [];
+  const rows = (state.activityRowsByProject[projectPath] || []).concat(state.rawActivityRowsByProject[projectPath] || []);
   return rows.find((row) => row.id === rowId) || null;
 }
 
@@ -1645,7 +1704,7 @@ async function copyActivityDetail(projectPath, rowId) {
 async function openActivityDetail(projectPath, rowId) {
   const row = getActivityRow(projectPath, rowId);
   document.getElementById('eventModalTitle').textContent = row
-    ? (businessEventLabel(row.tag) + ' · ' + (row.skillId || '—'))
+    ? ((row.rawTrace ? summarizeTraceEventType(row.rawTrace) : businessEventLabel(row.tag)) + ' · ' + (row.skillId || '—'))
     : t('activityDetailTitle');
   document.getElementById('eventModalContent').textContent = buildActivityDetail(row);
   document.getElementById('eventModal').classList.add('visible');
@@ -1704,6 +1763,39 @@ function renderBusinessEvents(projectPath) {
       </table>
     </div>
   \`;
+}
+
+function buildRawTraceRows(projectPath) {
+  const pd = state.projectData[projectPath] || {};
+  const traces = Array.isArray(pd.recentTraces) ? pd.recentTraces : [];
+  const decisionEvents = Array.isArray(pd.decisionEvents) ? pd.decisionEvents : [];
+  const scopeByTraceId = new Map();
+
+  for (const event of decisionEvents) {
+    const scopeId = getActivityScopeId(event);
+    if (scopeId && event.traceId) scopeByTraceId.set(event.traceId, scopeId);
+  }
+
+  const rows = traces
+    .map((trace) => ({
+      id: 'raw:' + trace.trace_id,
+      timestamp: trace.timestamp || '',
+      tag: trace.event_type || 'status',
+      runtime: trace.runtime || t('activityHostFallback'),
+      skillId: Array.isArray(trace.skill_refs) && trace.skill_refs.length > 0 ? trace.skill_refs.join(', ') : null,
+      status: trace.status || t('activityStatusFallback'),
+      scopeId: scopeByTraceId.get(trace.trace_id) || null,
+      detail: formatRawTracePreview(trace),
+      sourceLabel: t('activitySourceTrace'),
+      traceId: trace.trace_id || null,
+      sessionId: trace.session_id || null,
+      rawTrace: trace,
+    }))
+    .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)))
+    .slice(0, 150);
+
+  state.rawActivityRowsByProject[projectPath] = rows;
+  return rows;
 }
 
 function formatCompactNumber(value) {
@@ -3040,16 +3132,36 @@ function renderTraceBars(label, data, keys) {
 }
 
 function renderRecentTraces(traces) {
-  if (!traces.length) return '';
-  return \`<table class="trace-table">
-    <thead><tr><th>\${t('traceTime')}</th><th>\${t('traceRuntime')}</th><th>\${t('traceEvent')}</th><th>\${t('traceStatus')}</th><th>\${t('traceSession')}</th><th>\${t('traceId')}</th></tr></thead>
-    <tbody>\${traces.map(t => \`<tr>
-      <td style="color:var(--muted)">\${t.timestamp ? t.timestamp.slice(11,19) : '—'}</td>
-      <td>\${t.runtime}</td>
-      <td>\${t.event_type}</td>
-      <td style="color:\${t.status==='success'?'var(--green)':t.status==='failure'?'var(--red)':'var(--yellow)'}">\${t.status}</td>
-      <td style="color:var(--muted)">\${t.session_id?.slice(0,8) ?? '—'}</td>
-      <td style="color:var(--muted)">\${t.trace_id?.slice(0,8) ?? '—'}</td>
+  const projectPath = state.selectedProjectId;
+  const rows = projectPath ? buildRawTraceRows(projectPath) : [];
+  if (!rows.length) return '';
+  return \`<table class="activity-table">
+    <thead><tr>
+      <th style="\${getActivityColumnStyle('time', 92)}">\${t('traceTime')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'time')"></span></th>
+      <th style="\${getActivityColumnStyle('host', 96)}">\${t('traceRuntime')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'host')"></span></th>
+      <th style="\${getActivityColumnStyle('event', 128)}">\${t('traceEvent')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'event')"></span></th>
+      <th style="\${getActivityColumnStyle('status', 120)}">\${t('traceStatus')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'status')"></span></th>
+      <th style="\${getActivityColumnStyle('scope', 180)}">\${t('traceScope')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'scope')"></span></th>
+      <th style="width:120px;min-width:120px;">\${t('traceSession')}</th>
+      <th style="width:120px;min-width:120px;">\${t('traceId')}</th>
+      <th style="\${getActivityColumnStyle('detail', 520)}">\${t('traceDetail')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'detail')"></span></th>
+      <th style="width:120px;min-width:120px;">\${t('traceAction')}</th>
+    </tr></thead>
+    <tbody>\${rows.slice(0, 50).map((row) => \`<tr>
+      <td style="color:var(--muted);\${getActivityColumnStyle('time', 92)}">\${formatEventTimestamp(row.timestamp)}</td>
+      <td style="\${getActivityColumnStyle('host', 96)}">\${escHtml(row.runtime || t('activityHostFallback'))}</td>
+      <td style="\${getActivityColumnStyle('event', 128)}">\${escHtml(summarizeTraceEventType(row.rawTrace))}</td>
+      <td style="color:var(--muted);\${getActivityColumnStyle('status', 120)}">\${escHtml(row.status || t('activityStatusFallback'))}</td>
+      <td style="\${getActivityColumnStyle('scope', 180)}">\${escHtml(row.scopeId || t('activityScopeFallback'))}</td>
+      <td style="color:var(--muted);width:120px;min-width:120px;">\${escHtml((row.sessionId || '—').slice(0, 8))}</td>
+      <td style="color:var(--muted);width:120px;min-width:120px;">\${escHtml((row.traceId || '—').slice(0, 8))}</td>
+      <td style="\${getActivityColumnStyle('detail', 520)}"><div class="business-detail-preview">\${escHtml(row.detail || t('activityDetailFallback'))}</div></td>
+      <td style="width:120px;min-width:120px;">
+        <div class="business-detail-actions">
+          <button class="detail-copy-btn" onclick="copyActivityDetail('\${escJsStr(projectPath)}','\${escJsStr(row.id)}')">\${t('activityCopy')}</button>
+          <button class="detail-view-btn" onclick="openActivityDetail('\${escJsStr(projectPath)}','\${escJsStr(row.id)}')">\${t('activityViewDetails')}</button>
+        </div>
+      </td>
     </tr>\`).join('')}</tbody>
   </table>\`;
 }

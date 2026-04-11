@@ -8,9 +8,10 @@
   },
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run ensure:cli-exec",
     "dev": "tsx watch src/cli/index.ts",
     "start": "node dist/cli/index.js",
+    "ensure:cli-exec": "sh -c 'if [ -f dist/cli/index.js ]; then chmod +x dist/cli/index.js; fi'",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
     "test:agent-poc": "tsx tests/agent-poc/run-all-tests.ts",
@@ -27,7 +28,7 @@
     "release:first": "standard-version --first-release",
     "release:minor": "standard-version --release-as minor",
     "release:major": "standard-version --release-as major",
-    "prepare": "husky"
+    "prepare": "husky && npm run ensure:cli-exec --if-present"
   },
   "keywords": [
     "skill",

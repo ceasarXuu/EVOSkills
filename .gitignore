@@ -53,6 +53,7 @@ blog-*
 .ornn/daemon.pid
 .ornn/state/
 .ornn/sessions.db
+.ornn/shadows/index.json
 
 # Generated documentation
 summary-my-repo/

@@ -879,6 +879,7 @@ describe('dashboard ui recovery', () => {
     expect(html).not.toContain('.ornn/ornn.toml');
     expect(html).not.toContain('Save Config');
     expect(html).not.toContain('onclick="saveProjectConfig()"');
+    expect(html).not.toContain('id="cfg_check_btn"');
     expect(html).not.toContain('id="cfg_default_provider"');
     expect(html).not.toContain('id="cfg_log_level"');
     expect(html).not.toContain('tracking.auto_optimize');
@@ -887,6 +888,9 @@ describe('dashboard ui recovery', () => {
     expect(html).not.toContain('class="config-input cfg_env"');
     expect(html).toContain('name="cfg_provider_active"');
     expect(html).toContain('value="1" checked');
+    expect(html).toContain('class="provider-actions"');
+    expect(html).toContain('onclick="checkProvidersConnectivity(0, this)"');
+    expect(html).toContain('onclick="checkProvidersConnectivity(1, this)"');
     expect(html).toContain('scheduleProjectConfigSave(150)');
     expect(html).toContain('scheduleProjectConfigSave(500)');
     expect(html).not.toContain('Default Provider');
@@ -1005,6 +1009,8 @@ describe('dashboard ui recovery', () => {
     expect(html).toContain('value="plain-visible-key"');
     expect(html).toContain('mark exactly one provider as active');
     expect(html).toContain('cfg_provider_active');
+    expect(html).toContain('cfg_row_check_btn');
+    expect(html).toContain('onclick="checkProvidersConnectivity(0, this)"');
     expect(html).toContain('scheduleProjectConfigSave(500)');
     expect(html).toContain('Use');
     expect(html).not.toContain('cfg_env');

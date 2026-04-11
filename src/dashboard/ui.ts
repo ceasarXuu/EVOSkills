@@ -544,11 +544,11 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
   .config-input:focus, .config-select:focus, .config-textarea:focus { border-color: var(--blue); }
   .config-textarea { min-height: 220px; resize: vertical; }
   .config-check { display: flex; align-items: center; gap: 8px; font-size: 11px; }
-  .config-actions { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .config-actions { margin-top: 12px; display: flex; align-items: center; justify-content: flex-start; }
   .providers-editor { display: flex; flex-direction: column; gap: 8px; }
   .provider-row {
     display: grid;
-    grid-template-columns: minmax(140px,1fr) minmax(160px,1fr) minmax(220px,1.8fr) minmax(180px,1.2fr) auto;
+    grid-template-columns: minmax(140px,1fr) minmax(160px,1fr) minmax(220px,1.8fr) minmax(260px,auto);
     gap: 8px;
     align-items: start;
     background: var(--bg0);
@@ -560,6 +560,18 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
     .provider-row {
       grid-template-columns: 1fr;
     }
+  }
+  .provider-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    min-height: 36px;
+  }
+  .provider-actions .config-check {
+    margin: 0;
+    white-space: nowrap;
   }
   .btn-danger {
     font-family: var(--font); font-size: 10px; padding: 4px 8px; border-radius: 4px;
@@ -2392,9 +2404,6 @@ function renderConfigPanel(projectPath) {
     </div>
     <div class="config-actions">
       <span id="cfg_save_hint" class="config-label">\${escHtml(configUi.saveHint || '')}</span>
-      <div style="display:flex;gap:8px;">
-        <button class="btn-primary" id="cfg_check_btn" onclick="checkProvidersConnectivity()">\${t('configCheckConnectivity')}</button>
-      </div>
     </div>
   \`;
 }
@@ -2504,11 +2513,14 @@ function renderProviderRow(row, index, activeProviderIndex) {
       <div>
         <input class="config-input cfg_api_key" type="text" value="\${escHtml(apiKey)}" placeholder="\${t('configApiKeyPastePlaceholder')}" oninput="scheduleProjectConfigSave(500)" />
       </div>
-      <label class="config-check" style="height:100%;justify-content:center;">
-        <input type="radio" class="cfg_provider_active" name="cfg_provider_active" value="\${index}" \${index === activeProviderIndex ? 'checked' : ''} onchange="scheduleProjectConfigSave(150)"/>
-        \${t('configProviderActiveLabel')}
-      </label>
-      <button class="btn-danger" type="button" onclick="removeProviderRow(this)">\${t('configRemoveProvider')}</button>
+      <div class="provider-actions">
+        <label class="config-check">
+          <input type="radio" class="cfg_provider_active" name="cfg_provider_active" value="\${index}" \${index === activeProviderIndex ? 'checked' : ''} onchange="scheduleProjectConfigSave(150)"/>
+          \${t('configProviderActiveLabel')}
+        </label>
+        <button class="btn-secondary cfg_row_check_btn" type="button" onclick="checkProvidersConnectivity(\${index}, this)">\${t('configCheckConnectivity')}</button>
+        <button class="btn-danger" type="button" onclick="removeProviderRow(this)">\${t('configRemoveProvider')}</button>
+      </div>
     </div>
   \`;
 }
@@ -2802,20 +2814,21 @@ function renderConnectivityResultsHtml(results) {
   return title + rows;
 }
 
-async function checkProvidersConnectivity() {
+async function checkProvidersConnectivity(targetRowIndex = null, btnEl = null) {
   if (!state.selectedProjectId) return;
   const projectPath = state.selectedProjectId;
-  const btn = document.getElementById('cfg_check_btn');
+  const rowIndex = Number.isInteger(Number(targetRowIndex)) ? Number(targetRowIndex) : null;
+  const btn = btnEl || null;
   if (btn) {
     btn.disabled = true;
     btn.textContent = t('configConnectivityChecking');
   }
-  setConfigUi(projectPath, {
-    saveHint: t('configConnectivityCheckingHint'),
-  });
-  renderMainPanel(projectPath);
+  updateConfigSaveHint(projectPath, t('configConnectivityCheckingHint'));
   try {
     const providers = collectProvidersFromConfigEditor();
+    const providersToCheck = rowIndex !== null && rowIndex >= 0 && rowIndex < providers.length
+      ? [providers[rowIndex]]
+      : providers;
     const currentConfig = state.configByProject[projectPath] || {};
     const selectedProviderIndex = getSelectedProviderIndexFromEditor(
       providers.length,
@@ -2826,7 +2839,7 @@ async function checkProvidersConnectivity() {
     const data = await fetchJsonWithTimeout('/api/projects/' + enc + '/config/providers/connectivity', 15000, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ providers }),
+      body: JSON.stringify({ providers: providersToCheck }),
     });
     state.configByProject[projectPath] = {
       ...(state.configByProject[projectPath] || {}),

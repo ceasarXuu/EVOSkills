@@ -1018,6 +1018,60 @@ describe('dashboard ui recovery', () => {
     expect(html).toContain('Custom...');
   });
 
+  it('treats provider-native model ids as built-in models instead of custom models', () => {
+    const { dashboard, getElement } = loadDashboardTestHarness({}, { lang: 'zh' });
+    const projectPath = '/tmp/ornn-project';
+
+    getElement('mainPanel');
+    dashboard.state.selectedMainTab = 'config';
+    dashboard.state.selectedProjectId = projectPath;
+    dashboard.state.providerCatalog = [
+      {
+        id: 'deepseek',
+        name: 'deepseek',
+        models: ['deepseek/deepseek-reasoner', 'deepseek/deepseek-chat'],
+        defaultModel: 'deepseek/deepseek-reasoner',
+        apiKeyEnvVar: 'DEEPSEEK_API_KEY',
+        modelDetails: [],
+      },
+    ];
+    dashboard.state.configByProject = {
+      [projectPath]: {
+        autoOptimize: true,
+        userConfirm: false,
+        runtimeSync: true,
+        defaultProvider: 'deepseek',
+        logLevel: 'info',
+        providers: [
+          {
+            provider: 'deepseek',
+            modelName: 'deepseek-reasoner',
+            apiKeyEnvVar: 'DEEPSEEK_API_KEY',
+            apiKey: 'plain-visible-key',
+            hasApiKey: true,
+          },
+        ],
+      },
+    };
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+        decisionEvents: [],
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+      },
+    };
+
+    dashboard.renderMainPanel(projectPath);
+    const html = getElement('mainPanel').innerHTML;
+    expect(html).toContain('<option value="deepseek/deepseek-reasoner" selected>');
+    expect(html).not.toContain('<option value="__custom__" selected>');
+    expect(html).toContain('class="config-input cfg_model_custom" value=""');
+    expect(html).toContain('display:none;');
+  });
+
   it('localizes activity detail labels and host sync help in Chinese', async () => {
     const { dashboard, getElement, getCopiedText } = loadDashboardTestHarness({}, { lang: 'zh' });
     const projectPath = '/tmp/ornn-project';

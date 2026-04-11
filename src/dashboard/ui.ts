@@ -2555,21 +2555,45 @@ function getModelsByProvider(providerId) {
   return Array.isArray(item?.models) ? item.models : [];
 }
 
+function buildProviderModelAliases(providerId, modelName) {
+  const normalizedProvider = String(providerId || '').trim();
+  const normalizedModel = String(modelName || '').trim();
+  if (!normalizedModel) return [];
+  const aliases = new Set([normalizedModel]);
+  if (normalizedProvider) {
+    const prefix = normalizedProvider + '/';
+    if (normalizedModel.startsWith(prefix)) {
+      aliases.add(normalizedModel.slice(prefix.length));
+    } else if (!normalizedModel.includes('/')) {
+      aliases.add(prefix + normalizedModel);
+    }
+  }
+  return [...aliases];
+}
+
+function resolveKnownModel(providerId, modelName) {
+  const aliases = new Set(
+    buildProviderModelAliases(providerId, modelName).map((item) => item.toLowerCase())
+  );
+  if (aliases.size === 0) return '';
+  return getModelsByProvider(providerId).find((model) => aliases.has(String(model).toLowerCase())) || '';
+}
+
 function getModelOptionsHtml(providerId, selectedModel) {
   const models = getModelsByProvider(providerId);
+  const resolvedSelectedModel = resolveKnownModel(providerId, selectedModel);
   const options = models
     .map((model) => {
-      const selected = model === selectedModel ? 'selected' : '';
+      const selected = model === resolvedSelectedModel ? 'selected' : '';
       return '<option value="' + escHtml(model) + '" ' + selected + '>' + escHtml(model) + '</option>';
     })
     .join('');
-  const customSelected = isKnownModel(providerId, selectedModel) ? '' : 'selected';
+  const customSelected = resolvedSelectedModel ? '' : 'selected';
   return options + '<option value="__custom__" ' + customSelected + '>' + escHtml(t('configCustomOption')) + '</option>';
 }
 
 function isKnownModel(providerId, modelName) {
-  if (!modelName) return false;
-  return getModelsByProvider(providerId).includes(modelName);
+  return Boolean(resolveKnownModel(providerId, modelName));
 }
 
 function guessApiKeyEnvVar(providerId) {

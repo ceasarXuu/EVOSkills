@@ -2,6 +2,10 @@
 
 ## 📊 总体进度：Phase 1 ✅ 完成
 
+### 2026-04-12
+- ✅ 修复配置页“内置模型被误判成自定义模型”的回归：dashboard 现在会在同一 provider 内把 `deepseek-reasoner` 与 `deepseek/deepseek-reasoner` 视为同一个内置模型，避免旧配置或不同来源的 model id 格式不一致时，页面错误回退到“自定义”输入框
+- 📝 记录恢复经验：provider catalog 与已保存配置之间必须定义“模型 ID 等价规则”，不能只做精确字符串匹配；像 LiteLLM registry 常带 `provider/` 前缀，而项目历史配置可能只存裸 model 名，不做归一化就会把内置模型误判成自定义模型，并在自动保存后继续放大配置漂移
+
 ### 2026-04-11
 - ✅ 修复本地 link 后 `ornn` CLI 可能报 `permission denied` 的问题：构建和 prepare 阶段统一补齐 `dist/cli/index.js` 的可执行权限
 - 📝 记录环境经验：`npm link` 只负责创建全局软链，不会保证 `tsc` 产物自动带可执行位；如果 `which ornn` 能找到命令但执行报权限错误，优先检查 `dist/cli/index.js` 是否缺少 `+x`

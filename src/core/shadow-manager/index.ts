@@ -8,6 +8,13 @@ import { evaluator } from '../evaluator/index.js';
 import { patchGenerator } from '../patch-generator/index.js';
 import { createSkillVersionManager } from '../skill-version/index.js';
 import { createDecisionEventRecorder } from '../decision-events/index.js';
+import {
+  createTaskEpisodeStore,
+  type ProbeTriggerDecision,
+  type ReadinessProbeResult,
+  type TaskEpisode,
+} from '../task-episode/index.js';
+import { createReadinessProbeAnalyzer } from '../readiness-probe/index.js';
 import { hashString } from '../../utils/hash.js';
 import { buildShadowId, runtimeFromShadowId, skillIdFromShadowId } from '../../utils/parse.js';
 import { createSQLiteStorage } from '../../storage/sqlite.js';
@@ -38,6 +45,8 @@ export class ShadowManager {
   private dbPath: string;
   private policy: AutoOptimizePolicy;
   private decisionEvents;
+  private taskEpisodes;
+  private readinessProbe;
   private lastPatchTime: Map<string, number> = new Map();
   private patchCountToday: Map<string, number> = new Map();
 
@@ -48,6 +57,8 @@ export class ShadowManager {
     this.traceManager = createTraceManager(projectRoot);
     this.traceSkillMapper = createTraceSkillMapper(projectRoot);
     this.decisionEvents = createDecisionEventRecorder(projectRoot);
+    this.taskEpisodes = createTaskEpisodeStore(projectRoot);
+    this.readinessProbe = createReadinessProbeAnalyzer();
     this.dbPath = join(projectRoot, '.ornn', 'state', 'sessions.db');
 
     const patchConfig = configManager.getPatchConfig();
@@ -299,11 +310,17 @@ export class ShadowManager {
     // 获取最近的 traces
     const recentTraces = await this.traceManager.getSessionTraces(trace.session_id);
     const eventContext = this.buildDecisionEventContext(shadowId, trace, recentTraces);
+    const episode = this.taskEpisodes.recordTrace(trace, {
+      skillId: eventContext.skillId,
+      shadowId,
+      runtime: eventContext.runtime,
+    });
 
     // 评估是否需要优化
     const evaluation = evaluator.evaluate(recentTraces);
 
     if (!evaluation) {
+      await this.maybeRunEpisodeProbe(episode, trace, recentTraces, eventContext);
       this.recordEvaluationResult(
         shadowId,
         eventContext,
@@ -315,6 +332,7 @@ export class ShadowManager {
     }
 
     if (!evaluation.should_patch) {
+      await this.maybeRunEpisodeProbe(episode, trace, recentTraces, eventContext);
       this.recordEvaluationResult(
         shadowId,
         eventContext,
@@ -414,6 +432,7 @@ export class ShadowManager {
     evaluation: EvaluationResult,
     detail: string
   ): void {
+    this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'failed');
     this.decisionEvents.record({
       tag: 'analysis_failed',
       skillId: context.skillId,
@@ -442,6 +461,87 @@ export class ShadowManager {
       if (line.startsWith('-')) linesRemoved += 1;
     }
     return { linesAdded, linesRemoved };
+  }
+
+  private describeProbeRequest(trigger: ProbeTriggerDecision): string {
+    switch (trigger.reason) {
+      case 'event_driven_signal':
+        return '已捕获关键事件，提交一次新的时机探测。';
+      case 'trace_delta_reached':
+        return '新增 trace 已达到阈值，提交一次新的时机探测。';
+      case 'turn_delta_reached':
+        return '新增 turn 已达到阈值，提交一次新的时机探测。';
+      case 'initial_window_ready':
+      default:
+        return '当前窗口已积累到初始观察量，提交首次时机探测。';
+    }
+  }
+
+  private describeProbeResult(result: ReadinessProbeResult): string {
+    const prefix = (() => {
+      switch (result.decision) {
+        case 'ready_for_analysis':
+          return '系统判断当前窗口已具备深度分析条件。';
+        case 'pause_waiting':
+          return '系统判断当前窗口暂时缺少关键事件，建议继续等待。';
+        case 'close_no_action':
+          return '系统判断当前窗口已经没有继续分析价值。';
+        case 'split_episode':
+          return '系统判断当前窗口包含多个阶段，建议后续拆分观察。';
+        case 'continue_collecting':
+        default:
+          return '系统判断当前证据还不够，需要继续积累更多 trace。';
+      }
+    })();
+
+    return result.reason ? `${prefix} 原因：${result.reason}` : prefix;
+  }
+
+  private async maybeRunEpisodeProbe(
+    episode: TaskEpisode,
+    trace: Trace,
+    traces: Trace[],
+    context: ReturnType<ShadowManager['buildDecisionEventContext']>
+  ): Promise<void> {
+    const trigger = this.taskEpisodes.shouldTriggerProbe(episode, trace);
+    if (!trigger.shouldProbe) {
+      return;
+    }
+
+    this.decisionEvents.record({
+      tag: 'episode_probe_requested',
+      skillId: context.skillId,
+      runtime: context.runtime,
+      windowId: context.windowId,
+      traceId: context.traceId,
+      sessionId: context.sessionId,
+      status: trigger.mode,
+      detail: this.describeProbeRequest(trigger),
+      traceCount: context.traceCount,
+      sessionCount: context.sessionCount,
+    });
+
+    const result = await this.readinessProbe.probeEpisode(this.projectRoot, episode, traces);
+    this.taskEpisodes.applyProbeResult(episode.episodeId, result);
+
+    this.decisionEvents.record({
+      tag: 'episode_probe_result',
+      skillId: context.skillId,
+      runtime: context.runtime,
+      windowId: context.windowId,
+      traceId: context.traceId,
+      sessionId: context.sessionId,
+      status: result.decision,
+      detail: this.describeProbeResult(result),
+      traceCount: context.traceCount,
+      sessionCount: context.sessionCount,
+      evidence: {
+        directEvidence: [
+          `episode=${episode.episodeId}`,
+          `probe_count=${episode.probeState.probeCount + 1}`,
+        ],
+      },
+    });
   }
 
   /**
@@ -546,6 +646,7 @@ export class ShadowManager {
       return;
     }
 
+    this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'running');
     this.recordAnalysisRequested(context, evaluation);
 
     // 执行 patch
@@ -577,6 +678,7 @@ export class ShadowManager {
       linesAdded: patchResult.linesAdded ?? null,
       linesRemoved: patchResult.linesRemoved ?? null,
     });
+    this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
   }
 
   /**

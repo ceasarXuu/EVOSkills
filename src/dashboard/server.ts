@@ -24,6 +24,7 @@ import {
   readRecentTraces,
   computeTraceStats,
   readProjectSnapshot,
+  readProjectSnapshotVersion,
   readGlobalLogs,
   readLogsSince,
   type ProjectData,
@@ -82,6 +83,8 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
   const buildId = `${Date.now()}`;
   const startedAt = new Date().toISOString();
   const clientErrors: DashboardClientErrorEvent[] = [];
+  const lastProjectSnapshotVersions = new Map<string, string>();
+  let lastProjectsSignature = '';
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -223,11 +226,34 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
     if (clients.size === 0) return;
 
     const projects = getProjectsWithStatus();
+    const projectPaths = new Set(projects.map((project) => project.path));
+    for (const existingPath of Array.from(lastProjectSnapshotVersions.keys())) {
+      if (!projectPaths.has(existingPath)) {
+        lastProjectSnapshotVersions.delete(existingPath);
+      }
+    }
 
-    // Build per-project data
+    const projectsSignature = JSON.stringify(
+      projects.map((project) => ({
+        path: project.path,
+        name: project.name,
+        isRunning: project.isRunning,
+        skillCount: project.skillCount,
+      }))
+    );
+    const projectsChanged = projectsSignature !== lastProjectsSignature;
+    if (projectsChanged) {
+      lastProjectsSignature = projectsSignature;
+    }
+
     const projectData: Record<string, ProjectData> = {};
     for (const p of projects) {
       try {
+        const version = readProjectSnapshotVersion(p.path);
+        if (lastProjectSnapshotVersions.get(p.path) === version) {
+          continue;
+        }
+        lastProjectSnapshotVersions.set(p.path, version);
         projectData[p.path] = getProjectSnapshot(p.path);
       } catch {
         // skip
@@ -238,10 +264,14 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
     const { lines: newLogs, newOffset } = readLogsSince(logByteOffset);
     logByteOffset = newOffset;
 
+    if (!projectsChanged && Object.keys(projectData).length === 0 && newLogs.length === 0) {
+      return;
+    }
+
     const payload = {
-      projects,
-      projectData,
-      logs: newLogs,
+      ...(projectsChanged ? { projects } : {}),
+      ...(Object.keys(projectData).length > 0 ? { projectData } : {}),
+      ...(newLogs.length > 0 ? { logs: newLogs } : {}),
     };
     const payloadBytes = Buffer.byteLength(JSON.stringify(payload), 'utf-8');
     if (payloadBytes > 128 * 1024) {

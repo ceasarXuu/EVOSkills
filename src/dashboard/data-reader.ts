@@ -101,6 +101,13 @@ export interface AgentUsageBucket {
   lastCallAt: string | null;
 }
 
+interface CachedAgentUsageStats {
+  signature: string;
+  stats: AgentUsageStats;
+}
+
+const agentUsageStatsCache = new Map<string, CachedAgentUsageStats>();
+
 // ─── Daemon Status ────────────────────────────────────────────────────────────
 
 function isProcessRunning(pid: number): boolean {
@@ -353,6 +360,16 @@ function tailNdjson(filePath: string, maxLines = 200): string[] {
   }
 }
 
+function readFileSignature(filePath: string): string {
+  if (!existsSync(filePath)) return 'missing';
+  try {
+    const stat = statSync(filePath);
+    return `${stat.size}:${Math.floor(stat.mtimeMs)}`;
+  } catch {
+    return 'error';
+  }
+}
+
 export function readRecentTraces(projectRoot: string, limit = 50): TraceEntry[] {
   const ndjsonPath = join(projectRoot, '.ornn', 'state', 'default.ndjson');
   const lines = tailNdjson(ndjsonPath, 200);
@@ -469,6 +486,22 @@ export function readProjectSnapshot(projectRoot: string): ProjectData {
   };
 }
 
+export function readProjectSnapshotVersion(projectRoot: string): string {
+  const stateDir = join(projectRoot, '.ornn', 'state');
+  const shadowsDir = join(projectRoot, '.ornn', 'shadows');
+  const parts = [
+    readFileSignature(join(projectRoot, '.ornn', 'daemon.pid')),
+    readFileSignature(join(stateDir, 'daemon-checkpoint.json')),
+    readFileSignature(join(stateDir, 'task-episodes.json')),
+    readFileSignature(join(stateDir, 'default.ndjson')),
+    readFileSignature(join(stateDir, 'decision-events.ndjson')),
+    readFileSignature(join(stateDir, 'agent-usage.ndjson')),
+    readFileSignature(join(stateDir, 'agent-usage-summary.json')),
+    readFileSignature(join(shadowsDir, 'index.json')),
+  ];
+  return parts.join('|');
+}
+
 export function readRecentDecisionEvents(projectRoot: string, limit = 50): DecisionEventRecord[] {
   const ndjsonPath = join(projectRoot, '.ornn', 'state', 'decision-events.ndjson');
   const lines = tailNdjson(ndjsonPath, Math.max(limit * 2, 200));
@@ -528,14 +561,26 @@ function emptyAgentUsageStats(): AgentUsageStats {
 export function readAgentUsageStats(projectRoot: string): AgentUsageStats {
   const ndjsonPath = join(projectRoot, '.ornn', 'state', 'agent-usage.ndjson');
   if (existsSync(ndjsonPath)) {
-    return readAgentUsageStatsFromNdjson(ndjsonPath);
+    const signature = readFileSignature(ndjsonPath);
+    const cached = agentUsageStatsCache.get(ndjsonPath);
+    if (cached && cached.signature === signature) {
+      return cached.stats;
+    }
+    const stats = readAgentUsageStatsFromNdjson(ndjsonPath);
+    agentUsageStatsCache.set(ndjsonPath, { signature, stats });
+    return stats;
   }
 
   const summaryPath = join(projectRoot, '.ornn', 'state', 'agent-usage-summary.json');
   if (!existsSync(summaryPath)) return emptyAgentUsageStats();
+  const signature = readFileSignature(summaryPath);
+  const cached = agentUsageStatsCache.get(summaryPath);
+  if (cached && cached.signature === signature) {
+    return cached.stats;
+  }
   try {
     const parsed = JSON.parse(readFileSync(summaryPath, 'utf-8')) as Partial<AgentUsageSummary>;
-    return {
+    const stats = {
       callCount: typeof parsed.callCount === 'number' ? parsed.callCount : 0,
       promptTokens: typeof parsed.promptTokens === 'number' ? parsed.promptTokens : 0,
       completionTokens: typeof parsed.completionTokens === 'number' ? parsed.completionTokens : 0,
@@ -559,6 +604,8 @@ export function readAgentUsageStats(projectRoot: string): AgentUsageStats {
         ? normalizeUsageBucketMap((parsed as { bySkill: Record<string, unknown> }).bySkill)
         : {},
     };
+    agentUsageStatsCache.set(summaryPath, { signature, stats });
+    return stats;
   } catch {
     return emptyAgentUsageStats();
   }

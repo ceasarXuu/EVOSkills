@@ -16,6 +16,7 @@
 - ✅ 修复模型服务连通性检查误报：`checkProvidersConnectivity` 不再用普通 `completion("ping")` 验活，而是统一改走 LiteLLM client 的 `probeConnectivity()`；对 `deepseek-reasoner` 这类 reasoning 模型现在会按探测协议正确判活，不再误报 `Empty content in LLM response`
 - ✅ 调整配置页 provider 行操作布局：移除底部全局“检查连通性”按钮，改为每个 provider 行尾统一展示 `启用 / 检查连通性 / 删除` 三连动作；单行检查只请求当前 provider，但不会覆盖其他行的编辑态或配置状态
 - ✅ 修复配置页远端依赖脆弱性：LiteLLM catalog 现在有服务端超时和本地 fallback，远端 GitHub registry 拉取失败时会自动退回仓库内置 provider 列表；前端超时错误也改成明确的 timeout 文案，不再直接暴露 `AbortError`
+- ✅ 优化 dashboard 运行期性能：SSE 广播现在按项目快照版本增量推送，项目无变化时不再每 3 秒重建全量 `projectData`；同时对 `agent-usage.ndjson / agent-usage-summary.json` 读取增加签名缓存，避免空转期反复全量解析 usage 文件导致页面卡顿
 - ✅ 继续恢复 dashboard 多语言收尾：补齐技能页筛选/搜索/排序文案、provider 告警、provider 编辑器占位文案、trace 表头与 modal 保存提示的中英文切换，避免中文页面继续混入英文控件词
 - ✅ 继续收敛 dashboard 术语残留：活动详情复制文本中的 `Skill / Session ID` 已改为多语言标签，`runtime_sync` 帮助文案中的“runtime”已统一改为“宿主”
 - ✅ 收敛 activity 文案实现：`daemon_state` 事件描述已从内联语言分支改为统一走 i18n，避免后续再出现“行为正常但字典不完整”的分叉实现
@@ -55,6 +56,7 @@
 - 📝 记录恢复经验：模型服务“连通性检查”不能复用普通文本生成路径。连通性验证的目标是确认“鉴权 + 模型可访问”，而不是验证“该模型一定会返回最终 content”；对于 reasoning 模型或 provider 特化模型，应该优先走专用 probe 路径，否则极易把协议差异误判成连通失败
 - 📝 记录恢复经验：配置页里凡是“针对单行资源的动作”，都应尽量下沉到行级按钮，而不是做全局入口再在实现里猜当前目标。否则 UI 意图和请求范围容易脱节，后续一旦引入自动保存或多行编辑态，就很容易误把整表数据一起提交或覆盖
 - 📝 记录恢复经验：配置页不应该把可用性建立在远端模型注册表实时可达之上。像 LiteLLM catalog 这类“增强体验”的远端数据源，必须天然支持“超时 + cache + 本地 fallback”，否则网络抖动或代理问题会把整个配置入口一起拖死
+- 📝 记录恢复经验：dashboard 的实时感不能靠固定周期“全量重算 + 全量推送”硬顶。像 `agent-usage.ndjson` 这类会持续增长的文件，一旦被放进定时快照链路里反复全量解析，性能会随使用时长线性变差。正确做法是给读侧加文件签名缓存，再在 SSE 层只推有版本变化的项目
 
 | 阶段 | 状态 | 进度 | 预计时间 |
 |------|------|------|---------|

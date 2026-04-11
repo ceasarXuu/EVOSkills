@@ -197,6 +197,58 @@ describe('Config File Operations', () => {
     }
   });
 
+  it('should use connectivity probe for deepseek reasoner providers', async () => {
+    const { checkProvidersConnectivity } = await import('../../src/config/manager.js');
+    const envPath = join(testDir, '.env.local');
+    writeFileSync(envPath, 'DEEPSEEK_API_KEY=sk-test-deepseek\n', 'utf-8');
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url.endsWith('/models')) {
+        return new Response(
+          JSON.stringify({
+            data: [{ id: 'deepseek-chat' }, { id: 'deepseek-reasoner' }],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          model: 'deepseek-reasoner',
+          choices: [
+            {
+              index: 0,
+              finish_reason: 'length',
+              message: {
+                role: 'assistant',
+                content: '',
+                reasoning_content: 'thinking',
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
+    });
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    try {
+      const result = await checkProvidersConnectivity(testDir, [
+        { provider: 'deepseek', modelName: 'deepseek/deepseek-reasoner', apiKeyEnvVar: 'DEEPSEEK_API_KEY' },
+      ]);
+      expect(result).toHaveLength(1);
+      expect(result[0].ok).toBe(true);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.deepseek.com/v1/models',
+        expect.objectContaining({ method: 'GET' })
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('should return missing api key error when env var is absent', async () => {
     const { checkProvidersConnectivity } = await import('../../src/config/manager.js');
     const result = await checkProvidersConnectivity(testDir, [
@@ -205,5 +257,67 @@ describe('Config File Operations', () => {
     expect(result.length).toBe(1);
     expect(result[0].ok).toBe(false);
     expect(result[0].message).toContain('Missing API key env var');
+  });
+
+  it('should read dashboard config with default provider and log level', async () => {
+    const { readDashboardConfig } = await import('../../src/config/manager.js');
+    writeFileSync(
+      join(testDir, '.ornn', 'config', 'settings.toml'),
+      `[ornn]
+version = "0.1.9"
+log_level = "debug"
+project_path = "${testDir}"
+
+[llm]
+default_provider = "openai"
+
+[providers.openai]
+provider = "openai"
+model_name = "openai/gpt-4o-mini"
+api_key_env_var = "OPENAI_API_KEY"
+
+[providers.deepseek]
+provider = "deepseek"
+model_name = "deepseek/deepseek-chat"
+api_key_env_var = "DEEPSEEK_API_KEY"
+
+[tracking]
+auto_optimize = true
+user_confirm = false
+runtime_sync = true
+`,
+      'utf-8'
+    );
+    writeFileSync(
+      join(testDir, '.env.local'),
+      'OPENAI_API_KEY=openai-secret\nDEEPSEEK_API_KEY=deepseek-secret\n',
+      'utf-8'
+    );
+
+    const config = await readDashboardConfig(testDir);
+    expect(config.defaultProvider).toBe('openai');
+    expect(config.logLevel).toBe('debug');
+    expect(config.providers).toHaveLength(2);
+    expect(config.providers[0]?.apiKey).toBe('openai-secret');
+    expect(config.providers[1]?.apiKey).toBe('deepseek-secret');
+  });
+
+  it('should persist dashboard default provider and log level when writing config', async () => {
+    const { writeDashboardConfig, readConfig } = await import('../../src/config/manager.js');
+    await writeDashboardConfig(testDir, {
+      autoOptimize: true,
+      userConfirm: false,
+      runtimeSync: true,
+      defaultProvider: 'deepseek',
+      logLevel: 'warn',
+      providers: [
+        { provider: 'openai', modelName: 'openai/gpt-4o-mini', apiKeyEnvVar: 'OPENAI_API_KEY' },
+        { provider: 'deepseek', modelName: 'deepseek/deepseek-chat', apiKeyEnvVar: 'DEEPSEEK_API_KEY' },
+      ],
+    });
+
+    const config = await readConfig(testDir);
+    expect(config?.llm?.default_provider).toBe('deepseek');
+    expect(config?.ornn?.log_level).toBe('warn');
   });
 });

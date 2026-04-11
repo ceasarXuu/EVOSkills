@@ -16,6 +16,7 @@ interface LiteLLMResponse {
     message: {
       content: string;
       role: string;
+      reasoning_content?: string;
     };
     finish_reason: string;
     index: number;
@@ -42,6 +43,7 @@ export interface LiteLLMCompletionOptions {
   temperature?: number;
   maxTokens?: number;
   timeout?: number;
+  responseFormat?: 'text' | 'json_object';
 }
 
 /**
@@ -107,6 +109,7 @@ export class LiteLLMClient implements LLMInstance {
       temperature = 0.7,
       maxTokens = this.maxTokens,
       timeout = 60000,
+      responseFormat = 'text',
     } = options;
 
     // Build messages
@@ -119,22 +122,83 @@ export class LiteLLMClient implements LLMInstance {
     messages.push({ role: 'user', content: prompt });
 
     // Build request body
-    const body = {
-      model: this.modelName,
+    const body: Record<string, unknown> = {
+      model: this.normalizeModelName(this.modelName),
       messages,
       temperature,
       max_tokens: maxTokens,
     };
 
+    if (responseFormat === 'json_object' && this.supportsJsonResponseFormat()) {
+      body.response_format = { type: 'json_object' };
+    }
+
     logger.debug(`Calling ${this.provider} API with model ${this.modelName}`);
 
     try {
       const response = await this.makeRequest(body, timeout);
-      return this.parseResponse(response);
+      const content = this.extractContent(response);
+      if (content) {
+        return content;
+      }
+
+      if (responseFormat === 'json_object' && this.provider === 'deepseek') {
+        logger.warn('DeepSeek returned empty content in json_object mode, retrying once', {
+          provider: this.provider,
+          modelName: this.modelName,
+        });
+        const retryResponse = await this.makeRequest(body, timeout);
+        const retryContent = this.extractContent(retryResponse);
+        if (retryContent) {
+          return retryContent;
+        }
+      }
+
+      throw new Error('Empty content in LLM response');
     } catch (error) {
       logger.error('LiteLLM API call failed:', error);
       throw error;
     }
+  }
+
+  async probeConnectivity(): Promise<{
+    hasContent: boolean;
+    hasReasoningContent: boolean;
+    finishReason: string;
+  }> {
+    if (this.provider === 'deepseek') {
+      const response = await fetch(`${this.baseURL}/models`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`LLM API error: ${response.statusText}`);
+      }
+      await response.json();
+      return {
+        hasContent: true,
+        hasReasoningContent: false,
+        finishReason: 'model-list',
+      };
+    }
+
+    const raw = await this.makeRequest({
+      model: this.normalizeModelName(this.modelName),
+      messages: [{ role: 'user', content: 'ping' }],
+      temperature: 0,
+      max_tokens: 8,
+    }, 10000);
+    if (!raw.choices || raw.choices.length === 0) {
+      throw new Error('No choices in LLM response');
+    }
+    const message = raw.choices[0].message;
+    return {
+      hasContent: Boolean(message.content),
+      hasReasoningContent: Boolean(message.reasoning_content),
+      finishReason: raw.choices[0].finish_reason,
+    };
   }
 
   /**
@@ -197,17 +261,25 @@ export class LiteLLMClient implements LLMInstance {
   /**
    * Parse response and extract content
    */
-  private parseResponse(response: LiteLLMResponse): string {
+  private extractContent(response: LiteLLMResponse): string {
     if (!response.choices || response.choices.length === 0) {
       throw new Error('No choices in LLM response');
     }
 
     const content = response.choices[0].message.content;
-    if (!content) {
-      throw new Error('Empty content in LLM response');
-    }
+    return content || '';
+  }
 
-    return content;
+  private supportsJsonResponseFormat(): boolean {
+    return this.provider === 'openai' || this.provider === 'azure' || this.provider === 'deepseek';
+  }
+
+  private normalizeModelName(modelName: string): string {
+    if (this.provider === 'deepseek' && modelName.includes('/')) {
+      const [, maybeModel] = modelName.split('/', 2);
+      if (maybeModel) return maybeModel;
+    }
+    return modelName;
   }
 
   /**

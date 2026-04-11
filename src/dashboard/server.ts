@@ -23,6 +23,8 @@ import {
   readSkillVersion,
   readRecentTraces,
   computeTraceStats,
+  readProjectSnapshot,
+  readProjectSnapshotVersion,
   readGlobalLogs,
   readLogsSince,
   type ProjectData,
@@ -81,6 +83,8 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
   const buildId = `${Date.now()}`;
   const startedAt = new Date().toISOString();
   const clientErrors: DashboardClientErrorEvent[] = [];
+  const lastProjectSnapshotVersions = new Map<string, string>();
+  let lastProjectsSignature = '';
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -164,13 +168,7 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
   }
 
   function getProjectSnapshot(projectPath: string): ProjectData {
-    const traces = readRecentTraces(projectPath, 50);
-    return {
-      daemon: readDaemonStatus(projectPath),
-      skills: readSkills(projectPath),
-      traceStats: computeTraceStats(traces),
-      recentTraces: traces,
-    };
+    return readProjectSnapshot(projectPath);
   }
 
   async function getProviderHealthSummary(projectPath: string): Promise<ProviderHealthSummary> {
@@ -228,11 +226,34 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
     if (clients.size === 0) return;
 
     const projects = getProjectsWithStatus();
+    const projectPaths = new Set(projects.map((project) => project.path));
+    for (const existingPath of Array.from(lastProjectSnapshotVersions.keys())) {
+      if (!projectPaths.has(existingPath)) {
+        lastProjectSnapshotVersions.delete(existingPath);
+      }
+    }
 
-    // Build per-project data
+    const projectsSignature = JSON.stringify(
+      projects.map((project) => ({
+        path: project.path,
+        name: project.name,
+        isRunning: project.isRunning,
+        skillCount: project.skillCount,
+      }))
+    );
+    const projectsChanged = projectsSignature !== lastProjectsSignature;
+    if (projectsChanged) {
+      lastProjectsSignature = projectsSignature;
+    }
+
     const projectData: Record<string, ProjectData> = {};
     for (const p of projects) {
       try {
+        const version = readProjectSnapshotVersion(p.path);
+        if (lastProjectSnapshotVersions.get(p.path) === version) {
+          continue;
+        }
+        lastProjectSnapshotVersions.set(p.path, version);
         projectData[p.path] = getProjectSnapshot(p.path);
       } catch {
         // skip
@@ -243,10 +264,14 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
     const { lines: newLogs, newOffset } = readLogsSince(logByteOffset);
     logByteOffset = newOffset;
 
+    if (!projectsChanged && Object.keys(projectData).length === 0 && newLogs.length === 0) {
+      return;
+    }
+
     const payload = {
-      projects,
-      projectData,
-      logs: newLogs,
+      ...(projectsChanged ? { projects } : {}),
+      ...(Object.keys(projectData).length > 0 ? { projectData } : {}),
+      ...(newLogs.length > 0 ? { logs: newLogs } : {}),
     };
     const payloadBytes = Buffer.byteLength(JSON.stringify(payload), 'utf-8');
     if (payloadBytes > 128 * 1024) {
@@ -648,6 +673,8 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
               autoOptimize?: boolean;
               userConfirm?: boolean;
               runtimeSync?: boolean;
+              defaultProvider?: string;
+              logLevel?: string;
               providers?: Array<{
                 provider: string;
                 modelName: string;
@@ -664,6 +691,8 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
             autoOptimize: body.config.autoOptimize ?? true,
             userConfirm: body.config.userConfirm ?? false,
             runtimeSync: body.config.runtimeSync ?? true,
+            defaultProvider: body.config.defaultProvider ?? '',
+            logLevel: body.config.logLevel ?? 'info',
             providers: body.config.providers ?? [],
           });
           logger.info('Dashboard config saved', {
@@ -672,6 +701,8 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
             autoOptimize: body.config.autoOptimize ?? true,
             userConfirm: body.config.userConfirm ?? false,
             runtimeSync: body.config.runtimeSync ?? true,
+            defaultProvider: body.config.defaultProvider ?? '',
+            logLevel: body.config.logLevel ?? 'info',
             durationMs: Date.now() - started,
           });
           json(res, { ok: true });

@@ -142,7 +142,7 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
   .card-body { padding: 12px; }
 
   /* Stats row */
-  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
   .stat-card {
     background: var(--bg1); border: 1px solid var(--border); border-radius: 6px;
     padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;
@@ -256,6 +256,157 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
     cursor: pointer;
   }
   .tag-chip.active { color: #fff; border-color: var(--blue); background: var(--blue); }
+  .activity-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .activity-table th {
+    position: relative;
+    font-size: 9px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 4px 18px 4px 6px;
+    border-bottom: 1px solid var(--border);
+    user-select: none;
+    white-space: nowrap;
+  }
+  .activity-table td {
+    font-size: 10px;
+    padding: 6px;
+    border-bottom: 1px solid rgba(48,54,61,.5);
+    vertical-align: top;
+    word-break: break-word;
+  }
+  .activity-table tr:last-child td { border-bottom: none; }
+  .column-resizer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 8px;
+    height: 100%;
+    cursor: col-resize;
+  }
+  .column-resizer::after {
+    content: '';
+    position: absolute;
+    top: 20%;
+    bottom: 20%;
+    left: 3px;
+    width: 1px;
+    background: rgba(139,148,158,.45);
+  }
+  .business-detail-preview {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.55;
+  }
+  .business-detail-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .activity-skill-link {
+    border: none;
+    background: transparent;
+    color: var(--blue);
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 10px;
+    padding: 0;
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .activity-skill-link:hover { color: #7bb7ff; }
+  .detail-copy-btn, .detail-view-btn {
+    border: none;
+    background: transparent;
+    color: var(--blue);
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 10px;
+    padding: 0;
+  }
+  .detail-copy-btn:hover, .detail-view-btn:hover { text-decoration: underline; }
+
+  /* Cost tab */
+  .cost-stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  @media (max-width: 1100px) { .cost-stats-row { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 720px) { .cost-stats-row { grid-template-columns: 1fr; } }
+  .stat-value.cost-accent { color: var(--green); }
+  .cost-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(280px, .9fr);
+    gap: 12px;
+  }
+  @media (max-width: 1080px) { .cost-layout { grid-template-columns: 1fr; } }
+  .cost-stack { display: flex; flex-direction: column; gap: 12px; }
+  .cost-spotlight {
+    background: linear-gradient(135deg, rgba(57,211,83,.12), rgba(88,166,255,.08));
+    border: 1px solid rgba(57,211,83,.25);
+    border-radius: 6px;
+    padding: 12px;
+  }
+  .cost-spotlight-title { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .cost-spotlight-value { font-size: 28px; color: var(--green); font-weight: 700; margin-top: 8px; }
+  .cost-spotlight-sub { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+  .scope-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .scope-item {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg2);
+    padding: 8px;
+  }
+  .scope-item-top { display: flex; justify-content: space-between; gap: 8px; }
+  .scope-item-name { color: var(--text); font-size: 11px; }
+  .scope-item-value { color: var(--muted); font-size: 10px; }
+  .scope-item-sub { color: var(--muted); font-size: 10px; margin-top: 4px; }
+  .cost-primary { font-size: 12px; color: var(--text); font-weight: 600; }
+  .cost-secondary { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .cost-note { font-size: 10px; color: var(--muted); line-height: 1.5; }
+  .cost-note strong { color: var(--text); font-weight: 600; }
+  .cost-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cost-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(88,166,255,.08);
+    border: 1px solid rgba(88,166,255,.18);
+    color: var(--text);
+    font-size: 9px;
+  }
+  .cost-table-wrap { border: 1px solid var(--border); border-radius: 6px; overflow: auto; }
+  .cost-table { width: 100%; border-collapse: collapse; }
+  .cost-table th, .cost-table td {
+    font-size: 10px;
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(48,54,61,.5);
+    vertical-align: top;
+    text-align: left;
+  }
+  .cost-table th {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    white-space: nowrap;
+  }
+  .cost-table tr:last-child td { border-bottom: none; }
+  .capability-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .capability-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(88,166,255,.12);
+    border: 1px solid rgba(88,166,255,.2);
+    color: var(--blue);
+    font-size: 9px;
+    white-space: nowrap;
+  }
+  .mono-compact { font-size: 10px; color: var(--muted); }
 
   /* ─── Skill Detail Modal ─────────────────────────── */
   .modal-overlay {
@@ -406,11 +557,11 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
   .config-input:focus, .config-select:focus, .config-textarea:focus { border-color: var(--blue); }
   .config-textarea { min-height: 220px; resize: vertical; }
   .config-check { display: flex; align-items: center; gap: 8px; font-size: 11px; }
-  .config-actions { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .config-actions { margin-top: 12px; display: flex; align-items: center; justify-content: flex-start; }
   .providers-editor { display: flex; flex-direction: column; gap: 8px; }
   .provider-row {
     display: grid;
-    grid-template-columns: minmax(140px,1fr) minmax(160px,1fr) minmax(220px,1.8fr) minmax(180px,1.2fr) auto;
+    grid-template-columns: minmax(140px,1fr) minmax(160px,1fr) minmax(220px,1.8fr) minmax(260px,auto);
     gap: 8px;
     align-items: start;
     background: var(--bg0);
@@ -422,6 +573,18 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
     .provider-row {
       grid-template-columns: 1fr;
     }
+  }
+  .provider-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    min-height: 36px;
+  }
+  .provider-actions .config-check {
+    margin: 0;
+    white-space: nowrap;
   }
   .btn-danger {
     font-family: var(--font); font-size: 10px; padding: 4px 8px; border-radius: 4px;
@@ -504,6 +667,22 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
   </div>
 </div>
 
+<div class="modal-overlay" id="eventModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <span id="eventModalTitle">${t.activityDetailTitle}</span>
+      </div>
+      <button class="modal-close" onclick="closeEventModal()">✕ ${t.modalClose}</button>
+    </div>
+    <div class="modal-body" style="grid-template-columns: 1fr;">
+      <div class="modal-content" style="border-right:none;">
+        <pre id="eventModalContent">${t.activityDetailEmpty}</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ─── i18n ─────────────────────────────────────────────────────────────────────
 const I18N = ${JSON.stringify({ en: getI18n('en'), zh: getI18n('zh') })};
@@ -547,13 +726,16 @@ function switchLang(lang) {
   if (addFormHintEl) addFormHintEl.textContent = t('sidebarAddHint');
   const logTitleEl = document.querySelector('.log-title');
   if (logTitleEl) logTitleEl.textContent = t('logTitle');
-  const modalCloseEl = document.querySelector('.modal-close');
-  if (modalCloseEl) modalCloseEl.textContent = '✕ ' + t('modalClose');
+  document.querySelectorAll('.modal-close').forEach((el) => {
+    el.textContent = '✕ ' + t('modalClose');
+  });
   const modalHistoryTitleEl = document.querySelector('.modal-history h4');
   if (modalHistoryTitleEl) modalHistoryTitleEl.textContent = t('modalVersionHistory');
+  const eventModalTitleEl = document.getElementById('eventModalTitle');
+  if (eventModalTitleEl) eventModalTitleEl.textContent = t('activityDetailTitle');
   // Re-render dynamic content
   renderSidebar();
-  if (state.selectedProjectId) renderMainPanel(state.selectedProjectId);
+  if (state.selectedProjectId) safeRenderMainPanel(state.selectedProjectId, 'updateLanguageUI');
   renderLogs();
 }
 
@@ -574,8 +756,10 @@ const state = {
   currentSkillRuntime: 'codex',
   activityLayer: 'business',
   activityTagFilter: 'all',
-  businessEventsByProject: {},
-  seenTraceIdsByProject: {},
+  activityRowsByProject: {},
+  rawActivityRowsByProject: {},
+  activityColumnWidths: loadSavedActivityColumnWidths(),
+  lastCopiedActivityText: '',
   providerHealthByProject: {},
   providerCatalog: [],
   providerCatalogLoading: false,
@@ -591,6 +775,9 @@ let clientErrorFlushTimer = null;
 let clientErrorFlushing = false;
 let hasRequestedHardReload = false;
 let bootstrapRecoveryTimer = null;
+let configAutoSaveTimer = null;
+let configAutoSaveInFlight = false;
+let configAutoSaveQueued = false;
 
 function toErrorMessage(value) {
   if (value instanceof Error) return value.message || String(value);
@@ -603,13 +790,17 @@ function toErrorMessage(value) {
 }
 
 function enqueueClientError(event) {
+  const href =
+    (typeof location !== 'undefined' && location && location.href) ||
+    (typeof window !== 'undefined' && window.location && window.location.href) ||
+    '';
   const item = {
     message: String(event.message || '').slice(0, 1000),
     stack: String(event.stack || '').slice(0, 4000),
     source: String(event.source || '').slice(0, 1000),
     lineno: Number(event.lineno || 0) || undefined,
     colno: Number(event.colno || 0) || undefined,
-    href: String(location.href || '').slice(0, 1000),
+    href: String(href).slice(0, 1000),
     ua: String(navigator.userAgent || '').slice(0, 500),
     timestamp: new Date().toISOString(),
     buildId: DASHBOARD_BUILD_ID,
@@ -681,9 +872,7 @@ async function loadRuntimeInfo() {
     const runtimeBuildShort = runtimeBuildId ? runtimeBuildId.slice(-8) : 'unknown';
     if (runtimeBuildId && runtimeBuildId !== DASHBOARD_BUILD_ID) {
       el.style.color = 'var(--yellow)';
-      el.textContent = currentLang === 'zh'
-        ? ('版本不一致 ui#' + DASHBOARD_BUILD_SHORT + ' / svr#' + runtimeBuildShort)
-        : ('build mismatch ui#' + DASHBOARD_BUILD_SHORT + ' / svr#' + runtimeBuildShort);
+      el.textContent = t('runtimeBuildMismatchPrefix') + ' ui#' + DASHBOARD_BUILD_SHORT + ' / svr#' + runtimeBuildShort;
       if (!hasRequestedHardReload) {
         hasRequestedHardReload = true;
         console.warn('[dashboard] build mismatch detected, forcing reload', {
@@ -699,7 +888,7 @@ async function loadRuntimeInfo() {
     el.textContent = 'build #' + runtimeBuildShort + pidSuffix;
   } catch (err) {
     el.style.color = 'var(--yellow)';
-    el.textContent = currentLang === 'zh' ? ('build #' + DASHBOARD_BUILD_SHORT + ' (运行信息不可用)') : ('build #' + DASHBOARD_BUILD_SHORT + ' (runtime unavailable)');
+    el.textContent = 'build #' + DASHBOARD_BUILD_SHORT + ' (' + t('runtimeHostUnavailable') + ')';
     console.warn('[dashboard] runtime info unavailable', { error: String(err) });
   }
 }
@@ -735,10 +924,6 @@ function handleUpdate(data) {
     }
   }
   if (data.projectData) {
-    for (const [projectPath, nextPd] of Object.entries(data.projectData)) {
-      const prevPd = state.projectData[projectPath];
-      updateBusinessEvents(projectPath, prevPd, nextPd);
-    }
     state.projectData = { ...state.projectData, ...data.projectData };
     if (state.selectedProjectId && Object.prototype.hasOwnProperty.call(data.projectData, state.selectedProjectId)) {
       shouldRerenderMain = true;
@@ -759,7 +944,7 @@ function handleUpdate(data) {
     } else if (state.selectedMainTab === 'config') {
       // Config 页由用户操作驱动刷新，避免 SSE 覆盖用户输入/操作反馈
     } else {
-      renderMainPanel(state.selectedProjectId);
+      safeRenderMainPanel(state.selectedProjectId, 'handleUpdate');
     }
   }
 }
@@ -782,6 +967,11 @@ async function fetchJsonWithTimeout(url, timeoutMs = 8000, options = {}) {
       throw new Error('HTTP ' + response.status + ': ' + response.statusText);
     }
     return await response.json();
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out after ' + timeoutMs + 'ms');
+    }
+    throw error;
   } finally {
     clearTimeout(timer);
   }
@@ -799,7 +989,7 @@ function sanitizeProvidersForState(providers) {
     provider: provider.provider,
     modelName: provider.modelName,
     apiKeyEnvVar: provider.apiKeyEnvVar,
-    apiKey: '',
+    apiKey: provider.apiKey || '',
     hasApiKey: Boolean(provider.hasApiKey || (provider.apiKey && provider.apiKey.trim())),
   }));
 }
@@ -904,15 +1094,11 @@ async function init() {
     // Show error state in sidebar and main panel
     const projectListEl = document.getElementById('projectList');
     if (projectListEl) {
-      projectListEl.innerHTML = '<div class="empty-state" style="color:var(--red)">Failed to load projects</div>';
+      projectListEl.innerHTML = '<div class="empty-state" style="color:var(--red)">' + t('initProjectsLoadFailed') + '</div>';
     }
     const mainPanelEl = document.getElementById('mainPanel');
     if (mainPanelEl) {
-      mainPanelEl.innerHTML = '<div class="panel-inner"><div class="no-project" style="color:var(--yellow)">' +
-        (currentLang === 'zh'
-          ? '初始化失败，正在等待后台数据自动恢复...'
-          : 'Initialization failed. Waiting for backend data to recover...') +
-        '</div></div>';
+      mainPanelEl.innerHTML = '<div class="panel-inner"><div class="no-project" style="color:var(--yellow)">' + t('initRecoveryWaiting') + '</div></div>';
     }
   }
   connectSSE();
@@ -960,14 +1146,6 @@ async function selectProject(path) {
         console.warn('[dashboard] first snapshot fetch failed, retrying', { path, error: String(firstErr) });
         data = await fetchJsonWithTimeout(\`/api/projects/\${enc}/snapshot\`, 12000);
       }
-      try {
-        updateBusinessEvents(path, state.projectData[path], data);
-      } catch (evtErr) {
-        console.error('[dashboard] updateBusinessEvents failed; continuing with snapshot', {
-          path,
-          error: String(evtErr),
-        });
-      }
       state.projectData[path] = data;
     } catch (e) {
       console.error('[dashboard] failed to load project snapshot', { path, error: String(e) });
@@ -990,15 +1168,24 @@ async function selectProject(path) {
         skills: [],
         traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
         recentTraces: [],
+        decisionEvents: [],
+        agentUsage: {
+          callCount: 0,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          byModel: {},
+          byScope: {},
+        },
       };
     }
   }
-  renderMainPanel(path);
+  safeRenderMainPanel(path, 'selectProject');
   renderSidebar();
   void ensureProviderHealth(path)
     .then(() => {
       if (state.selectedProjectId === path) {
-        renderMainPanel(path);
+        safeRenderMainPanel(path, 'ensureProviderHealth');
       }
     })
     .catch(() => {
@@ -1026,12 +1213,12 @@ async function ensureProviderHealth(projectPath, force = false) {
 
 function providerAlertTitle(code) {
   if (code === 'provider_not_configured') {
-    return currentLang === 'zh' ? 'Provider 未配置' : 'Provider Not Configured';
+    return t('configProviderAlertNotConfigured');
   }
   if (code === 'provider_connectivity_failed') {
-    return currentLang === 'zh' ? 'Provider 无法连通' : 'Provider Connectivity Failed';
+    return t('configProviderAlertConnectivityFailed');
   }
-  return currentLang === 'zh' ? 'Provider 检查异常' : 'Provider Health Warning';
+  return t('configProviderAlertWarning');
 }
 
 function renderProviderAlert(projectPath) {
@@ -1040,15 +1227,11 @@ function renderProviderAlert(projectPath) {
 
   let message = health.message || '';
   if (health.code === 'provider_not_configured') {
-    message = currentLang === 'zh'
-      ? '当前项目尚未配置任何 provider。'
-      : 'No provider is configured for this project.';
+    message = t('configProviderAlertNotConfiguredMessage');
   } else if (health.code === 'provider_connectivity_failed' && Array.isArray(health.results) && health.results.length > 0) {
     const failed = health.results.filter((item) => !item.ok);
     const failedText = failed.slice(0, 3).map((item) => item.provider + '/' + item.modelName).join(', ');
-    message = currentLang === 'zh'
-      ? '检测到 provider 连通失败：' + failedText
-      : 'Failed provider connectivity: ' + failedText;
+    message = t('configProviderAlertConnectivityFailedPrefix') + ' ' + failedText;
   }
 
   return '<div class="provider-alert">' +
@@ -1056,11 +1239,7 @@ function renderProviderAlert(projectPath) {
     '<div>' +
       '<div class="provider-alert-title">⚠ ' + escHtml(providerAlertTitle(health.code)) + '</div>' +
       '<div class="provider-alert-message">' + escHtml(message) + '</div>' +
-      '<div class="provider-alert-hint">' +
-        (currentLang === 'zh'
-          ? '请在 Config 页补充 provider 配置并完成连通性检查。'
-          : 'Open the Config tab to set provider and re-run connectivity check.') +
-      '</div>' +
+      '<div class="provider-alert-hint">' + t('configProviderAlertHint') + '</div>' +
     '</div>' +
   '</div>';
 }
@@ -1074,130 +1253,7 @@ function maxVersion(skill) {
   return versions.length > 0 ? Math.max(...versions) : (skill.current_revision || skill.version || 1);
 }
 
-function pushBusinessEvent(projectPath, event) {
-  const list = state.businessEventsByProject[projectPath] || [];
-  const id = event.id || (event.timestamp + ':' + event.tag + ':' + (event.skillId || '') + ':' + Math.random().toString(36).slice(2, 8));
-  list.unshift({ ...event, id });
-  state.businessEventsByProject[projectPath] = list.slice(0, 300);
-  console.debug('[dashboard] ornn business event', {
-    projectPath,
-    tag: event.tag,
-    skillId: event.skillId || null,
-    runtime: event.runtime || null,
-    status: event.status || null,
-  });
-}
-
-function updateBusinessEvents(projectPath, prevPd, nextPd) {
-  if (!nextPd) return;
-  const nowIso = new Date().toISOString();
-
-  const prevDaemon = prevPd?.daemon || null;
-  const nextDaemon = nextPd.daemon || null;
-  if (prevDaemon && nextDaemon) {
-    if (!!prevDaemon.isRunning !== !!nextDaemon.isRunning) {
-      pushBusinessEvent(projectPath, {
-        timestamp: nowIso,
-        tag: 'daemon_state',
-        status: nextDaemon.isRunning ? 'started' : 'stopped',
-      });
-    }
-    if (
-      (prevDaemon.optimizationStatus?.currentState || 'idle') !==
-      (nextDaemon.optimizationStatus?.currentState || 'idle')
-    ) {
-      pushBusinessEvent(projectPath, {
-        timestamp: nowIso,
-        tag: 'optimization_state',
-        status: nextDaemon.optimizationStatus?.currentState || 'idle',
-        skillId: nextDaemon.optimizationStatus?.currentSkillId || null,
-      });
-    }
-    if (
-      prevDaemon.optimizationStatus?.lastOptimizationAt &&
-      nextDaemon.optimizationStatus?.lastOptimizationAt &&
-      prevDaemon.optimizationStatus.lastOptimizationAt !== nextDaemon.optimizationStatus.lastOptimizationAt
-    ) {
-      pushBusinessEvent(projectPath, {
-        timestamp: nextDaemon.optimizationStatus.lastOptimizationAt,
-        tag: 'skill_version_iterated',
-        skillId: nextDaemon.optimizationStatus?.currentSkillId || null,
-      });
-    }
-  }
-
-  const prevSkills = Array.isArray(prevPd?.skills) ? prevPd.skills : [];
-  const nextSkills = Array.isArray(nextPd.skills) ? nextPd.skills : [];
-  const prevMap = new Map(prevSkills.map((s) => [skillKey(s), s]));
-  const nextMap = new Map(nextSkills.map((s) => [skillKey(s), s]));
-
-  for (const [key, skill] of nextMap.entries()) {
-    if (!prevMap.has(key)) {
-      pushBusinessEvent(projectPath, {
-        timestamp: nowIso,
-        tag: 'skill_monitoring_started',
-        skillId: skill.skillId,
-        runtime: skill.runtime || 'codex',
-      });
-      continue;
-    }
-    const prev = prevMap.get(key);
-    const prevMaxV = maxVersion(prev);
-    const nextMaxV = maxVersion(skill);
-    if (nextMaxV > prevMaxV) {
-      pushBusinessEvent(projectPath, {
-        timestamp: nowIso,
-        tag: 'skill_version_iterated',
-        skillId: skill.skillId,
-        runtime: skill.runtime || 'codex',
-        detail: 'v' + prevMaxV + ' -> v' + nextMaxV,
-      });
-    }
-    const prevRev = prev.current_revision || prev.version || 1;
-    const nextRev = skill.current_revision || skill.version || 1;
-    if (nextRev !== prevRev) {
-      pushBusinessEvent(projectPath, {
-        timestamp: nowIso,
-        tag: 'skill_edited',
-        skillId: skill.skillId,
-        runtime: skill.runtime || 'codex',
-        detail: 'rev ' + prevRev + ' -> ' + nextRev,
-      });
-    }
-  }
-  for (const [key, skill] of prevMap.entries()) {
-    if (!nextMap.has(key)) {
-      pushBusinessEvent(projectPath, {
-        timestamp: nowIso,
-        tag: 'skill_removed',
-        skillId: skill.skillId,
-        runtime: skill.runtime || 'codex',
-      });
-    }
-  }
-
-  const seen = state.seenTraceIdsByProject[projectPath] || {};
-  const recentTraces = Array.isArray(nextPd.recentTraces) ? nextPd.recentTraces : [];
-  for (const trace of recentTraces) {
-    const traceId = trace.trace_id;
-    if (!traceId || seen[traceId]) continue;
-    seen[traceId] = true;
-    if (Array.isArray(trace.skill_refs) && trace.skill_refs.length > 0) {
-      for (const skillRef of trace.skill_refs) {
-        pushBusinessEvent(projectPath, {
-          id: 'trace:' + traceId + ':' + skillRef,
-          timestamp: trace.timestamp || nowIso,
-          tag: 'skill_called',
-          skillId: skillRef,
-          runtime: trace.runtime || 'unknown',
-          status: trace.status || 'success',
-          detail: trace.event_type || '',
-        });
-      }
-    }
-  }
-  state.seenTraceIdsByProject[projectPath] = seen;
-}
+function updateBusinessEvents() {}
 
 function businessEventLabel(tag) {
   const map = {
@@ -1209,6 +1265,13 @@ function businessEventLabel(tag) {
     skill_version_iterated: t('activityTagSkillVersion'),
     daemon_state: t('activityTagDaemon'),
     optimization_state: t('activityTagOptimization'),
+    evaluation_result: t('activityTagEvaluationResult'),
+    skill_feedback: t('activityTagSkillFeedback'),
+    patch_applied: t('activityTagPatchApplied'),
+    analysis_failed: t('activityTagAnalysisFailed'),
+    analysis_requested: t('activityTagAnalysisSubmitted'),
+    episode_probe_result: t('activityTagProbeResult'),
+    episode_probe_requested: t('activityTagProbeSubmitted'),
   };
   return map[tag] || tag;
 }
@@ -1216,28 +1279,515 @@ function businessEventLabel(tag) {
 function formatBusinessEvent(e) {
   switch (e.tag) {
     case 'skill_called':
-      return (currentLang === 'zh' ? '调用技能' : 'Skill called') + ': ' + (e.skillId || 'unknown');
+      return t('activitySummarySkillCalled') + ': ' + (e.skillId || 'unknown');
     case 'skill_monitoring_started':
-      return (currentLang === 'zh' ? '开始监控技能' : 'Started monitoring skill') + ': ' + (e.skillId || 'unknown');
+      return t('activitySummarySkillAdded') + ': ' + (e.skillId || 'unknown');
     case 'skill_removed':
-      return (currentLang === 'zh' ? '移除技能监控' : 'Stopped monitoring skill') + ': ' + (e.skillId || 'unknown');
+      return t('activitySummarySkillRemoved') + ': ' + (e.skillId || 'unknown');
     case 'skill_edited':
-      return (currentLang === 'zh' ? '技能被编辑' : 'Skill edited') + ': ' + (e.skillId || 'unknown');
+      return t('activitySummarySkillEdited') + ': ' + (e.skillId || 'unknown');
     case 'skill_version_iterated':
-      return (currentLang === 'zh' ? '技能版本迭代' : 'Skill version iterated') + (e.skillId ? ': ' + e.skillId : '');
+      return t('activitySummarySkillVersion') + (e.skillId ? ': ' + e.skillId : '');
     case 'daemon_state':
-      return currentLang === 'zh'
-        ? ('守护进程' + (e.status === 'started' ? '已启动' : '已停止'))
-        : ('Daemon ' + (e.status === 'started' ? 'started' : 'stopped'));
+      return e.status === 'started'
+        ? t('activitySummaryDaemonStarted')
+        : t('activitySummaryDaemonStopped');
     case 'optimization_state':
-      return (currentLang === 'zh' ? '优化状态变化' : 'Optimization state changed') + ': ' + (e.status || 'idle');
+      return t('activitySummaryOptimizationChanged') + ': ' + (e.status || 'idle');
+    case 'evaluation_result':
+      return t('activitySummaryEvaluationResult') + ': ' + (e.detail || e.reason || '');
+    case 'skill_feedback':
+      return t('activitySummarySkillFeedback') + ': ' + (e.detail || e.reason || '');
+    case 'patch_applied': {
+      const parts = [];
+      if (e.changeType) parts.push(String(e.changeType));
+      const linesAdded = Number(e.linesAdded || 0);
+      const linesRemoved = Number(e.linesRemoved || 0);
+      if (linesAdded || linesRemoved) parts.push('+' + linesAdded + '/-' + linesRemoved);
+      return parts.length > 0
+        ? t('activitySummaryPatchApplied') + ': ' + parts.join(' · ')
+        : t('activitySummaryPatchApplied');
+    }
+    case 'analysis_failed':
+      return t('activitySummaryAnalysisFailed') + ': ' + (e.detail || e.reason || '');
+    case 'analysis_requested':
+      return t('activitySummaryAnalysisSubmitted');
+    case 'episode_probe_result':
+      return t('activitySummaryProbeResult') + ': ' + (e.status || '');
+    case 'episode_probe_requested':
+      return t('activitySummaryProbeSubmitted');
     default:
       return e.tag;
   }
 }
 
+function normalizeDecisionTag(tag) {
+  if (!tag) return null;
+  if (tag === 'skill_mapping' || tag === 'skill_mapped' || tag === 'skill_mapping_result') return null;
+  if (tag === 'skill_evaluation') return 'evaluation_result';
+  return tag;
+}
+
+function getActivityScopeId(event) {
+  if (!event) return null;
+  if (event.windowId) return event.windowId;
+  if (event.evidence && typeof event.evidence === 'object' && event.evidence.windowId) return event.evidence.windowId;
+  return null;
+}
+
+function describeAnalysisFailure(row) {
+  const technical = [row && row.rawReason, row && row.rawDetail]
+    .filter((item, index, list) => item && list.indexOf(item) === index)
+    .join(' | ');
+  const haystack = technical.toLowerCase();
+  const isZh = currentLang === 'zh';
+
+  if (haystack.includes('provider_not_configured')) {
+    return {
+      summary: isZh
+        ? '当前项目没有可用的模型服务配置，所以这轮分析没有开始。'
+        : 'This analysis did not start because no model provider is configured for the project.',
+      impact: isZh
+        ? '这属于配置缺失，不代表 skill 本身已经确认有问题。'
+        : 'This is a configuration gap, not confirmed evidence that the skill itself is wrong.',
+      action: isZh
+        ? '请先在 Config 页面补充 provider、API Key，并完成连通性检查。'
+        : 'Configure a provider, add an API key, and verify connectivity in Config first.',
+      technical,
+    };
+  }
+
+  if (haystack.includes('invalid_analysis_json')) {
+    return {
+      summary: isZh
+        ? '模型返回了内容，但格式不符合系统要求，所以这轮分析结果无法解析。'
+        : 'The model replied, but the response did not match the required format, so the analysis result could not be parsed.',
+      impact: isZh
+        ? '这更像是分析链路的输出格式异常，不代表 skill 本身已经确认有问题。'
+        : 'This points to an analysis pipeline formatting issue, not confirmed evidence that the skill is faulty.',
+      action: isZh
+        ? '建议保留这次原始返回并继续观察；如果连续出现，优先检查结构化输出协议。'
+        : 'Keep the raw response for inspection and monitor recurrence; if it repeats, check the structured output protocol first.',
+      technical,
+    };
+  }
+
+  if (haystack.includes('empty content in llm response') || haystack.includes('empty_llm_response')) {
+    return {
+      summary: isZh
+        ? '模型接口返回了空内容，所以这轮分析没有拿到可用结果。'
+        : 'The model API returned empty content, so this analysis produced no usable result.',
+      impact: isZh
+        ? '这通常是模型服务瞬时异常或响应被截断，不代表 skill 本身已经确认有问题。'
+        : 'This usually indicates a transient provider issue or truncated response, not confirmed evidence against the skill.',
+      action: isZh
+        ? '建议优先观察 provider 稳定性，并检查是否存在超时、重试或响应截断。'
+        : 'Check provider stability first, including timeout, retry, and truncation behavior.',
+      technical,
+    };
+  }
+
+  if (haystack.includes('llm api error:')) {
+    return {
+      summary: isZh
+        ? '模型服务调用失败，所以这轮分析没有完成。'
+        : 'The model provider request failed, so this analysis did not complete.',
+      impact: isZh
+        ? '这属于外部服务异常，不代表 skill 本身已经确认有问题。'
+        : 'This is an external service failure, not confirmed evidence that the skill is faulty.',
+      action: isZh
+        ? '建议先检查 provider 连通性、鉴权和限流状态。'
+        : 'Check provider connectivity, authentication, and rate limits first.',
+      technical,
+    };
+  }
+
+  if (haystack.includes('timeout')) {
+    return {
+      summary: isZh
+        ? '分析请求超时了，所以这轮分析没有完成。'
+        : 'The analysis request timed out before a usable result was returned.',
+      impact: isZh
+        ? '这更像是时延问题，不代表 skill 本身已经确认有问题。'
+        : 'This looks like a latency problem, not confirmed evidence that the skill is faulty.',
+      action: isZh
+        ? '建议检查模型超时配置、分析窗口大小以及 provider 响应速度。'
+        : 'Check model timeout settings, analysis window size, and provider latency.',
+      technical,
+    };
+  }
+
+  return {
+    summary: isZh
+      ? '分析链路在执行过程中发生异常，所以这轮分析没有产出可用结论。'
+      : 'The analysis pipeline hit an unexpected error before it could produce a usable conclusion.',
+    impact: isZh
+      ? '当前只能确认分析没有完成，不能据此直接判定 skill 已有问题。'
+      : 'At this point we only know the analysis did not complete; this alone does not prove the skill is faulty.',
+    action: isZh
+      ? '建议结合原始技术信息继续排查分析链路，而不是直接修改 skill。'
+      : 'Investigate the analysis pipeline using the technical detail before changing the skill itself.',
+    technical,
+  };
+}
+
+function formatActivityPreview(row) {
+  if (!row) return t('activityDetailFallback');
+  if (row.tag === 'analysis_failed') {
+    return describeAnalysisFailure(row).summary;
+  }
+  return row.detail || formatBusinessEvent(row) || t('activityDetailFallback');
+}
+
+function loadSavedActivityColumnWidths() {
+  try {
+    const raw = localStorage.getItem('ornn-dashboard-activity-columns');
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistActivityColumnWidths() {
+  try {
+    localStorage.setItem('ornn-dashboard-activity-columns', JSON.stringify(state.activityColumnWidths || {}));
+  } catch {}
+}
+
+function getActivityColumnWidth(columnKey, fallbackWidth) {
+  const width = Number(state.activityColumnWidths?.[columnKey]);
+  if (!Number.isFinite(width) || width <= 0) return fallbackWidth;
+  return width;
+}
+
+function getActivityColumnStyle(columnKey, fallbackWidth) {
+  const width = getActivityColumnWidth(columnKey, fallbackWidth);
+  return 'width:' + width + 'px;min-width:' + width + 'px;';
+}
+
+function startActivityColumnResize(event, columnKey) {
+  if (!event || !columnKey) return;
+  if (event.preventDefault) event.preventDefault();
+  const startX = event.clientX || 0;
+  const startWidth = getActivityColumnWidth(columnKey, 120);
+
+  function handleMove(moveEvent) {
+    const delta = (moveEvent.clientX || 0) - startX;
+    state.activityColumnWidths[columnKey] = Math.max(72, startWidth + delta);
+    if (state.selectedProjectId) safeRenderMainPanel(state.selectedProjectId, 'startActivityColumnResize');
+  }
+
+  function handleUp() {
+    window.removeEventListener('mousemove', handleMove);
+    window.removeEventListener('mouseup', handleUp);
+    persistActivityColumnWidths();
+  }
+
+  window.addEventListener('mousemove', handleMove);
+  window.addEventListener('mouseup', handleUp);
+}
+
+function formatEventTimestamp(iso) {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return String(iso).slice(11, 19) || '—';
+  }
+  return [
+    String(date.getHours()).padStart(2, '0'),
+    String(date.getMinutes()).padStart(2, '0'),
+    String(date.getSeconds()).padStart(2, '0'),
+  ].join(':');
+}
+
+function summarizeTraceEventType(trace) {
+  if (!trace) return t('activityDetailFallback');
+  if (trace.event_type === 'tool_call') return t('activityTraceToolCall');
+  if (trace.event_type === 'tool_result') return t('activityTraceToolResult');
+  if (trace.event_type === 'assistant_output') return t('activityTraceAssistantOutput');
+  if (trace.event_type === 'user_input') return t('activityTraceUserInput');
+  if (trace.event_type === 'file_change') return t('activityTraceFileChange');
+  return trace.event_type || t('activityDetailFallback');
+}
+
+function buildActivityDetail(row) {
+  if (!row) return t('activityDetailEmpty');
+  if (row.rawTrace) {
+    return buildRawTraceDetail(row);
+  }
+  if (row.tag === 'analysis_failed') {
+    const failure = describeAnalysisFailure(row);
+    const lines = [
+      t('traceTime') + ': ' + (row.timestamp || '—'),
+      t('traceRuntime') + ': ' + (row.runtime || t('activityHostFallback')),
+      t('traceEvent') + ': ' + businessEventLabel(row.tag),
+      t('activitySkillLabel') + ': ' + (row.skillId || '—'),
+      t('traceStatus') + ': ' + (row.status || t('activityStatusFallback')),
+      t('traceScope') + ': ' + (row.scopeId || t('activityScopeFallback')),
+      (currentLang === 'zh' ? '失败原因' : 'Failure Cause') + ': ' + failure.summary,
+      (currentLang === 'zh' ? '对结果的影响' : 'Impact') + ': ' + failure.impact,
+      (currentLang === 'zh' ? '建议动作' : 'Suggested Action') + ': ' + failure.action,
+    ];
+    if (failure.technical) {
+      lines.push((currentLang === 'zh' ? '原始技术信息' : 'Technical Detail') + ': ' + failure.technical);
+    }
+    if (row.traceId) lines.push(t('traceId') + ': ' + row.traceId);
+    if (row.sessionId) lines.push(t('activitySessionIdLabel') + ': ' + row.sessionId);
+    return lines.join('\\n');
+  }
+  const lines = [
+    t('traceTime') + ': ' + (row.timestamp || '—'),
+    t('traceRuntime') + ': ' + (row.runtime || t('activityHostFallback')),
+    t('traceEvent') + ': ' + businessEventLabel(row.tag),
+    t('activitySkillLabel') + ': ' + (row.skillId || '—'),
+    t('traceStatus') + ': ' + (row.status || t('activityStatusFallback')),
+    t('traceScope') + ': ' + (row.scopeId || t('activityScopeFallback')),
+    t('traceDetail') + ': ' + (row.detail || t('activityDetailFallback')),
+    t('activitySourceLabel') + ': ' + (row.sourceLabel || '—'),
+  ];
+  if (row.traceId) lines.push(t('traceId') + ': ' + row.traceId);
+  if (row.sessionId) lines.push(t('activitySessionIdLabel') + ': ' + row.sessionId);
+  return lines.join('\\n');
+}
+
+function stringifyRawTraceValue(value) {
+  if (value == null) return '—';
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function formatRawTracePreview(trace) {
+  if (!trace) return t('activityDetailFallback');
+  if (trace.event_type === 'tool_call') {
+    const name = trace.tool_name || 'unknown_tool';
+    const argsText = trace.tool_args ? stringifyRawTraceValue(trace.tool_args) : '';
+    return argsText ? (name + ' ' + argsText) : name;
+  }
+  if (trace.event_type === 'tool_result') return stringifyRawTraceValue(trace.tool_result);
+  if (trace.event_type === 'assistant_output') return trace.assistant_output || t('activityDetailFallback');
+  if (trace.event_type === 'user_input') return trace.user_input || t('activityDetailFallback');
+  if (trace.event_type === 'file_change') {
+    return Array.isArray(trace.files_changed) && trace.files_changed.length > 0
+      ? trace.files_changed.join(', ')
+      : t('activityDetailFallback');
+  }
+  return stringifyRawTraceValue(trace.metadata || trace.event_type || t('activityDetailFallback'));
+}
+
+function buildRawTraceDetail(row) {
+  const trace = row && row.rawTrace ? row.rawTrace : null;
+  if (!trace) return t('activityDetailEmpty');
+  const isZh = currentLang === 'zh';
+  const lines = [
+    t('traceTime') + ': ' + (trace.timestamp || '—'),
+    t('traceRuntime') + ': ' + (trace.runtime || t('activityHostFallback')),
+    t('traceEvent') + ': ' + summarizeTraceEventType(trace),
+    t('traceStatus') + ': ' + (trace.status || t('activityStatusFallback')),
+    t('traceScope') + ': ' + (row.scopeId || t('activityScopeFallback')),
+    t('traceSession') + ': ' + (trace.session_id || '—'),
+    t('traceId') + ': ' + (trace.trace_id || '—'),
+  ];
+  if (trace.tool_name) lines.push((isZh ? '工具' : 'Tool') + ': ' + trace.tool_name);
+  if (trace.tool_args) lines.push((isZh ? '参数' : 'Arguments') + ': ' + stringifyRawTraceValue(trace.tool_args));
+  if (trace.tool_result) lines.push((isZh ? '结果' : 'Result') + ': ' + stringifyRawTraceValue(trace.tool_result));
+  if (trace.user_input) lines.push((isZh ? '用户输入' : 'User Input') + ': ' + trace.user_input);
+  if (trace.assistant_output) lines.push((isZh ? '助手输出' : 'Assistant Output') + ': ' + trace.assistant_output);
+  if (Array.isArray(trace.files_changed) && trace.files_changed.length > 0) {
+    lines.push((isZh ? '文件变更' : 'Files Changed') + ': ' + trace.files_changed.join(', '));
+  }
+  if (Array.isArray(trace.skill_refs) && trace.skill_refs.length > 0) {
+    lines.push(t('activitySkillLabel') + ': ' + trace.skill_refs.join(', '));
+  }
+  return lines.join('\\n');
+}
+
+function buildActivityRows(projectPath) {
+  const pd = state.projectData[projectPath] || {};
+  const traces = Array.isArray(pd.recentTraces) ? pd.recentTraces : [];
+  const decisionEvents = Array.isArray(pd.decisionEvents) ? pd.decisionEvents : [];
+  const knownSkills = new Set(
+    []
+      .concat(Array.isArray(pd.skills) ? pd.skills.map((skill) => skill.skillId).filter(Boolean) : [])
+      .concat(decisionEvents.map((event) => event.skillId).filter(Boolean))
+  );
+  const runtimeByTraceId = new Map();
+  const scopeByTraceId = new Map();
+  const scopeBySessionSkill = new Map();
+
+  for (const trace of traces) {
+    if (trace.trace_id) runtimeByTraceId.set(trace.trace_id, trace.runtime || null);
+  }
+
+  const decisionRows = [];
+  for (const event of decisionEvents) {
+    const tag = normalizeDecisionTag(event.tag);
+    if (!tag) continue;
+    const scopeId = getActivityScopeId(event);
+    if (scopeId && event.traceId) scopeByTraceId.set(event.traceId, scopeId);
+    if (scopeId && event.sessionId && event.skillId) scopeBySessionSkill.set(event.sessionId + '::' + event.skillId, scopeId);
+    decisionRows.push({
+      id: 'decision:' + event.id,
+      timestamp: event.timestamp || '',
+      tag,
+      runtime: event.runtime || (event.traceId ? runtimeByTraceId.get(event.traceId) : null) || t('activityHostFallback'),
+      skillId: event.skillId || null,
+      status: event.status || (tag === 'analysis_failed' ? 'failed' : t('activityStatusFallback')),
+      scopeId: scopeId || null,
+      detail: event.detail || event.reason || formatBusinessEvent(event),
+      rawDetail: event.detail || null,
+      rawReason: event.reason || null,
+      evidence: event.evidence || null,
+      sourceLabel: t('activitySourceDecision'),
+      traceId: event.traceId || null,
+      sessionId: event.sessionId || null,
+    });
+  }
+
+  const traceRows = [];
+  for (const trace of traces) {
+    const skillRefs = Array.isArray(trace.skill_refs) ? [...new Set(trace.skill_refs.filter(Boolean))] : [];
+    if (skillRefs.length === 0) continue;
+    for (const skillRef of skillRefs) {
+      if (knownSkills.size > 0 && !knownSkills.has(skillRef)) continue;
+      traceRows.push({
+        id: 'trace:' + trace.trace_id + ':' + skillRef,
+        timestamp: trace.timestamp || '',
+        tag: 'skill_called',
+        runtime: trace.runtime || t('activityHostFallback'),
+        skillId: skillRef,
+        status: trace.status || 'success',
+        scopeId:
+          scopeByTraceId.get(trace.trace_id) ||
+          scopeBySessionSkill.get(trace.session_id + '::' + skillRef) ||
+          null,
+        detail: summarizeTraceEventType(trace),
+        sourceLabel: t('activitySourceTrace'),
+        traceId: trace.trace_id || null,
+        sessionId: trace.session_id || null,
+      });
+    }
+  }
+
+  const daemon = pd.daemon || null;
+  const daemonRows = [];
+  if (daemon?.optimizationStatus?.currentState && daemon.optimizationStatus.currentState !== 'idle') {
+    daemonRows.push({
+      id: 'daemon:' + daemon.optimizationStatus.currentState + ':' + (daemon.optimizationStatus.lastOptimizationAt || ''),
+      timestamp: daemon.optimizationStatus.lastOptimizationAt || daemon.lastCheckpointAt || '',
+      tag: 'optimization_state',
+      runtime: daemon.optimizationStatus.currentSkillId ? 'codex' : t('activityHostFallback'),
+      skillId: daemon.optimizationStatus.currentSkillId || null,
+      status: daemon.optimizationStatus.currentState,
+      scopeId: null,
+      detail: formatBusinessEvent({ tag: 'optimization_state', status: daemon.optimizationStatus.currentState }),
+      sourceLabel: t('activitySourceDecision'),
+      traceId: null,
+      sessionId: null,
+    });
+  }
+
+  const dedupe = new Map();
+  const rows = decisionRows
+    .concat(traceRows)
+    .concat(daemonRows)
+    .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)))
+    .filter((row) => {
+      const dedupeKey = [row.tag, row.skillId || '', row.status || '', row.scopeId || '', row.detail || ''].join('::');
+      const prevTs = dedupe.get(dedupeKey);
+      if (!prevTs) {
+        dedupe.set(dedupeKey, row.timestamp);
+        return true;
+      }
+      const delta = Math.abs(new Date(prevTs).getTime() - new Date(row.timestamp).getTime());
+      if (!Number.isFinite(delta) || delta > 15000) {
+        dedupe.set(dedupeKey, row.timestamp);
+        return true;
+      }
+      return false;
+    })
+    .slice(0, 150);
+
+  state.activityRowsByProject[projectPath] = rows;
+  console.debug('[dashboard] activity rows rebuilt', {
+    projectPath,
+    rowCount: rows.length,
+    decisionCount: decisionRows.length,
+    traceCount: traceRows.length,
+    daemonCount: daemonRows.length,
+  });
+  return rows;
+}
+
+function getActivityRow(projectPath, rowId) {
+  const rows = (state.activityRowsByProject[projectPath] || []).concat(state.rawActivityRowsByProject[projectPath] || []);
+  return rows.find((row) => row.id === rowId) || null;
+}
+
+async function copyActivityDetail(projectPath, rowId) {
+  const row = getActivityRow(projectPath, rowId);
+  const text = buildActivityDetail(row);
+  state.lastCopiedActivityText = text;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    await navigator.clipboard.writeText(text);
+  }
+}
+
+async function openActivityDetail(projectPath, rowId) {
+  const row = getActivityRow(projectPath, rowId);
+  document.getElementById('eventModalTitle').textContent = row
+    ? ((row.rawTrace ? summarizeTraceEventType(row.rawTrace) : businessEventLabel(row.tag)) + ' · ' + (row.skillId || '—'))
+    : t('activityDetailTitle');
+  document.getElementById('eventModalContent').textContent = buildActivityDetail(row);
+  document.getElementById('eventModal').classList.add('visible');
+}
+
+function closeEventModal() {
+  document.getElementById('eventModal').classList.remove('visible');
+}
+
+function resolveActivitySkillTarget(projectPath, row) {
+  const skillId = row && typeof row.skillId === 'string' ? row.skillId.trim() : '';
+  if (!skillId || skillId === '—' || skillId.includes(',')) return null;
+
+  const skills = Array.isArray(state.projectData[projectPath]?.skills)
+    ? state.projectData[projectPath].skills
+    : [];
+  const preferredRuntime = row && typeof row.runtime === 'string' ? row.runtime.trim() : '';
+
+  const exact = skills.find((skill) => skill.skillId === skillId && (skill.runtime || 'codex') === preferredRuntime);
+  if (exact) {
+    return { skillId, runtime: exact.runtime || 'codex' };
+  }
+
+  const fallback = skills.find((skill) => skill.skillId === skillId);
+  if (!fallback) return null;
+  return { skillId, runtime: fallback.runtime || 'codex' };
+}
+
+function renderActivitySkillCell(projectPath, row) {
+  const skillId = row && typeof row.skillId === 'string' ? row.skillId : '';
+  if (!skillId) return '—';
+
+  const target = resolveActivitySkillTarget(projectPath, row);
+  if (!target) return escHtml(skillId);
+
+  return '<button class="activity-skill-link" onclick="viewSkill(\\'' +
+    escJsStr(projectPath) + '\\',\\'' +
+    escJsStr(target.skillId) + '\\',\\'' +
+    escJsStr(target.runtime) +
+    '\\');event.stopPropagation()">' +
+    escHtml(skillId) +
+    '</button>';
+}
+
 function renderBusinessEvents(projectPath) {
-  const events = (state.businessEventsByProject[projectPath] || []).slice(0, 150);
+  const events = buildActivityRows(projectPath);
   const allTags = ['all', ...Array.from(new Set(events.map((e) => e.tag)))];
   const filtered = state.activityTagFilter === 'all'
     ? events
@@ -1255,21 +1805,431 @@ function renderBusinessEvents(projectPath) {
       <div style="font-size:10px;color:var(--muted)">\${filtered.length} / \${events.length}</div>
     </div>
     <div class="trace-table-wrap">
-      <table class="trace-table">
-        <thead><tr><th>\${t('traceTime')}</th><th>\${t('traceRuntime')}</th><th>\${t('traceEvent')}</th><th>Skill</th><th>\${t('traceStatus')}</th><th>Detail</th></tr></thead>
+      <table class="activity-table">
+        <thead><tr>
+          <th style="\${getActivityColumnStyle('time', 92)}">\${t('traceTime')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'time')"></span></th>
+          <th style="\${getActivityColumnStyle('host', 96)}">\${t('traceRuntime')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'host')"></span></th>
+          <th style="\${getActivityColumnStyle('event', 128)}">\${t('traceEvent')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'event')"></span></th>
+          <th style="\${getActivityColumnStyle('skill', 220)}">\${t('activitySkillLabel')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'skill')"></span></th>
+          <th style="\${getActivityColumnStyle('status', 140)}">\${t('traceStatus')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'status')"></span></th>
+          <th style="\${getActivityColumnStyle('scope', 180)}">\${t('traceScope')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'scope')"></span></th>
+          <th style="\${getActivityColumnStyle('detail', 520)}">\${t('traceDetail')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'detail')"></span></th>
+        </tr></thead>
         <tbody>
           \${filtered.slice(0, 80).map((e) => \`<tr>
-            <td style="color:var(--muted)">\${e.timestamp ? e.timestamp.slice(11,19) : '—'}</td>
-            <td>\${escHtml(e.runtime || '—')}</td>
-            <td>\${escHtml(businessEventLabel(e.tag))}</td>
-            <td>\${escHtml(e.skillId || '—')}</td>
-            <td style="color:var(--muted)">\${escHtml(e.status || '—')}</td>
-            <td style="color:var(--muted)">\${escHtml(e.detail || formatBusinessEvent(e))}</td>
+            <td style="color:var(--muted);\${getActivityColumnStyle('time', 92)}">\${formatEventTimestamp(e.timestamp)}</td>
+            <td style="\${getActivityColumnStyle('host', 96)}">\${escHtml(e.runtime || t('activityHostFallback'))}</td>
+            <td style="\${getActivityColumnStyle('event', 128)}">\${escHtml(businessEventLabel(e.tag))}</td>
+            <td style="\${getActivityColumnStyle('skill', 220)}">\${renderActivitySkillCell(projectPath, e)}</td>
+            <td style="color:var(--muted);\${getActivityColumnStyle('status', 140)}">\${escHtml(e.status || t('activityStatusFallback'))}</td>
+            <td style="\${getActivityColumnStyle('scope', 180)}">\${escHtml(e.scopeId || t('activityScopeFallback'))}</td>
+            <td style="\${getActivityColumnStyle('detail', 520)}">
+              <div class="business-detail-preview">\${escHtml(formatActivityPreview(e))}</div>
+              <div class="business-detail-actions">
+                <button class="detail-copy-btn" onclick="copyActivityDetail('\${escJsStr(projectPath)}','\${escJsStr(e.id)}')">\${t('activityCopy')}</button>
+                <button class="detail-view-btn" onclick="openActivityDetail('\${escJsStr(projectPath)}','\${escJsStr(e.id)}')">\${t('activityViewDetails')}</button>
+              </div>
+            </td>
           </tr>\`).join('')}
         </tbody>
       </table>
     </div>
   \`;
+}
+
+function buildRawTraceRows(projectPath) {
+  const pd = state.projectData[projectPath] || {};
+  const traces = Array.isArray(pd.recentTraces) ? pd.recentTraces : [];
+  const decisionEvents = Array.isArray(pd.decisionEvents) ? pd.decisionEvents : [];
+  const scopeByTraceId = new Map();
+
+  for (const event of decisionEvents) {
+    const scopeId = getActivityScopeId(event);
+    if (scopeId && event.traceId) scopeByTraceId.set(event.traceId, scopeId);
+  }
+
+  const rows = traces
+    .map((trace) => ({
+      id: 'raw:' + trace.trace_id,
+      timestamp: trace.timestamp || '',
+      tag: trace.event_type || 'status',
+      runtime: trace.runtime || t('activityHostFallback'),
+      skillId: Array.isArray(trace.skill_refs) && trace.skill_refs.length > 0 ? trace.skill_refs.join(', ') : null,
+      status: trace.status || t('activityStatusFallback'),
+      scopeId: scopeByTraceId.get(trace.trace_id) || null,
+      detail: formatRawTracePreview(trace),
+      sourceLabel: t('activitySourceTrace'),
+      traceId: trace.trace_id || null,
+      sessionId: trace.session_id || null,
+      rawTrace: trace,
+    }))
+    .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)))
+    .slice(0, 150);
+
+  state.rawActivityRowsByProject[projectPath] = rows;
+  return rows;
+}
+
+function formatCompactNumber(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num)) return '0';
+  return new Intl.NumberFormat(currentLang === 'zh' ? 'zh-CN' : 'en-US', {
+    notation: num >= 10000 ? 'compact' : 'standard',
+    maximumFractionDigits: num >= 10000 ? 1 : 0,
+  }).format(num);
+}
+
+function formatUsd(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return '—';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: num < 0.01 ? 4 : 2,
+    maximumFractionDigits: num < 0.01 ? 4 : 2,
+  }).format(num);
+}
+
+function formatUsdPerMillion(ratePerToken) {
+  const num = Number(ratePerToken);
+  if (!Number.isFinite(num)) return '—';
+  return formatUsd(num * 1000000) + '/M';
+}
+
+function formatPlainNumber(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num)) return '0';
+  return new Intl.NumberFormat(currentLang === 'zh' ? 'zh-CN' : 'en-US', {
+    maximumFractionDigits: 0,
+  }).format(num);
+}
+
+function formatDurationMs(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num) || num <= 0) return '—';
+  if (num < 1000) return Math.round(num) + 'ms';
+  if (num < 60000) {
+    return (Math.round((num / 1000) * 10) / 10).toFixed(1).replace(/\\.0$/, '') + 's';
+  }
+  const minutes = num / 60000;
+  return (Math.round(minutes * 10) / 10).toFixed(1).replace(/\\.0$/, '') + 'm';
+}
+
+function getLiteLLMModelDetailsIndex() {
+  const index = {};
+  const catalog = Array.isArray(state.providerCatalog) ? state.providerCatalog : [];
+  for (const provider of catalog) {
+    const details = Array.isArray(provider.modelDetails) ? provider.modelDetails : [];
+    for (const detail of details) {
+      if (!detail || !detail.id) continue;
+      index[detail.id] = detail;
+      const shortName = String(detail.id).split('/').pop();
+      if (shortName && !index[shortName]) index[shortName] = detail;
+    }
+  }
+  return index;
+}
+
+function estimateModelSpend(modelStats, detail) {
+  if (!detail) return null;
+  const inputRate = Number(detail.inputCostPerToken);
+  const outputRate = Number(detail.outputCostPerToken);
+  if (!Number.isFinite(inputRate) && !Number.isFinite(outputRate)) return null;
+  return (modelStats.promptTokens || 0) * (Number.isFinite(inputRate) ? inputRate : 0) +
+    (modelStats.completionTokens || 0) * (Number.isFinite(outputRate) ? outputRate : 0);
+}
+
+function formatContextWindow(detail) {
+  if (!detail) return '—';
+  const input = typeof detail.maxInputTokens === 'number' ? formatUsageCompact(detail.maxInputTokens) : '—';
+  const output = typeof detail.maxOutputTokens === 'number' ? formatUsageCompact(detail.maxOutputTokens) : '—';
+  return input + ' / ' + output;
+}
+
+function buildCostRows(recordMap, modelDetailsIndex, options) {
+  const rows = Object.entries(recordMap || {})
+    .map(([key, bucket]) => {
+      const normalizedKey = String(key || '');
+      const detail = modelDetailsIndex[normalizedKey] || modelDetailsIndex[normalizedKey.split('/').pop() || ''] || null;
+      const estimatedSpend = options?.type === 'model' ? estimateModelSpend(bucket, detail) : null;
+      return { key: normalizedKey, bucket: bucket || {}, detail, estimatedSpend };
+    })
+    .sort((a, b) => {
+      const aSort = typeof a.estimatedSpend === 'number' ? a.estimatedSpend : Number(a.bucket.totalTokens || 0);
+      const bSort = typeof b.estimatedSpend === 'number' ? b.estimatedSpend : Number(b.bucket.totalTokens || 0);
+      return bSort - aSort;
+    });
+  return rows;
+}
+
+function renderCapabilityPills(detail) {
+  if (!detail) return '<span class="mono-compact">' + t('costCapabilityNone') + '</span>';
+  const pills = [];
+  if (detail.supportsReasoning) pills.push(t('costCapabilityReasoning'));
+  if (detail.supportsFunctionCalling) pills.push(t('costCapabilityFunctionCalling'));
+  if (detail.supportsPromptCaching) pills.push(t('costCapabilityPromptCaching'));
+  if (detail.supportsStructuredOutput) pills.push(t('costCapabilityStructuredOutput'));
+  if (detail.supportsVision) pills.push(t('costCapabilityVision'));
+  if (detail.supportsWebSearch) pills.push(t('costCapabilityWebSearch'));
+  if (pills.length === 0) return '<span class="mono-compact">' + t('costCapabilityNone') + '</span>';
+  return '<div class="capability-pills">' + pills.map((label) => '<span class="capability-pill">' + escHtml(label) + '</span>').join('') + '</div>';
+}
+
+function renderCostBreakdown(title, rows, emptyText, formatter, countLabel) {
+  const visibleRows = (rows || []).slice(0, 5);
+  const body = visibleRows.length > 0
+    ? visibleRows.map((row) =>
+      '<div class="scope-item">' +
+        '<div class="scope-item-top">' +
+          '<div class="scope-item-name">' + escHtml(row.key) + '</div>' +
+          '<div class="scope-item-value">' + escHtml(formatter(row)) + '</div>' +
+        '</div>' +
+        '<div class="scope-item-sub">' +
+          formatPlainNumber(row.bucket.callCount || 0) + ' ' + escHtml(t('costTableCallsSuffix')) +
+          ' · ' + formatUsageCompact(row.bucket.totalTokens || 0) + ' ' + escHtml(countLabel || t('costTableTokensSuffix')) +
+        '</div>' +
+      '</div>'
+    ).join('')
+    : '<div class="empty-state">' + escHtml(emptyText) + '</div>';
+
+  return '<div class="card">' +
+    '<div class="card-header"><span>' + escHtml(title) + '</span></div>' +
+    '<div class="card-body">' + body + '</div>' +
+  '</div>';
+}
+
+function formatUsageCompact(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num)) return '0';
+  if (currentLang === 'zh') {
+    const abs = Math.abs(num);
+    if (abs >= 1000000) {
+      return (Math.round((num / 1000000) * 10) / 10).toString().replace(/\\.0$/, '') + '百万';
+    }
+    if (abs >= 1000) {
+      return (Math.round((num / 1000) * 10) / 10).toString().replace(/\\.0$/, '') + '千';
+    }
+    return String(Math.round(num));
+  }
+  return new Intl.NumberFormat(currentLang === 'zh' ? 'zh-CN' : 'en-US', {
+    notation: num >= 1000 ? 'compact' : 'standard',
+    maximumFractionDigits: num >= 1000 ? 1 : 0,
+  }).format(num);
+}
+
+function incrementCounter(map, key) {
+  const normalizedKey = String(key || 'unknown').trim() || 'unknown';
+  map[normalizedKey] = (map[normalizedKey] || 0) + 1;
+}
+
+function summarizeDecisionEvents(events) {
+  const summary = {
+    mappingByStrategy: {},
+    evaluationByRule: {},
+    skippedByReason: {},
+    patchByType: {},
+    patchVolume: {
+      linesAdded: 0,
+      linesRemoved: 0,
+    },
+    runtimeDriftCount: 0,
+  };
+
+  const rows = Array.isArray(events) ? events : [];
+  for (const event of rows) {
+    const tag = String(event?.tag || '');
+    if (tag === 'skill_mapping' || tag === 'skill_mapped' || tag === 'skill_mapping_result') {
+      incrementCounter(summary.mappingByStrategy, event.reason || event.detail || event.status || 'mapped');
+    }
+    if (tag === 'evaluation_result' || tag === 'skill_evaluation') {
+      incrementCounter(summary.evaluationByRule, event.ruleName || event.reason || event.status || 'unclassified');
+    }
+    if (event?.status === 'skipped') {
+      incrementCounter(summary.skippedByReason, event.reason || event.detail || 'skipped');
+    }
+    if (tag === 'patch_applied') {
+      incrementCounter(summary.patchByType, event.changeType || 'patch');
+      summary.patchVolume.linesAdded += Number(event.linesAdded || 0);
+      summary.patchVolume.linesRemoved += Number(event.linesRemoved || 0);
+    }
+    if (event?.runtimeDrift) {
+      summary.runtimeDriftCount += 1;
+    }
+  }
+
+  return summary;
+}
+
+function renderMetricRows(title, rows, emptyText) {
+  const entries = Object.entries(rows || {})
+    .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0));
+
+  const body = entries.length > 0
+    ? entries.map(([label, count]) =>
+      '<div class="scope-item">' +
+        '<div class="scope-item-top">' +
+          '<div class="scope-item-name">' + escHtml(label) + '</div>' +
+          '<div class="scope-item-value">' + formatCompactNumber(count) + '</div>' +
+        '</div>' +
+      '</div>'
+    ).join('')
+    : '<div class="config-help">' + escHtml(emptyText) + '</div>';
+
+  return '<div class="card">' +
+    '<div class="card-header"><span>' + escHtml(title) + '</span><span style="color:var(--muted)">' + entries.length + '</span></div>' +
+    '<div class="card-body">' +
+      '<div class="scope-list">' + body + '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function renderCostPanel(projectPath) {
+  const pd = state.projectData[projectPath] || {};
+  const usage = pd.agentUsage || {
+    callCount: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    durationMsTotal: 0,
+    avgDurationMs: 0,
+    lastCallAt: null,
+    byModel: {},
+    byScope: {},
+    bySkill: {},
+  };
+  if (!usage.callCount) {
+    return '<div class="empty-state">' + t('costEmpty') + '</div>';
+  }
+
+  const modelIndex = getLiteLLMModelDetailsIndex();
+  const modelRows = buildCostRows(usage.byModel, modelIndex, { type: 'model' });
+  const scopeRows = buildCostRows(usage.byScope, modelIndex);
+  const skillRows = buildCostRows(usage.bySkill, modelIndex);
+  const pricedModelCount = modelRows.filter((row) => typeof row.estimatedSpend === 'number').length;
+  const totalEstimatedSpend = modelRows.reduce((sum, row) => sum + (typeof row.estimatedSpend === 'number' ? row.estimatedSpend : 0), 0);
+  const avgTokensPerCall = usage.callCount > 0 ? Math.round((usage.totalTokens || 0) / usage.callCount) : 0;
+  const hasModelMetadata = modelRows.some((row) => !!row.detail);
+  const hasReasoningSurcharge = modelRows.some(
+    (row) => row.detail && Number(row.detail.outputCostPerReasoningToken) > 0
+  );
+
+  const modelHtml = modelRows.map((row) =>
+    '<tr>' +
+      '<td>' +
+        '<div class="cost-primary">' + escHtml(row.key) + '</div>' +
+        '<div class="cost-secondary">' + escHtml((row.detail && row.detail.mode) || 'chat') + ' · ' +
+          formatPlainNumber(row.bucket.callCount || 0) + ' ' + t('costTableCallsSuffix') + '</div>' +
+      '</td>' +
+      '<td>' +
+        '<div class="cost-primary">' + (typeof row.estimatedSpend === 'number' ? formatUsd(row.estimatedSpend) : '—') + '</div>' +
+        '<div class="cost-secondary">' + formatUsageCompact(row.bucket.totalTokens || 0) + ' ' + t('costTableTokensSuffix') + '</div>' +
+      '</td>' +
+      '<td>' +
+        '<div class="cost-primary">' + formatUsageCompact(row.bucket.promptTokens || 0) + ' / ' + formatUsageCompact(row.bucket.completionTokens || 0) + '</div>' +
+        '<div class="cost-secondary">' + t('costTableInOut') + '</div>' +
+      '</td>' +
+      '<td>' +
+        '<div class="cost-primary">' + formatDurationMs(row.bucket.avgDurationMs) + '</div>' +
+        '<div class="cost-secondary">' + t('costTableLastSeen') + ' ' + (row.bucket.lastCallAt ? timeAgo(row.bucket.lastCallAt) : '—') + '</div>' +
+      '</td>' +
+      '<td>' +
+        '<div class="cost-primary">' + formatContextWindow(row.detail) + '</div>' +
+        '<div class="cost-secondary">' + t('costTableInOut') + '</div>' +
+      '</td>' +
+      '<td>' +
+        '<div class="cost-primary">' +
+          (row.detail ? formatUsdPerMillion(row.detail.inputCostPerToken) + ' · ' + formatUsdPerMillion(row.detail.outputCostPerToken) : '—') +
+        '</div>' +
+        '<div class="cost-secondary">' +
+          (row.detail ? (Number(row.detail.outputCostPerReasoningToken) > 0 ? t('costPricingReasoningSurcharge') : t('costPricingSource')) : t('costUnknownPricing')) +
+        '</div>' +
+      '</td>' +
+      '<td>' + renderCapabilityPills(row.detail) + '</td>' +
+    '</tr>'
+  ).join('');
+
+  return '<div class="cost-stats-row">' +
+      '<div class="stat-card cost-spotlight">' +
+        '<div class="stat-label">' + t('costEstimated') + '</div>' +
+        '<div class="stat-value cost-accent">' + (pricedModelCount > 0 ? formatUsd(totalEstimatedSpend) : '—') + '</div>' +
+        '<div class="stat-sub">' + (pricedModelCount > 0 ? t('costEstimatedSub') : t('costUnknownPricing')) + '</div>' +
+      '</div>' +
+      '<div class="stat-card">' +
+        '<div class="stat-label">' + t('costCalls') + '</div>' +
+        '<div class="stat-value">' + formatPlainNumber(usage.callCount) + '</div>' +
+        '<div class="stat-sub">' + t('costCallsSub') + '</div>' +
+      '</div>' +
+      '<div class="stat-card">' +
+        '<div class="stat-label">' + t('costInputTokens') + '</div>' +
+        '<div class="stat-value">' + formatUsageCompact(usage.promptTokens) + '</div>' +
+        '<div class="stat-sub">' + t('costInputTokensSub') + '</div>' +
+      '</div>' +
+      '<div class="stat-card">' +
+        '<div class="stat-label">' + t('costOutputTokens') + '</div>' +
+        '<div class="stat-value">' + formatUsageCompact(usage.completionTokens) + '</div>' +
+        '<div class="stat-sub">' + t('costOutputTokensSub') + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="cost-stats-row">' +
+      '<div class="stat-card">' +
+        '<div class="stat-label">' + t('costTotalTokens') + '</div>' +
+        '<div class="stat-value">' + formatUsageCompact(usage.totalTokens) + '</div>' +
+        '<div class="stat-sub">' + t('costTotalTokensSub') + '</div>' +
+      '</div>' +
+      '<div class="stat-card">' +
+        '<div class="stat-label">' + t('costAvgLatency') + '</div>' +
+        '<div class="stat-value">' + formatDurationMs(usage.avgDurationMs) + '</div>' +
+        '<div class="stat-sub">' + t('costAvgLatencySub') + '</div>' +
+      '</div>' +
+      '<div class="stat-card">' +
+        '<div class="stat-label">' + t('costAvgTokensPerCall') + '</div>' +
+        '<div class="stat-value">' + formatUsageCompact(avgTokensPerCall) + '</div>' +
+        '<div class="stat-sub">' + t('costAvgTokensPerCallSub') + '</div>' +
+      '</div>' +
+      '<div class="stat-card">' +
+        '<div class="stat-label">' + t('costLastCall') + '</div>' +
+        '<div class="stat-value" style="font-size:15px">' + (usage.lastCallAt ? timeAgo(usage.lastCallAt) : '—') + '</div>' +
+        '<div class="stat-sub">' + t('costLastCallSub') + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="cost-layout">' +
+      '<div class="cost-stack">' +
+        '<div class="card">' +
+          '<div class="card-header"><span>' + t('costModelSpend') + '</span><span style="color:var(--muted)">' + formatPlainNumber(modelRows.length) + ' ' + t('costModelCount') + '</span></div>' +
+          '<div class="card-body">' +
+            '<div class="cost-table-wrap">' +
+              '<table class="cost-table">' +
+                '<thead><tr>' +
+                  '<th>' + t('costTableModel') + '</th>' +
+                  '<th>' + t('costEstimatedSpend') + '</th>' +
+                  '<th>' + t('costTableUsage') + '</th>' +
+                  '<th>' + t('costTableLatency') + '</th>' +
+                  '<th>' + t('costTableContextWindow') + '</th>' +
+                  '<th>' + t('costTablePricing') + '</th>' +
+                  '<th>' + t('costTableCapabilities') + '</th>' +
+                '</tr></thead>' +
+                '<tbody>' + modelHtml + '</tbody>' +
+              '</table>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="cost-stack">' +
+        renderCostBreakdown(t('costScopeBreakdown'), scopeRows, t('costScopeEmpty'), (row) => formatUsageCompact(row.bucket.totalTokens || 0), t('costTableTokensSuffix')) +
+        renderCostBreakdown(t('costSkillBreakdown'), skillRows, t('costSkillEmpty'), (row) => formatUsageCompact(row.bucket.totalTokens || 0), t('costTableTokensSuffix')) +
+        '<div class="card">' +
+          '<div class="card-header"><span>' + t('costSignalsTitle') + '</span></div>' +
+          '<div class="card-body">' +
+            '<div class="cost-note"><strong>' + t('costSignalsSourceLabel') + '</strong> ' + t('costSignalsSourceBody') + '</div>' +
+            '<div class="cost-note" style="margin-top:8px"><strong>' + t('costSignalsVisibleLabel') + '</strong> ' + t('costSignalsVisibleBody') + '</div>' +
+            '<div class="cost-chip-row" style="margin-top:10px">' +
+              '<span class="cost-chip">' + (hasModelMetadata ? t('costSignalsContextReady') : t('costSignalsContextPending')) + '</span>' +
+              '<span class="cost-chip">' + (hasReasoningSurcharge ? t('costSignalsReasoningDetected') : t('costSignalsInputOutputOnly')) + '</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
 }
 
 // ─── Main Panel ───────────────────────────────────────────────────────────────
@@ -1288,6 +2248,20 @@ function renderMainPanel(projectPath) {
   const skills = pd.skills || [];
   const traceStats = pd.traceStats || { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} };
   const recentTraces = pd.recentTraces || [];
+  const decisionEvents = pd.decisionEvents || [];
+  const decisionSummary = summarizeDecisionEvents(decisionEvents);
+  const agentUsage = pd.agentUsage || {
+    callCount: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    durationMsTotal: 0,
+    avgDurationMs: 0,
+    lastCallAt: null,
+    byModel: {},
+    byScope: {},
+    bySkill: {},
+  };
 
   const uptime = daemon.isRunning && daemon.startedAt ? formatUptime(daemon.startedAt) : '—';
 
@@ -1296,6 +2270,7 @@ function renderMainPanel(projectPath) {
       <button class="main-tab \${state.selectedMainTab === 'overview' ? 'active' : ''}" onclick="selectMainTab('overview')">\${t('mainTabOverview')}</button>
       <button class="main-tab \${state.selectedMainTab === 'skills' ? 'active' : ''}" onclick="selectMainTab('skills')">\${t('mainTabSkills')}</button>
       <button class="main-tab \${state.selectedMainTab === 'activity' ? 'active' : ''}" onclick="selectMainTab('activity')">\${t('mainTabActivity')}</button>
+      <button class="main-tab \${state.selectedMainTab === 'cost' ? 'active' : ''}" onclick="selectMainTab('cost')">\${t('mainTabCost')}</button>
       <button class="main-tab \${state.selectedMainTab === 'logs' ? 'active' : ''}" onclick="selectMainTab('logs')">\${t('mainTabLogs')}</button>
       <button class="main-tab \${state.selectedMainTab === 'config' ? 'active' : ''}" onclick="selectMainTab('config')">\${t('mainTabConfig')}</button>
     </div>
@@ -1324,6 +2299,11 @@ function renderMainPanel(projectPath) {
         <div class="stat-value">\${daemon.optimizationStatus?.queueSize ?? 0}</div>
         <div class="stat-sub">\${t('statQueueSub')}</div>
       </div>
+      <div class="stat-card">
+        <div class="stat-label">\${t('costCalls')}</div>
+        <div class="stat-value">\${agentUsage.callCount ?? 0}</div>
+        <div class="stat-sub">\${t('costCallsSub')}</div>
+      </div>
     </div>
 
     <div class="card">
@@ -1346,6 +2326,65 @@ function renderMainPanel(projectPath) {
         </div>
       </div>
     </div>
+    \${decisionEvents.length > 0 ? \`
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">\${t('overviewMapped')}</div>
+        <div class="stat-value">\${Object.values(decisionSummary.mappingByStrategy).reduce((sum, count) => sum + count, 0)}</div>
+        <div class="stat-sub">\${t('overviewMappedSub')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">\${t('overviewSkipped')}</div>
+        <div class="stat-value">\${Object.values(decisionSummary.skippedByReason).reduce((sum, count) => sum + count, 0)}</div>
+        <div class="stat-sub">\${t('overviewSkippedSub')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">\${t('overviewPatchDelta')}</div>
+        <div class="stat-value" style="font-size:15px">+\${decisionSummary.patchVolume.linesAdded}/-\${decisionSummary.patchVolume.linesRemoved}</div>
+        <div class="stat-sub">\${t('overviewPatchDeltaSub')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">\${t('overviewHostDrift')}</div>
+        <div class="stat-value">\${decisionSummary.runtimeDriftCount}</div>
+        <div class="stat-sub">\${t('overviewHostDriftSub')}</div>
+      </div>
+    </div>
+
+    <div class="skills-list" style="grid-template-columns:repeat(2,1fr)">
+      \${renderMetricRows(t('overviewMappingStrategy'), decisionSummary.mappingByStrategy, t('overviewNoMappingData'))}
+      \${renderMetricRows(t('overviewEvaluationRules'), decisionSummary.evaluationByRule, t('overviewNoEvaluationData'))}
+      \${renderMetricRows(t('overviewSkipReasons'), decisionSummary.skippedByReason, t('overviewNoSkipData'))}
+      \${renderMetricRows(t('overviewPatchTypes'), decisionSummary.patchByType, t('overviewNoPatchData'))}
+    </div>
+    \` : ''}
+    \${agentUsage.callCount > 0 ? \`
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">\${t('costCalls')}</div>
+        <div class="stat-value">\${formatUsageCompact(agentUsage.callCount)}</div>
+        <div class="stat-sub">\${t('overviewAgentUsageSub')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">\${t('costInputTokens')}</div>
+        <div class="stat-value">\${formatUsageCompact(agentUsage.promptTokens)}</div>
+        <div class="stat-sub">\${t('overviewAgentUsageSub')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">\${t('costOutputTokens')}</div>
+        <div class="stat-value">\${formatUsageCompact(agentUsage.completionTokens)}</div>
+        <div class="stat-sub">\${t('overviewAgentUsageSub')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">\${t('costTotalTokens')}</div>
+        <div class="stat-value">\${formatUsageCompact(agentUsage.totalTokens)}</div>
+        <div class="stat-sub">\${t('overviewAgentUsageSub')}</div>
+      </div>
+    </div>
+
+    <div class="skills-list" style="grid-template-columns:repeat(1,1fr)">
+      \${renderMetricRows(t('overviewAgentScopes'), Object.fromEntries(Object.entries(agentUsage.byScope || {}).map(([scope, item]) => [scope, item.callCount || 0])), t('overviewNoAgentScopes'))}
+    </div>
+    \` : ''}
     \${traceStats.total > 0 ? \`
     <div class="card">
       <div class="card-header"><span>\${t('traceTitle')}</span><span style="color:var(--muted)">\${traceStats.total} \${t('traceTotal')}</span></div>
@@ -1362,7 +2401,7 @@ function renderMainPanel(projectPath) {
         <span>\${t('skillsTitle')}</span>
         <div style="display:flex;align-items:center;gap:12px;">
           <div class="runtime-tabs">
-            <button class="runtime-tab \${state.selectedRuntimeTab === 'all' ? 'active' : ''}" onclick="selectRuntimeTab('all')">All</button>
+            <button class="runtime-tab \${state.selectedRuntimeTab === 'all' ? 'active' : ''}" onclick="selectRuntimeTab('all')">\${t('skillsRuntimeAll')}</button>
             <button class="runtime-tab tab-codex \${state.selectedRuntimeTab === 'codex' ? 'active' : ''}" onclick="selectRuntimeTab('codex')">Codex</button>
             <button class="runtime-tab tab-claude \${state.selectedRuntimeTab === 'claude' ? 'active' : ''}" onclick="selectRuntimeTab('claude')">Claude</button>
             <button class="runtime-tab tab-opencode \${state.selectedRuntimeTab === 'opencode' ? 'active' : ''}" onclick="selectRuntimeTab('opencode')">OpenCode</button>
@@ -1375,22 +2414,22 @@ function renderMainPanel(projectPath) {
         <div class="skills-controls">
           <div class="search-box">
             <span class="search-icon">🔍</span>
-            <input type="text" class="search-input" id="skillSearchInput" placeholder="Search skills..." value="\${state.searchQuery}" oninput="handleSearch(this.value)" />
+            <input type="text" class="search-input" id="skillSearchInput" placeholder="\${t('skillsSearchPlaceholder')}" value="\${state.searchQuery}" oninput="handleSearch(this.value)" />
           </div>
           <div class="sort-controls">
-            <span class="sort-label">Sort:</span>
+            <span class="sort-label">\${t('skillsSortLabel')}</span>
             <button class="sort-btn \${state.sortBy === 'name' ? 'active' : ''}" onclick="toggleSort('name')">
-              Name <span class="arrow">\${state.sortBy === 'name' ? (state.sortOrder === 'asc' ? '↑' : '↓') : ''}</span>
+              \${t('skillsSortName')} <span class="arrow">\${state.sortBy === 'name' ? (state.sortOrder === 'asc' ? '↑' : '↓') : ''}</span>
             </button>
             <button class="sort-btn \${state.sortBy === 'updated' ? 'active' : ''}" onclick="toggleSort('updated')">
-              Updated <span class="arrow">\${state.sortBy === 'updated' ? (state.sortOrder === 'asc' ? '↑' : '↓') : ''}</span>
+              \${t('skillsSortUpdated')} <span class="arrow">\${state.sortBy === 'updated' ? (state.sortOrder === 'asc' ? '↑' : '↓') : ''}</span>
             </button>
           </div>
         </div>
         
         <div id="skillsListContainer">
           \${getFilteredAndSortedSkills(skills).length === 0
-            ? '<div class="empty-state">' + (state.searchQuery ? 'No skills found matching "' + escHtml(state.searchQuery) + '"' : t('skillsEmpty')) + '</div>'
+            ? renderSkillsEmptyState()
             : '<div class="skills-list">' + getFilteredAndSortedSkills(skills).map(s => renderSkillCard(s, projectPath)).join('') + '</div>'
           }
         </div>
@@ -1417,6 +2456,15 @@ function renderMainPanel(projectPath) {
             \${renderRecentTraces(recentTraces.slice(0,50))}
           </div>
         \` : \`<div class="empty-state">\${t('activityEmpty')}</div>\`}
+      </div>
+    </div>
+    \` : ''}
+
+    \${state.selectedMainTab === 'cost' ? \`
+    <div class="card">
+      <div class="card-header"><span>\${t('mainTabCost')}</span><span style="color:var(--muted)">\${agentUsage.callCount ?? 0}</span></div>
+      <div class="card-body">
+        \${renderCostPanel(projectPath)}
       </div>
     </div>
     \` : ''}
@@ -1465,13 +2513,49 @@ function renderMainPanel(projectPath) {
   }
 }
 
+function showProjectRenderFailure(projectPath, source, error) {
+  const el = document.getElementById('mainPanel');
+  if (!el) return;
+  el.innerHTML =
+    '<div class="panel-inner"><div class="card"><div class="card-header"><span>' +
+    escHtml(t('mainSelectProject')) +
+    '</span></div><div class="card-body"><div class="empty-state" style="color:var(--yellow)">' +
+    escHtml(t('projectRenderFailed')) +
+    '</div><div class="config-help" style="margin-top:8px">' +
+    escHtml(t('projectRenderHint')) +
+    '</div><div class="config-help" style="margin-top:8px">' +
+    escHtml(projectPath || '—') +
+    (source ? ' · ' + escHtml(source) : '') +
+    '</div></div></div></div>';
+  console.error('[dashboard] main panel render failed', {
+    projectPath,
+    source,
+    error: String(error),
+  });
+  enqueueClientError({
+    message: 'main panel render failed: ' + String(error),
+    source: source || 'renderMainPanel',
+    stack: getErrorStack(error),
+  });
+}
+
+function safeRenderMainPanel(projectPath, source = 'renderMainPanel') {
+  try {
+    renderMainPanel(projectPath);
+    return true;
+  } catch (error) {
+    showProjectRenderFailure(projectPath, source, error);
+    return false;
+  }
+}
+
 function selectMainTab(tab) {
   state.selectedMainTab = tab;
-  if (tab === 'config' && state.providerCatalog.length === 0) {
+  if ((tab === 'config' || tab === 'cost') && state.providerCatalog.length === 0) {
     void loadProviderCatalog(true);
   }
   if (state.selectedProjectId) {
-    renderMainPanel(state.selectedProjectId);
+    safeRenderMainPanel(state.selectedProjectId, 'selectMainTab:' + tab);
   }
   // 前端日志：记录 dashboard 主 tab 切换
   console.debug('[dashboard] switched main tab', { tab });
@@ -1479,12 +2563,12 @@ function selectMainTab(tab) {
 
 function setActivityLayer(layer) {
   state.activityLayer = layer === 'raw' ? 'raw' : 'business';
-  if (state.selectedProjectId) renderMainPanel(state.selectedProjectId);
+  if (state.selectedProjectId) safeRenderMainPanel(state.selectedProjectId, 'setActivityLayer');
 }
 
 function setActivityTagFilter(tag) {
   state.activityTagFilter = tag || 'all';
-  if (state.selectedProjectId) renderMainPanel(state.selectedProjectId);
+  if (state.selectedProjectId) safeRenderMainPanel(state.selectedProjectId, 'setActivityTagFilter');
 }
 
 function renderConfigPanel(projectPath) {
@@ -1492,6 +2576,8 @@ function renderConfigPanel(projectPath) {
     autoOptimize: true,
     userConfirm: false,
     runtimeSync: true,
+    defaultProvider: '',
+    logLevel: 'info',
     providers: [],
   };
   const loading = !!state.configLoadingByProject[projectPath];
@@ -1499,35 +2585,22 @@ function renderConfigPanel(projectPath) {
   const configUi = state.configUiByProject[projectPath] || {};
 
   const providers = Array.isArray(config.providers) ? config.providers : [];
+  const activeProviderIndex = getActiveProviderIndex(config.defaultProvider, providers);
   const rowsHtml = providers.length > 0
-    ? providers.map((row, index) => renderProviderRow(row, index)).join('')
-    : \`<div class="config-help">\${currentLang === 'zh' ? '暂无 provider，请点击下方按钮添加。' : 'No provider yet. Use the button below to add one.'}</div>\`;
+    ? providers.map((row, index) => renderProviderRow(row, index, activeProviderIndex)).join('')
+    : \`<div class="config-help">\${t('configNoProviders')}</div>\`;
 
   return \`
-    \${state.providerCatalogLoading ? \`<div class="config-help" style="margin-bottom:8px">\${currentLang === 'zh' ? 'LiteLLM 列表加载中...' : 'Loading LiteLLM catalog...'}</div>\` : ''}
-    \${state.providerCatalogError ? \`<div class="config-help" style="margin-bottom:8px;color:var(--red)">LiteLLM catalog error: \${escHtml(state.providerCatalogError)} <button class="btn-secondary" type="button" onclick="reloadProviderCatalog()">\${currentLang === 'zh' ? '重试' : 'Retry'}</button></div>\` : ''}
+    \${state.providerCatalogLoading ? \`<div class="config-help" style="margin-bottom:8px">\${t('configCatalogLoading')}</div>\` : ''}
+    \${state.providerCatalogError ? \`<div class="config-help" style="margin-bottom:8px;color:var(--red)">\${t('configCatalogErrorPrefix')} \${escHtml(state.providerCatalogError)} <button class="btn-secondary" type="button" onclick="reloadProviderCatalog()">\${t('configRetry')}</button></div>\` : ''}
     \${loading ? \`<div class="config-help" style="margin-bottom:8px">\${t('configLoading')}</div>\` : ''}
-    \${loadError ? \`<div class="config-help" style="margin-bottom:8px;color:var(--red)">Failed to load remote config: \${escHtml(loadError)}</div>\` : ''}
+    \${loadError ? \`<div class="config-help" style="margin-bottom:8px;color:var(--red)">\${t('configLoadErrorPrefix')} \${escHtml(loadError)}</div>\` : ''}
     <div class="config-intro">\${t('configIntro')}</div>
-    <div class="config-grid">
-      <div class="config-field">
-        <label class="config-check"><input type="checkbox" id="cfg_auto_optimize" \${config.autoOptimize ? 'checked' : ''}/> tracking.auto_optimize</label>
-        <div class="config-help">\${t('configAutoOptimizeHelp')}</div>
-      </div>
-      <div class="config-field">
-        <label class="config-check"><input type="checkbox" id="cfg_user_confirm" \${config.userConfirm ? 'checked' : ''}/> tracking.user_confirm</label>
-        <div class="config-help">\${t('configUserConfirmHelp')}</div>
-      </div>
-      <div class="config-field">
-        <label class="config-check"><input type="checkbox" id="cfg_runtime_sync" \${config.runtimeSync ? 'checked' : ''}/> tracking.runtime_sync</label>
-        <div class="config-help">\${t('configRuntimeSyncHelp')}</div>
-      </div>
-    </div>
     <div class="config-field" style="margin-top:10px">
-      <label class="config-label">providers</label>
+      <label class="config-label">\${t('configProvidersLabel')}</label>
       <div class="providers-editor" id="cfg_providers_rows">\${rowsHtml}</div>
       <div style="margin-top:8px;display:flex;gap:8px">
-        <button class="btn-secondary" type="button" onclick="addProviderRow()">\${currentLang === 'zh' ? '新增 Provider' : 'Add Provider'}</button>
+        <button class="btn-secondary" type="button" onclick="addProviderRow()">\${t('configAddProvider')}</button>
       </div>
       <div class="config-help">\${t('configProvidersHelp')}</div>
       <div class="config-connectivity" id="cfg_connectivity">
@@ -1536,10 +2609,6 @@ function renderConfigPanel(projectPath) {
     </div>
     <div class="config-actions">
       <span id="cfg_save_hint" class="config-label">\${escHtml(configUi.saveHint || '')}</span>
-      <div style="display:flex;gap:8px;">
-        <button class="btn-primary" id="cfg_check_btn" onclick="checkProvidersConnectivity()">\${t('configCheckConnectivity')}</button>
-        <button class="btn-primary" onclick="saveProjectConfig()">\${t('configSave')}</button>
-      </div>
     </div>
   \`;
 }
@@ -1549,7 +2618,7 @@ function retryLoadConfig() {
   delete state.configByProject[state.selectedProjectId];
   state.configLoadErrorByProject[state.selectedProjectId] = '';
   void ensureProjectConfig(state.selectedProjectId);
-  renderMainPanel(state.selectedProjectId);
+  safeRenderMainPanel(state.selectedProjectId, 'reloadProjectConfig');
 }
 
 async function loadProviderCatalog(force = false) {
@@ -1558,7 +2627,7 @@ async function loadProviderCatalog(force = false) {
   state.providerCatalogLoading = true;
   state.providerCatalogError = '';
   if (state.selectedMainTab === 'config' && state.selectedProjectId) {
-    renderMainPanel(state.selectedProjectId);
+    safeRenderMainPanel(state.selectedProjectId, 'scheduleProjectConfigSave.flush');
   }
   try {
     let data = null;
@@ -1580,7 +2649,7 @@ async function loadProviderCatalog(force = false) {
   } finally {
     state.providerCatalogLoading = false;
     if (state.selectedMainTab === 'config' && state.selectedProjectId) {
-      renderMainPanel(state.selectedProjectId);
+      safeRenderMainPanel(state.selectedProjectId, 'scheduleProjectConfigSave.complete');
     }
   }
 }
@@ -1594,31 +2663,69 @@ function setConfigUi(projectPath, patch) {
   state.configUiByProject[projectPath] = { ...prev, ...patch };
 }
 
-function renderProviderRow(row, index) {
+function updateConfigSaveHint(projectPath, message) {
+  setConfigUi(projectPath, { saveHint: message });
+  if (state.selectedProjectId === projectPath && state.selectedMainTab === 'config') {
+    const hintEl = document.getElementById('cfg_save_hint');
+    if (hintEl) {
+      hintEl.textContent = message || '';
+    }
+  }
+}
+
+function scheduleProjectConfigSave(delayMs = 450) {
+  const projectPath = state.selectedProjectId;
+  if (!projectPath) return;
+  if (configAutoSaveTimer !== null) {
+    clearTimeout(configAutoSaveTimer);
+  }
+  updateConfigSaveHint(projectPath, t('configSaving'));
+  configAutoSaveTimer = setTimeout(() => {
+    configAutoSaveTimer = null;
+    if (state.selectedProjectId !== projectPath || state.selectedMainTab !== 'config') return;
+    void saveProjectConfig({ auto: true });
+  }, delayMs);
+}
+
+function getActiveProviderIndex(defaultProvider, providers) {
+  const rows = Array.isArray(providers) ? providers : [];
+  if (rows.length === 0) return -1;
+  const matchedIndex = rows.findIndex((row) => String(row?.provider || '') === String(defaultProvider || ''));
+  return matchedIndex >= 0 ? matchedIndex : 0;
+}
+
+function renderProviderRow(row, index, activeProviderIndex) {
   const normalizedProvider = String(row.provider || '');
   const knownProvider = isKnownProvider(normalizedProvider);
   const providerOptions = getProviderOptionsHtml(knownProvider ? normalizedProvider : '__custom__');
   const normalizedModel = String(row.modelName || '');
   const modelOptions = getModelOptionsHtml(normalizedProvider, normalizedModel);
   const modelIsCustom = !isKnownModel(normalizedProvider, normalizedModel);
-  const hasApiKey = !!row.hasApiKey;
+  const apiKey = String(row.apiKey || '');
+  const apiKeyEnvVar = String(row.apiKeyEnvVar || guessApiKeyEnvVar(normalizedProvider));
   return \`
-    <div class="provider-row" data-row-index="\${index}" data-has-api-key="\${hasApiKey ? 'true' : 'false'}">
+    <div class="provider-row" data-row-index="\${index}" data-has-api-key="\${row.hasApiKey ? 'true' : 'false'}" data-api-key-env-var="\${escHtml(apiKeyEnvVar)}">
       <select class="config-select cfg_provider" onchange="handleProviderChange(this)">
         \${providerOptions}
       </select>
-      <input class="config-input cfg_provider_custom" value="\${knownProvider ? '' : escHtml(normalizedProvider)}" placeholder="\${currentLang === 'zh' ? '自定义 provider id（例如：xai）' : 'Custom provider id (e.g. xai)'}" style="\${knownProvider ? 'display:none;' : ''}" />
+      <input class="config-input cfg_provider_custom" value="\${knownProvider ? '' : escHtml(normalizedProvider)}" placeholder="\${t('configCustomProviderPlaceholder')}" style="\${knownProvider ? 'display:none;' : ''}" oninput="handleCustomProviderInput(this)" />
       <div>
         <select class="config-select cfg_model" onchange="handleModelChange(this)">
           \${modelOptions}
         </select>
-        <input class="config-input cfg_model_custom" value="\${modelIsCustom ? escHtml(normalizedModel) : ''}" placeholder="\${currentLang === 'zh' ? '自定义 model（例如：grok-3）' : 'Custom model (e.g. grok-3)'}" style="margin-top:6px;\${modelIsCustom ? '' : 'display:none;'}" />
+        <input class="config-input cfg_model_custom" value="\${modelIsCustom ? escHtml(normalizedModel) : ''}" placeholder="\${t('configCustomModelPlaceholder')}" style="margin-top:6px;\${modelIsCustom ? '' : 'display:none;'}" oninput="scheduleProjectConfigSave(500)" />
       </div>
       <div>
-        <input class="config-input cfg_api_key" type="password" value="" placeholder="\${hasApiKey ? (currentLang === 'zh' ? 'API Key 已保存；留空表示不修改' : 'API key stored; leave blank to keep') : (currentLang === 'zh' ? '直接粘贴 API Key' : 'Paste API key')}" />
-        <input class="config-input cfg_env" value="\${escHtml(row.apiKeyEnvVar || '')}" placeholder="OPENAI_API_KEY" style="margin-top:6px" />
+        <input class="config-input cfg_api_key" type="text" value="\${escHtml(apiKey)}" placeholder="\${t('configApiKeyPastePlaceholder')}" oninput="scheduleProjectConfigSave(500)" />
       </div>
-      <button class="btn-danger" type="button" onclick="removeProviderRow(this)">\${currentLang === 'zh' ? '删除' : 'Remove'}</button>
+      <div class="provider-actions">
+        <label class="config-check">
+          <input type="radio" class="cfg_provider_active" name="cfg_provider_active" value="\${index}" \${index === activeProviderIndex ? 'checked' : ''} onchange="scheduleProjectConfigSave(150)"/>
+          \${t('configProviderActiveLabel')}
+        </label>
+        <button class="btn-secondary cfg_row_check_btn" type="button" onclick="checkProvidersConnectivity(\${index}, this)">\${t('configCheckConnectivity')}</button>
+        <button class="btn-danger" type="button" onclick="removeProviderRow(this)">\${t('configRemoveProvider')}</button>
+      </div>
     </div>
   \`;
 }
@@ -1626,14 +2733,14 @@ function renderProviderRow(row, index) {
 function getProviderOptionsHtml(selectedProvider) {
   const catalog = Array.isArray(state.providerCatalog) ? state.providerCatalog : [];
   if (catalog.length === 0) {
-    return '<option value="__custom__">' + escHtml(currentLang === 'zh' ? 'LiteLLM 列表未就绪（仅可自定义）' : 'LiteLLM catalog not ready (custom only)') + '</option>';
+    return '<option value="__custom__">' + escHtml(t('configCatalogCustomOnly')) + '</option>';
   }
   return catalog
     .map((item) => {
       const selected = item.id === selectedProvider ? 'selected' : '';
       return '<option value="' + escHtml(item.id) + '" ' + selected + '>' + escHtml(item.id) + '</option>';
     })
-    .join('') + '<option value="__custom__" ' + (selectedProvider === '__custom__' ? 'selected' : '') + '>' + escHtml(currentLang === 'zh' ? '自定义' : 'Custom...') + '</option>';
+    .join('') + '<option value="__custom__" ' + (selectedProvider === '__custom__' ? 'selected' : '') + '>' + escHtml(t('configCustomOption')) + '</option>';
 }
 
 function isKnownProvider(providerId) {
@@ -1648,21 +2755,45 @@ function getModelsByProvider(providerId) {
   return Array.isArray(item?.models) ? item.models : [];
 }
 
+function buildProviderModelAliases(providerId, modelName) {
+  const normalizedProvider = String(providerId || '').trim();
+  const normalizedModel = String(modelName || '').trim();
+  if (!normalizedModel) return [];
+  const aliases = new Set([normalizedModel]);
+  if (normalizedProvider) {
+    const prefix = normalizedProvider + '/';
+    if (normalizedModel.startsWith(prefix)) {
+      aliases.add(normalizedModel.slice(prefix.length));
+    } else if (!normalizedModel.includes('/')) {
+      aliases.add(prefix + normalizedModel);
+    }
+  }
+  return [...aliases];
+}
+
+function resolveKnownModel(providerId, modelName) {
+  const aliases = new Set(
+    buildProviderModelAliases(providerId, modelName).map((item) => item.toLowerCase())
+  );
+  if (aliases.size === 0) return '';
+  return getModelsByProvider(providerId).find((model) => aliases.has(String(model).toLowerCase())) || '';
+}
+
 function getModelOptionsHtml(providerId, selectedModel) {
   const models = getModelsByProvider(providerId);
+  const resolvedSelectedModel = resolveKnownModel(providerId, selectedModel);
   const options = models
     .map((model) => {
-      const selected = model === selectedModel ? 'selected' : '';
+      const selected = model === resolvedSelectedModel ? 'selected' : '';
       return '<option value="' + escHtml(model) + '" ' + selected + '>' + escHtml(model) + '</option>';
     })
     .join('');
-  const customSelected = isKnownModel(providerId, selectedModel) ? '' : 'selected';
-  return options + '<option value="__custom__" ' + customSelected + '>' + escHtml(currentLang === 'zh' ? '自定义' : 'Custom...') + '</option>';
+  const customSelected = resolvedSelectedModel ? '' : 'selected';
+  return options + '<option value="__custom__" ' + customSelected + '>' + escHtml(t('configCustomOption')) + '</option>';
 }
 
 function isKnownModel(providerId, modelName) {
-  if (!modelName) return false;
-  return getModelsByProvider(providerId).includes(modelName);
+  return Boolean(resolveKnownModel(providerId, modelName));
 }
 
 function guessApiKeyEnvVar(providerId) {
@@ -1683,7 +2814,8 @@ function collectProvidersFromConfigEditor() {
     const modelCustom = row.querySelector('.cfg_model_custom')?.value?.trim() || '';
     const modelName = modelSelect === '__custom__' ? modelCustom : modelSelect;
     const apiKey = row.querySelector('.cfg_api_key')?.value || '';
-    const apiKeyEnvVar = row.querySelector('.cfg_env')?.value?.trim() || '';
+    const storedApiKeyEnvVar = row.getAttribute('data-api-key-env-var')?.trim() || '';
+    const apiKeyEnvVar = storedApiKeyEnvVar || guessApiKeyEnvVar(provider);
     const hasApiKey = row.getAttribute('data-has-api-key') === 'true';
     return { provider, modelName, apiKeyEnvVar, apiKey, hasApiKey };
   }).filter((item) => item.provider || item.modelName || item.apiKeyEnvVar || item.apiKey);
@@ -1705,7 +2837,6 @@ function handleProviderChange(selectEl) {
   if (!row) return;
   const providerId = selectEl.value;
   const customInput = row.querySelector('.cfg_provider_custom');
-  const envInput = row.querySelector('.cfg_env');
   const modelSelect = row.querySelector('.cfg_model');
   const modelCustomInput = row.querySelector('.cfg_model_custom');
   if (customInput) {
@@ -1713,16 +2844,16 @@ function handleProviderChange(selectEl) {
   }
   if (providerId === '__custom__') {
     if (modelSelect) {
-      modelSelect.innerHTML = '<option value="__custom__" selected>' + escHtml(currentLang === 'zh' ? '自定义' : 'Custom...') + '</option>';
+      modelSelect.innerHTML = '<option value="__custom__" selected>' + escHtml(t('configCustomOption')) + '</option>';
     }
     if (modelCustomInput) {
       modelCustomInput.style.display = '';
     }
+    row.setAttribute('data-api-key-env-var', guessApiKeyEnvVar(customInput?.value?.trim() || ''));
+    scheduleProjectConfigSave(150);
     return;
   }
-  if (envInput && !envInput.value.trim()) {
-    envInput.value = guessApiKeyEnvVar(providerId);
-  }
+  row.setAttribute('data-api-key-env-var', guessApiKeyEnvVar(providerId));
   if (modelSelect) {
     const prevValue = modelSelect.value || '';
     modelSelect.innerHTML = getModelOptionsHtml(providerId, prevValue);
@@ -1734,6 +2865,14 @@ function handleProviderChange(selectEl) {
   if (modelCustomInput) {
     modelCustomInput.style.display = 'none';
   }
+  scheduleProjectConfigSave(150);
+}
+
+function handleCustomProviderInput(inputEl) {
+  const row = inputEl.closest('.provider-row');
+  if (!row) return;
+  row.setAttribute('data-api-key-env-var', guessApiKeyEnvVar(inputEl.value.trim()));
+  scheduleProjectConfigSave(500);
 }
 
 function handleModelChange(selectEl) {
@@ -1742,6 +2881,7 @@ function handleModelChange(selectEl) {
   const customInput = row.querySelector('.cfg_model_custom');
   if (!customInput) return;
   customInput.style.display = selectEl.value === '__custom__' ? '' : 'none';
+  scheduleProjectConfigSave(150);
 }
 
 function addProviderRow() {
@@ -1758,8 +2898,10 @@ function addProviderRow() {
     apiKey: '',
     hasApiKey: false,
   });
-  state.configByProject[state.selectedProjectId] = { ...config, providers: rows };
-  renderMainPanel(state.selectedProjectId);
+  const nextDefaultProvider = config.defaultProvider || rows[0]?.provider || '';
+  state.configByProject[state.selectedProjectId] = { ...config, defaultProvider: nextDefaultProvider, providers: rows };
+  safeRenderMainPanel(state.selectedProjectId, 'addProviderRow');
+  scheduleProjectConfigSave(150);
 }
 
 function removeProviderRow(btn) {
@@ -1774,8 +2916,21 @@ function removeProviderRow(btn) {
   if (Number.isInteger(index) && index >= 0 && index < rows.length) {
     rows.splice(index, 1);
   }
-  state.configByProject[state.selectedProjectId] = { ...config, providers: rows };
-  renderMainPanel(state.selectedProjectId);
+  const nextDefaultProvider = rows.some((item) => item.provider === config.defaultProvider)
+    ? config.defaultProvider
+    : (rows[0]?.provider || '');
+  state.configByProject[state.selectedProjectId] = { ...config, defaultProvider: nextDefaultProvider, providers: rows };
+  safeRenderMainPanel(state.selectedProjectId, 'removeProviderRow');
+  scheduleProjectConfigSave(150);
+}
+
+function getSelectedProviderIndexFromEditor(providerCount, fallbackDefaultProvider, providers) {
+  const selected = document.querySelector('input[name="cfg_provider_active"]:checked');
+  const index = Number(selected?.value);
+  if (Number.isInteger(index) && index >= 0 && index < providerCount) {
+    return index;
+  }
+  return getActiveProviderIndex(fallbackDefaultProvider, providers);
 }
 
 async function ensureProjectConfig(projectPath) {
@@ -1795,30 +2950,46 @@ async function ensureProjectConfig(projectPath) {
     state.configByProject[projectPath] = data.config || {};
     state.configLoadErrorByProject[projectPath] = '';
     if (state.selectedMainTab === 'config' && state.selectedProjectId === projectPath) {
-      renderMainPanel(projectPath);
+      safeRenderMainPanel(projectPath, 'checkProvidersConnectivity.start');
     }
   } catch (e) {
     const message = String(e);
     console.error('[dashboard] failed to load config', { projectPath, error: message });
     state.configLoadErrorByProject[projectPath] = message;
     if (state.selectedMainTab === 'config' && state.selectedProjectId === projectPath) {
-      renderMainPanel(projectPath);
+      safeRenderMainPanel(projectPath, 'checkProvidersConnectivity.end');
     }
   } finally {
     state.configLoadingByProject[projectPath] = false;
   }
 }
 
-async function saveProjectConfig() {
+async function saveProjectConfig(options = {}) {
   if (!state.selectedProjectId) return;
   const projectPath = state.selectedProjectId;
+  const auto = !!options.auto;
+  if (auto && configAutoSaveInFlight) {
+    configAutoSaveQueued = true;
+    return;
+  }
+  if (auto) {
+    configAutoSaveInFlight = true;
+  }
   try {
     const providers = collectProvidersFromConfigEditor();
+    const currentConfig = state.configByProject[projectPath] || {};
+    const selectedProviderIndex = getSelectedProviderIndexFromEditor(
+      providers.length,
+      currentConfig.defaultProvider,
+      providers
+    );
     const payload = {
       config: {
-        autoOptimize: document.getElementById('cfg_auto_optimize').checked,
-        userConfirm: document.getElementById('cfg_user_confirm').checked,
-        runtimeSync: document.getElementById('cfg_runtime_sync').checked,
+        autoOptimize: true,
+        userConfirm: false,
+        runtimeSync: true,
+        defaultProvider: selectedProviderIndex >= 0 ? (providers[selectedProviderIndex]?.provider || '') : '',
+        logLevel: currentConfig.logLevel || 'info',
         providers,
       },
     };
@@ -1832,20 +3003,32 @@ async function saveProjectConfig() {
       ...payload.config,
       providers: sanitizeProvidersForState(payload.config.providers),
     };
-    setConfigUi(projectPath, { saveHint: t('configSaved') });
+    updateConfigSaveHint(projectPath, auto ? t('configAutoSaved') : t('configSaved'));
     await ensureProviderHealth(projectPath, true);
-    renderMainPanel(projectPath);
+    if (!auto) {
+      safeRenderMainPanel(projectPath, 'saveProjectConfig.start');
+    }
   } catch (e) {
     console.error('[dashboard] failed to save config', { error: String(e) });
-    setConfigUi(projectPath, { saveHint: t('configSaveFailed') + ': ' + String(e) });
-    renderMainPanel(projectPath);
+    updateConfigSaveHint(projectPath, t('configSaveFailed') + ': ' + String(e));
+    if (!auto) {
+      safeRenderMainPanel(projectPath, 'saveProjectConfig.end');
+    }
+  } finally {
+    if (auto) {
+      configAutoSaveInFlight = false;
+      if (configAutoSaveQueued) {
+        configAutoSaveQueued = false;
+        scheduleProjectConfigSave(150);
+      }
+    }
   }
 }
 
 function renderConnectivityResultsHtml(results) {
   const title = '<div class="config-connectivity-title">' + t('configConnectivityTitle') + '</div>';
   if (!Array.isArray(results) || results.length === 0) {
-    return title + '<div class="config-help">No providers</div>';
+    return title + '<div class="config-help">' + t('configConnectivityEmpty') + '</div>';
   }
   const rows = results.map((r) => {
     const statusClass = r.ok ? 'conn-ok' : 'conn-fail';
@@ -1860,42 +3043,50 @@ function renderConnectivityResultsHtml(results) {
   return title + rows;
 }
 
-async function checkProvidersConnectivity() {
+async function checkProvidersConnectivity(targetRowIndex = null, btnEl = null) {
   if (!state.selectedProjectId) return;
   const projectPath = state.selectedProjectId;
-  const btn = document.getElementById('cfg_check_btn');
+  const rowIndex = Number.isInteger(Number(targetRowIndex)) ? Number(targetRowIndex) : null;
+  const btn = btnEl || null;
   if (btn) {
     btn.disabled = true;
     btn.textContent = t('configConnectivityChecking');
   }
-  setConfigUi(projectPath, {
-    saveHint: currentLang === 'zh' ? '连通性检查中...' : 'Checking connectivity...',
-  });
-  renderMainPanel(projectPath);
+  updateConfigSaveHint(projectPath, t('configConnectivityCheckingHint'));
   try {
     const providers = collectProvidersFromConfigEditor();
+    const providersToCheck = rowIndex !== null && rowIndex >= 0 && rowIndex < providers.length
+      ? [providers[rowIndex]]
+      : providers;
+    const currentConfig = state.configByProject[projectPath] || {};
+    const selectedProviderIndex = getSelectedProviderIndexFromEditor(
+      providers.length,
+      currentConfig.defaultProvider,
+      providers
+    );
     const enc = encodeURIComponent(projectPath);
     const data = await fetchJsonWithTimeout('/api/projects/' + enc + '/config/providers/connectivity', 15000, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ providers }),
+      body: JSON.stringify({ providers: providersToCheck }),
     });
     state.configByProject[projectPath] = {
       ...(state.configByProject[projectPath] || {}),
+      defaultProvider: selectedProviderIndex >= 0 ? (providers[selectedProviderIndex]?.provider || '') : '',
       providers: sanitizeProvidersForState(providers),
     };
     setConfigUi(projectPath, {
       connectivityResults: data.results || [],
-      saveHint: currentLang === 'zh' ? '连通性检查完成' : 'Connectivity check completed',
+      saveHint: t('configConnectivityDone'),
     });
     await ensureProviderHealth(projectPath, true);
-    renderMainPanel(projectPath);
+    safeRenderMainPanel(projectPath, 'checkProviderHealth.start');
   } catch (e) {
     setConfigUi(projectPath, {
       connectivityResults: [{ ok: false, provider: 'n/a', modelName: 'n/a', durationMs: 0, message: String(e) }],
-      saveHint: currentLang === 'zh' ? ('连通性检查失败: ' + String(e)) : ('Connectivity check failed: ' + String(e)),
+      saveHint: t('configConnectivityFailed') + ': ' + String(e),
     });
-    renderMainPanel(projectPath);
+    safeRenderMainPanel(projectPath, 'checkProviderHealth.end');
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -1932,6 +3123,13 @@ function toggleSort(sortBy) {
   updateSkillsList();
 }
 
+function renderSkillsEmptyState() {
+  if (!state.searchQuery) {
+    return '<div class="empty-state">' + t('skillsEmpty') + '</div>';
+  }
+  return '<div class="empty-state">' + t('skillsSearchEmptyPrefix') + ' "' + escHtml(state.searchQuery) + '"</div>';
+}
+
 function updateSkillsList() {
   const container = document.getElementById('skillsListContainer');
   const countEl = document.getElementById('skillsCount');
@@ -1948,7 +3146,7 @@ function updateSkillsList() {
   }
   
   container.innerHTML = filtered.length === 0
-    ? '<div class="empty-state">' + (state.searchQuery ? 'No skills found matching "' + escHtml(state.searchQuery) + '"' : t('skillsEmpty')) + '</div>'
+    ? renderSkillsEmptyState()
     : '<div class="skills-list">' + filtered.map(s => renderSkillCard(s, state.selectedProjectId)).join('') + '</div>';
 }
 
@@ -2042,16 +3240,36 @@ function renderTraceBars(label, data, keys) {
 }
 
 function renderRecentTraces(traces) {
-  if (!traces.length) return '';
-  return \`<table class="trace-table">
-    <thead><tr><th>\${t('traceTime')}</th><th>\${t('traceRuntime')}</th><th>\${t('traceEvent')}</th><th>\${t('traceStatus')}</th><th>\${t('traceSession')}</th><th>Trace ID</th></tr></thead>
-    <tbody>\${traces.map(t => \`<tr>
-      <td style="color:var(--muted)">\${t.timestamp ? t.timestamp.slice(11,19) : '—'}</td>
-      <td>\${t.runtime}</td>
-      <td>\${t.event_type}</td>
-      <td style="color:\${t.status==='success'?'var(--green)':t.status==='failure'?'var(--red)':'var(--yellow)'}">\${t.status}</td>
-      <td style="color:var(--muted)">\${t.session_id?.slice(0,8) ?? '—'}</td>
-      <td style="color:var(--muted)">\${t.trace_id?.slice(0,8) ?? '—'}</td>
+  const projectPath = state.selectedProjectId;
+  const rows = projectPath ? buildRawTraceRows(projectPath) : [];
+  if (!rows.length) return '';
+  return \`<table class="activity-table">
+    <thead><tr>
+      <th style="\${getActivityColumnStyle('time', 92)}">\${t('traceTime')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'time')"></span></th>
+      <th style="\${getActivityColumnStyle('host', 96)}">\${t('traceRuntime')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'host')"></span></th>
+      <th style="\${getActivityColumnStyle('event', 128)}">\${t('traceEvent')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'event')"></span></th>
+      <th style="\${getActivityColumnStyle('status', 120)}">\${t('traceStatus')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'status')"></span></th>
+      <th style="\${getActivityColumnStyle('scope', 180)}">\${t('traceScope')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'scope')"></span></th>
+      <th style="width:120px;min-width:120px;">\${t('traceSession')}</th>
+      <th style="width:120px;min-width:120px;">\${t('traceId')}</th>
+      <th style="\${getActivityColumnStyle('detail', 520)}">\${t('traceDetail')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'detail')"></span></th>
+      <th style="width:120px;min-width:120px;">\${t('traceAction')}</th>
+    </tr></thead>
+    <tbody>\${rows.slice(0, 50).map((row) => \`<tr>
+      <td style="color:var(--muted);\${getActivityColumnStyle('time', 92)}">\${formatEventTimestamp(row.timestamp)}</td>
+      <td style="\${getActivityColumnStyle('host', 96)}">\${escHtml(row.runtime || t('activityHostFallback'))}</td>
+      <td style="\${getActivityColumnStyle('event', 128)}">\${escHtml(summarizeTraceEventType(row.rawTrace))}</td>
+      <td style="color:var(--muted);\${getActivityColumnStyle('status', 120)}">\${escHtml(row.status || t('activityStatusFallback'))}</td>
+      <td style="\${getActivityColumnStyle('scope', 180)}">\${escHtml(row.scopeId || t('activityScopeFallback'))}</td>
+      <td style="color:var(--muted);width:120px;min-width:120px;">\${escHtml((row.sessionId || '—').slice(0, 8))}</td>
+      <td style="color:var(--muted);width:120px;min-width:120px;">\${escHtml((row.traceId || '—').slice(0, 8))}</td>
+      <td style="\${getActivityColumnStyle('detail', 520)}"><div class="business-detail-preview">\${escHtml(row.detail || t('activityDetailFallback'))}</div></td>
+      <td style="width:120px;min-width:120px;">
+        <div class="business-detail-actions">
+          <button class="detail-copy-btn" onclick="copyActivityDetail('\${escJsStr(projectPath)}','\${escJsStr(row.id)}')">\${t('activityCopy')}</button>
+          <button class="detail-view-btn" onclick="openActivityDetail('\${escJsStr(projectPath)}','\${escJsStr(row.id)}')">\${t('activityViewDetails')}</button>
+        </div>
+      </td>
     </tr>\`).join('')}</tbody>
   </table>\`;
 }
@@ -2103,7 +3321,7 @@ async function viewSkill(projectPath, skillId, runtime = 'codex') {
     }
   } catch (e) {
     console.error('[dashboard] failed to load skill content', { projectPath, skillId, runtime, error: String(e) });
-    document.getElementById('modalContent').value = 'Error loading skill content.';
+    document.getElementById('modalContent').value = t('modalLoadError');
   }
 }
 
@@ -2147,7 +3365,7 @@ async function saveCurrentSkill() {
   const runtime = state.currentSkillRuntime || 'codex';
 
   saveBtn.disabled = true;
-  hintEl.textContent = currentLang === 'zh' ? '保存中...' : 'Saving...';
+  hintEl.textContent = t('modalSaving');
 
   try {
     const encProject = encodeURIComponent(state.selectedProjectId);
@@ -2158,7 +3376,7 @@ async function saveCurrentSkill() {
       body: JSON.stringify({
         content,
         runtime,
-        reason: 'Manual edit from dashboard',
+        reason: t('modalManualEditReason'),
       }),
     });
     if (!r.ok) {
@@ -2166,8 +3384,8 @@ async function saveCurrentSkill() {
     }
     const data = await r.json();
     hintEl.textContent = data.unchanged
-      ? (currentLang === 'zh' ? '内容未变化' : 'No changes detected')
-      : (currentLang === 'zh' ? \`保存成功，已创建 v\${data.version}\` : \`Saved. Created v\${data.version}\`);
+      ? t('modalNoChanges')
+      : (t('modalSavedVersionPrefix') + data.version);
 
     const sr = await fetch(\`/api/projects/\${encProject}/snapshot\`);
     if (sr.ok) {
@@ -2182,7 +3400,7 @@ async function saveCurrentSkill() {
       runtime,
       error: String(e),
     });
-    hintEl.textContent = currentLang === 'zh' ? '保存失败' : 'Save failed';
+    hintEl.textContent = t('modalSaveFailed');
   } finally {
     saveBtn.disabled = false;
   }
@@ -2194,6 +3412,9 @@ function closeModal() {
 // Close modal on overlay click
 document.getElementById('skillModal').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) closeModal();
+});
+document.getElementById('eventModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeEventModal();
 });
 
 // ─── Logs ─────────────────────────────────────────────────────────────────────

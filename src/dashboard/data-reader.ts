@@ -17,6 +17,9 @@ import {
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { ShadowEntry } from '../core/shadow-registry/index.js';
+import type { DecisionEventRecord } from '../core/decision-events/index.js';
+import type { AgentUsageSummary } from '../core/agent-usage/index.js';
+import type { AgentUsageRecord } from '../types/index.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -71,6 +74,78 @@ export interface ProjectData {
   skills: SkillInfo[];
   traceStats: TraceStats;
   recentTraces: TraceEntry[];
+  decisionEvents: DecisionEventRecord[];
+  agentUsage: AgentUsageStats;
+}
+
+export interface AgentUsageStats {
+  callCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  durationMsTotal: number;
+  avgDurationMs: number;
+  lastCallAt: string | null;
+  byModel: Record<string, AgentUsageBucket>;
+  byScope: Record<string, AgentUsageBucket>;
+  bySkill: Record<string, AgentUsageBucket>;
+}
+
+export interface AgentUsageBucket {
+  callCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  durationMsTotal: number;
+  avgDurationMs: number;
+  lastCallAt: string | null;
+}
+
+interface CachedAgentUsageStats {
+  signature: string;
+  stats: AgentUsageStats;
+}
+
+const agentUsageStatsCache = new Map<string, CachedAgentUsageStats>();
+
+function listTraceNdjsonPaths(projectRoot: string): string[] {
+  const stateDir = join(projectRoot, '.ornn', 'state');
+  if (!existsSync(stateDir)) return [];
+
+  try {
+    return readdirSync(stateDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ndjson'))
+      .map((entry) => entry.name)
+      .filter((name) => name !== 'decision-events.ndjson' && name !== 'agent-usage.ndjson')
+      .sort()
+      .map((name) => join(stateDir, name));
+  } catch {
+    return [];
+  }
+}
+
+function countProcessedTraceIds(projectRoot: string): number {
+  const traceIds = new Set<string>();
+  for (const filePath of listTraceNdjsonPaths(projectRoot)) {
+    let content = '';
+    try {
+      content = readFileSync(filePath, 'utf-8');
+    } catch {
+      continue;
+    }
+    for (const line of content.split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      try {
+        const raw = JSON.parse(line) as { trace_id?: unknown };
+        if (typeof raw.trace_id === 'string' && raw.trace_id) {
+          traceIds.add(raw.trace_id);
+        }
+      } catch {
+        // ignore malformed rows
+      }
+    }
+  }
+  return traceIds.size;
 }
 
 // ─── Daemon Status ────────────────────────────────────────────────────────────
@@ -123,12 +198,69 @@ export function readDaemonStatus(projectRoot: string): DaemonStatus {
   }
 
   const isRunning = pid !== null && isProcessRunning(pid);
+  if ((checkpoint.processedTraces ?? 0) <= 0) {
+    checkpoint.processedTraces = countProcessedTraceIds(projectRoot);
+  }
+
+  const backfilled = backfillOptimizationStatus(projectRoot, checkpoint.optimizationStatus);
 
   return {
     isRunning,
     pid,
     ...checkpoint,
+    optimizationStatus: backfilled,
   };
+}
+
+function backfillOptimizationStatus(
+  projectRoot: string,
+  current: DaemonStatus['optimizationStatus']
+): DaemonStatus['optimizationStatus'] {
+  let next = { ...current };
+  const taskEpisodesPath = join(projectRoot, '.ornn', 'state', 'task-episodes.json');
+  if (existsSync(taskEpisodesPath)) {
+    try {
+      const parsed = JSON.parse(readFileSync(taskEpisodesPath, 'utf-8')) as {
+        episodes?: Array<{
+          state?: string;
+          skillSegments?: Array<{ skillId?: string }>;
+          analysisStatus?: string;
+        }>;
+      };
+      const activeEpisode = parsed.episodes?.find((episode) => episode.analysisStatus === 'running' || episode.state === 'analyzing');
+      if (activeEpisode) {
+        next = {
+          ...next,
+          currentState: 'analyzing',
+          currentSkillId: activeEpisode.skillSegments?.[0]?.skillId ?? next.currentSkillId,
+          queueSize: Math.max(next.queueSize, 1),
+        };
+      }
+    } catch {
+      // ignore malformed snapshot
+    }
+  }
+
+  const events = readRecentDecisionEvents(projectRoot, 200);
+  if (!next.lastOptimizationAt) {
+    const latestPatch = events.find((event) => event.tag === 'patch_applied');
+    if (latestPatch?.timestamp) {
+      next.lastOptimizationAt = latestPatch.timestamp;
+    }
+  }
+  if (next.currentState === 'idle') {
+    const latestFailure = events.find((event) => event.tag === 'analysis_failed');
+    if (latestFailure) {
+      next = {
+        ...next,
+        currentState: 'error',
+        currentSkillId: latestFailure.skillId ?? next.currentSkillId,
+        lastError: latestFailure.detail ?? latestFailure.reason ?? next.lastError,
+      };
+    }
+  }
+
+  return next;
 }
 
 // ─── Shadow Skills ────────────────────────────────────────────────────────────
@@ -271,32 +403,45 @@ function tailNdjson(filePath: string, maxLines = 200): string[] {
   }
 }
 
-export function readRecentTraces(projectRoot: string, limit = 50): TraceEntry[] {
-  const ndjsonPath = join(projectRoot, '.ornn', 'state', 'default.ndjson');
-  const lines = tailNdjson(ndjsonPath, 200);
+function readFileSignature(filePath: string): string {
+  if (!existsSync(filePath)) return 'missing';
+  try {
+    const stat = statSync(filePath);
+    return `${stat.size}:${Math.floor(stat.mtimeMs)}`;
+  } catch {
+    return 'error';
+  }
+}
 
-  const traces: TraceEntry[] = [];
-  for (const line of lines) {
-    try {
-      const raw = JSON.parse(line) as Partial<TraceEntry> & { skill_refs?: string[] };
-      if (!raw.trace_id) continue;
-      // Dashboard 只保留展示所需字段，避免 user_input / payload 等大字段导致页面卡顿
-      traces.push({
-        trace_id: String(raw.trace_id),
-        runtime: String(raw.runtime ?? 'unknown'),
-        session_id: String(raw.session_id ?? ''),
-        turn_id: String(raw.turn_id ?? ''),
-        event_type: String(raw.event_type ?? 'unknown'),
-        timestamp: String(raw.timestamp ?? ''),
-        skill_refs: Array.isArray(raw.skill_refs) ? raw.skill_refs : [],
-        status: String(raw.status ?? 'unknown'),
-      });
-    } catch {
-      // skip malformed lines
+export function readRecentTraces(projectRoot: string, limit = 50): TraceEntry[] {
+  const tracePaths = listTraceNdjsonPaths(projectRoot);
+  const traces = new Map<string, TraceEntry>();
+
+  for (const ndjsonPath of tracePaths) {
+    const lines = tailNdjson(ndjsonPath, Math.max(limit * 4, 200));
+    for (const line of lines) {
+      try {
+        const raw = JSON.parse(line) as Partial<TraceEntry> & { skill_refs?: string[] };
+        if (!raw.trace_id) continue;
+        traces.set(String(raw.trace_id), {
+          trace_id: String(raw.trace_id),
+          runtime: String(raw.runtime ?? 'unknown'),
+          session_id: String(raw.session_id ?? ''),
+          turn_id: String(raw.turn_id ?? ''),
+          event_type: String(raw.event_type ?? 'unknown'),
+          timestamp: String(raw.timestamp ?? ''),
+          skill_refs: Array.isArray(raw.skill_refs) ? raw.skill_refs : [],
+          status: String(raw.status ?? 'unknown'),
+        });
+      } catch {
+        // skip malformed lines
+      }
     }
   }
 
-  return traces.slice(-limit).reverse();
+  return [...traces.values()]
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .slice(0, limit);
 }
 
 export function computeTraceStats(traces: TraceEntry[]): TraceStats {
@@ -382,5 +527,269 @@ export function readProjectSnapshot(projectRoot: string): ProjectData {
     skills: readSkills(projectRoot),
     traceStats: computeTraceStats(traces),
     recentTraces: traces,
+    decisionEvents: readRecentDecisionEvents(projectRoot),
+    agentUsage: readAgentUsageStats(projectRoot),
   };
+}
+
+export function readProjectSnapshotVersion(projectRoot: string): string {
+  const stateDir = join(projectRoot, '.ornn', 'state');
+  const shadowsDir = join(projectRoot, '.ornn', 'shadows');
+  const traceSignatures = listTraceNdjsonPaths(projectRoot)
+    .map((filePath) => `${filePath}:${readFileSignature(filePath)}`)
+    .join(',');
+  const parts = [
+    readFileSignature(join(projectRoot, '.ornn', 'daemon.pid')),
+    readFileSignature(join(stateDir, 'daemon-checkpoint.json')),
+    readFileSignature(join(stateDir, 'task-episodes.json')),
+    traceSignatures || 'missing',
+    readFileSignature(join(stateDir, 'decision-events.ndjson')),
+    readFileSignature(join(stateDir, 'agent-usage.ndjson')),
+    readFileSignature(join(stateDir, 'agent-usage-summary.json')),
+    readFileSignature(join(shadowsDir, 'index.json')),
+  ];
+  return parts.join('|');
+}
+
+export function readRecentDecisionEvents(projectRoot: string, limit = 50): DecisionEventRecord[] {
+  const ndjsonPath = join(projectRoot, '.ornn', 'state', 'decision-events.ndjson');
+  const lines = tailNdjson(ndjsonPath, Math.max(limit * 2, 200));
+  const events: DecisionEventRecord[] = [];
+  for (const line of lines) {
+    try {
+      const raw = JSON.parse(line) as Partial<DecisionEventRecord>;
+      if (!raw.id || !raw.tag) continue;
+      events.push({
+        id: String(raw.id),
+        timestamp: String(raw.timestamp ?? ''),
+        tag: String(raw.tag),
+        skillId: raw.skillId ?? null,
+        runtime: raw.runtime ?? null,
+        windowId: raw.windowId ?? null,
+        traceId: raw.traceId ?? null,
+        sessionId: raw.sessionId ?? null,
+        status: raw.status ?? null,
+        detail: raw.detail ?? null,
+        confidence: raw.confidence ?? null,
+        changeType: raw.changeType ?? null,
+        reason: raw.reason ?? null,
+        strategy: raw.strategy ?? null,
+        traceCount: raw.traceCount ?? null,
+        sessionCount: raw.sessionCount ?? null,
+        ruleName: raw.ruleName ?? null,
+        linesAdded: raw.linesAdded ?? null,
+        linesRemoved: raw.linesRemoved ?? null,
+        runtimeDrift: raw.runtimeDrift ?? null,
+        evidence: raw.evidence ?? null,
+      });
+    } catch {
+      // skip malformed lines
+    }
+  }
+
+  return events
+    .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)))
+    .slice(0, limit);
+}
+
+function emptyAgentUsageStats(): AgentUsageStats {
+  return {
+    callCount: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    durationMsTotal: 0,
+    avgDurationMs: 0,
+    lastCallAt: null,
+    byModel: {},
+    byScope: {},
+    bySkill: {},
+  };
+}
+
+export function readAgentUsageStats(projectRoot: string): AgentUsageStats {
+  const ndjsonPath = join(projectRoot, '.ornn', 'state', 'agent-usage.ndjson');
+  if (existsSync(ndjsonPath)) {
+    const signature = readFileSignature(ndjsonPath);
+    const cached = agentUsageStatsCache.get(ndjsonPath);
+    if (cached && cached.signature === signature) {
+      return cached.stats;
+    }
+    const stats = readAgentUsageStatsFromNdjson(ndjsonPath);
+    agentUsageStatsCache.set(ndjsonPath, { signature, stats });
+    return stats;
+  }
+
+  const summaryPath = join(projectRoot, '.ornn', 'state', 'agent-usage-summary.json');
+  if (!existsSync(summaryPath)) return emptyAgentUsageStats();
+  const signature = readFileSignature(summaryPath);
+  const cached = agentUsageStatsCache.get(summaryPath);
+  if (cached && cached.signature === signature) {
+    return cached.stats;
+  }
+  try {
+    const parsed = JSON.parse(readFileSync(summaryPath, 'utf-8')) as Partial<AgentUsageSummary>;
+    const stats = {
+      callCount: typeof parsed.callCount === 'number' ? parsed.callCount : 0,
+      promptTokens: typeof parsed.promptTokens === 'number' ? parsed.promptTokens : 0,
+      completionTokens: typeof parsed.completionTokens === 'number' ? parsed.completionTokens : 0,
+      totalTokens: typeof parsed.totalTokens === 'number' ? parsed.totalTokens : 0,
+      durationMsTotal: typeof (parsed as { durationMsTotal?: unknown }).durationMsTotal === 'number'
+        ? (parsed as { durationMsTotal: number }).durationMsTotal
+        : 0,
+      avgDurationMs: typeof (parsed as { avgDurationMs?: unknown }).avgDurationMs === 'number'
+        ? (parsed as { avgDurationMs: number }).avgDurationMs
+        : 0,
+      lastCallAt: typeof (parsed as { lastCallAt?: unknown }).lastCallAt === 'string'
+        ? (parsed as { lastCallAt: string }).lastCallAt
+        : null,
+      byModel: parsed.byModel && typeof parsed.byModel === 'object'
+        ? normalizeUsageBucketMap(parsed.byModel as Record<string, unknown>)
+        : {},
+      byScope: parsed.byScope && typeof parsed.byScope === 'object'
+        ? normalizeUsageBucketMap(parsed.byScope as Record<string, unknown>)
+        : {},
+      bySkill: (parsed as { bySkill?: unknown }).bySkill && typeof (parsed as { bySkill?: unknown }).bySkill === 'object'
+        ? normalizeUsageBucketMap((parsed as { bySkill: Record<string, unknown> }).bySkill)
+        : {},
+    };
+    agentUsageStatsCache.set(summaryPath, { signature, stats });
+    return stats;
+  } catch {
+    return emptyAgentUsageStats();
+  }
+}
+
+function readAgentUsageStatsFromNdjson(filePath: string): AgentUsageStats {
+  const stats = emptyAgentUsageStats();
+  try {
+    const lines = readFileSync(filePath, 'utf-8')
+      .split('\n')
+      .filter((line) => line.trim().length > 0);
+
+    for (const line of lines) {
+      try {
+        const record = JSON.parse(line) as Partial<AgentUsageRecord>;
+        ingestUsageRecord(stats, record);
+      } catch {
+        // skip malformed rows
+      }
+    }
+
+    finalizeUsageStats(stats);
+    return stats;
+  } catch {
+    return emptyAgentUsageStats();
+  }
+}
+
+function emptyUsageBucket(): AgentUsageBucket {
+  return {
+    callCount: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    durationMsTotal: 0,
+    avgDurationMs: 0,
+    lastCallAt: null,
+  };
+}
+
+function normalizeUsageBucketMap(input: Record<string, unknown>): Record<string, AgentUsageBucket> {
+  const out: Record<string, AgentUsageBucket> = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (!value || typeof value !== 'object') continue;
+    const item = value as Partial<AgentUsageBucket>;
+    const bucket = emptyUsageBucket();
+    bucket.callCount = typeof item.callCount === 'number' ? item.callCount : 0;
+    bucket.promptTokens = typeof item.promptTokens === 'number' ? item.promptTokens : 0;
+    bucket.completionTokens = typeof item.completionTokens === 'number' ? item.completionTokens : 0;
+    bucket.totalTokens = typeof item.totalTokens === 'number' ? item.totalTokens : 0;
+    bucket.durationMsTotal = typeof item.durationMsTotal === 'number' ? item.durationMsTotal : 0;
+    bucket.avgDurationMs = typeof item.avgDurationMs === 'number'
+      ? item.avgDurationMs
+      : (bucket.callCount > 0 ? Math.round(bucket.durationMsTotal / bucket.callCount) : 0);
+    bucket.lastCallAt = typeof item.lastCallAt === 'string' ? item.lastCallAt : null;
+    out[key] = bucket;
+  }
+  return out;
+}
+
+function ingestUsageRecord(stats: AgentUsageStats, record: Partial<AgentUsageRecord>): void {
+  const model = typeof record.model === 'string' ? record.model.trim() : '';
+  const scope = typeof record.scope === 'string' ? record.scope.trim() : '';
+  const skillId = typeof record.skillId === 'string' ? record.skillId.trim() : '';
+  if (!model || !scope) return;
+
+  const promptTokens = typeof record.promptTokens === 'number' ? record.promptTokens : 0;
+  const completionTokens = typeof record.completionTokens === 'number' ? record.completionTokens : 0;
+  const totalTokens = typeof record.totalTokens === 'number' ? record.totalTokens : 0;
+  const durationMs = typeof record.durationMs === 'number' ? record.durationMs : 0;
+  const timestamp = typeof record.timestamp === 'string' ? record.timestamp : null;
+
+  applyUsageDelta(stats, promptTokens, completionTokens, totalTokens, durationMs, timestamp);
+  applyUsageDelta(
+    ensureUsageBucket(stats.byModel, model),
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    durationMs,
+    timestamp
+  );
+  applyUsageDelta(
+    ensureUsageBucket(stats.byScope, scope),
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    durationMs,
+    timestamp
+  );
+  if (skillId) {
+    applyUsageDelta(
+      ensureUsageBucket(stats.bySkill, skillId),
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      durationMs,
+      timestamp
+    );
+  }
+}
+
+function ensureUsageBucket(map: Record<string, AgentUsageBucket>, key: string): AgentUsageBucket {
+  if (!map[key]) {
+    map[key] = emptyUsageBucket();
+  }
+  return map[key];
+}
+
+function applyUsageDelta(
+  target: AgentUsageStats | AgentUsageBucket,
+  promptTokens: number,
+  completionTokens: number,
+  totalTokens: number,
+  durationMs: number,
+  timestamp: string | null
+): void {
+  target.callCount += 1;
+  target.promptTokens += promptTokens;
+  target.completionTokens += completionTokens;
+  target.totalTokens += totalTokens;
+  target.durationMsTotal += durationMs;
+  if (timestamp && (!target.lastCallAt || timestamp > target.lastCallAt)) {
+    target.lastCallAt = timestamp;
+  }
+}
+
+function finalizeUsageStats(stats: AgentUsageStats): void {
+  stats.avgDurationMs = stats.callCount > 0 ? Math.round(stats.durationMsTotal / stats.callCount) : 0;
+  finalizeUsageBucketMap(stats.byModel);
+  finalizeUsageBucketMap(stats.byScope);
+  finalizeUsageBucketMap(stats.bySkill);
+}
+
+function finalizeUsageBucketMap(map: Record<string, AgentUsageBucket>): void {
+  for (const bucket of Object.values(map)) {
+    bucket.avgDurationMs = bucket.callCount > 0 ? Math.round(bucket.durationMsTotal / bucket.callCount) : 0;
+  }
 }

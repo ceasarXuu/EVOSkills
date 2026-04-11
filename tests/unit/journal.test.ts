@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { Journal } from '../../src/core/journal/index.js';
 import type { Trace } from '../../src/types/index.js';
 
@@ -30,6 +30,14 @@ describe('Journal', () => {
     timestamp: new Date().toISOString(),
     user_input: 'test input',
   });
+
+  const shadowId = `codex::test-skill@${testProjectPath}`;
+  const shadowPath = join(testProjectPath, '.ornn', 'shadows', 'codex', 'test-skill.md');
+
+  const ensureShadowFile = (content: string): void => {
+    mkdirSync(join(testProjectPath, '.ornn', 'shadows', 'codex'), { recursive: true });
+    writeFileSync(shadowPath, content, 'utf-8');
+  };
 
   describe('init', () => {
     it('should initialize without errors', async () => {
@@ -310,38 +318,103 @@ describe('Journal', () => {
   });
 
   describe('getJournalRecords', () => {
-    it('should return empty array for placeholder', async () => {
+    it('stores evolution records and returns them by revision', async () => {
+      ensureShadowFile('# Revision 0\n');
       const journal = new Journal({ projectPath: testProjectPath });
       await journal.init();
-      const records = journal.getJournalRecords('test');
-      expect(records).toEqual([]);
+
+      journal.record(shadowId, {
+        timestamp: '2026-04-11T12:00:00.000Z',
+        reason: 'Add fallback branch',
+        source_sessions: ['session-1'],
+        change_type: 'add_fallback',
+        applied_by: 'auto',
+      });
       await journal.close();
+
+      const journal2 = new Journal({ projectPath: testProjectPath });
+      await journal2.init();
+      const records = journal2.getJournalRecords(shadowId);
+      expect(records).toHaveLength(1);
+      expect(records[0]).toMatchObject({
+        revision: 1,
+        reason: 'Add fallback branch',
+        change_type: 'add_fallback',
+        applied_by: 'auto',
+        source_sessions: ['session-1'],
+      });
+      expect(journal2.getRecordByRevision(shadowId, 1)).toMatchObject({
+        revision: 1,
+        reason: 'Add fallback branch',
+      });
+      await journal2.close();
     });
   });
 
   describe('getLatestRevision', () => {
-    it('should return 0 for placeholder', async () => {
+    it('returns the latest recorded revision', async () => {
+      ensureShadowFile('# Revision 0\n');
       const journal = new Journal({ projectPath: testProjectPath });
       await journal.init();
-      expect(journal.getLatestRevision('test')).toBe(0);
+
+      journal.record(shadowId, {
+        timestamp: '2026-04-11T12:00:00.000Z',
+        reason: 'Add fallback branch',
+        source_sessions: ['session-1'],
+        change_type: 'add_fallback',
+        applied_by: 'auto',
+      });
+      journal.record(shadowId, {
+        timestamp: '2026-04-11T12:05:00.000Z',
+        reason: 'Prune duplicated notes',
+        source_sessions: ['session-1'],
+        change_type: 'prune_noise',
+        applied_by: 'manual',
+      });
+
+      expect(journal.getLatestRevision(shadowId)).toBe(2);
       await journal.close();
     });
   });
 
   describe('getSnapshots', () => {
-    it('should return empty array for placeholder', async () => {
+    it('creates and lists snapshots with persisted content', async () => {
+      ensureShadowFile('# Revision 0\n');
       const journal = new Journal({ projectPath: testProjectPath });
       await journal.init();
-      expect(journal.getSnapshots('test')).toEqual([]);
+
+      const snapshotPath = journal.createSnapshot(shadowId, 0);
+      expect(existsSync(snapshotPath)).toBe(true);
+      expect(readFileSync(snapshotPath, 'utf-8')).toBe('# Revision 0\n');
+      expect(journal.getSnapshots(shadowId)).toEqual([
+        expect.objectContaining({
+          revision: 0,
+          file_path: snapshotPath,
+        }),
+      ]);
       await journal.close();
     });
   });
 
-  describe('record', () => {
-    it('should not throw for placeholder', async () => {
+  describe('rollback', () => {
+    it('restores the shadow file from a revision snapshot', async () => {
+      ensureShadowFile('# Revision 0\n');
       const journal = new Journal({ projectPath: testProjectPath });
       await journal.init();
-      expect(() => journal.record('test', { type: 'optimization' })).not.toThrow();
+
+      const revision0 = journal.createSnapshot(shadowId, 0);
+      writeFileSync(shadowPath, '# Revision 1\n', 'utf-8');
+      const revision1 = journal.createSnapshot(shadowId, 1);
+      writeFileSync(shadowPath, '# Revision 2\n', 'utf-8');
+
+      expect(existsSync(revision0)).toBe(true);
+      expect(existsSync(revision1)).toBe(true);
+      expect(journal.rollback(shadowId, 1)).toBe(true);
+      expect(readFileSync(shadowPath, 'utf-8')).toBe('# Revision 1\n');
+
+      writeFileSync(shadowPath, '# Broken Revision\n', 'utf-8');
+      expect(journal.rollbackToSnapshot(shadowId, revision0)).toBe(true);
+      expect(readFileSync(shadowPath, 'utf-8')).toBe('# Revision 0\n');
       await journal.close();
     });
   });

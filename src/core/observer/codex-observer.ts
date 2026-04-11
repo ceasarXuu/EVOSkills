@@ -1,5 +1,5 @@
 import { watch, type FSWatcher } from 'chokidar';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { BaseObserver } from './base-observer.js';
 import { createChildLogger } from '../../utils/logger.js';
@@ -37,6 +37,8 @@ export class CodexObserver extends BaseObserver {
   private turnCounter: number = 0;
   private processedFiles: Set<string> = new Set();
   private processedLineCount: Map<string, number> = new Map();
+  private readonly bootstrapFileLimit = 3;
+  private readonly bootstrapTailLineLimit = 400;
 
   constructor(sessionsDir?: string) {
     super('codex');
@@ -89,6 +91,7 @@ export class CodexObserver extends BaseObserver {
 
     this.watcher.on('add', (path) => this.handleFileAdd(path));
     this.watcher.on('change', (path) => this.handleFileChange(path));
+    this.bootstrapRecentSessionFiles(this.bootstrapFileLimit);
 
     logger.debug('Codex observer started', { watchPattern });
   }
@@ -154,9 +157,57 @@ export class CodexObserver extends BaseObserver {
   }
 
   /**
+   * 启动时回放最近活跃的会话文件，避免 daemon 重启后必须等待新文件创建
+   */
+  private bootstrapRecentSessionFiles(limit: number): void {
+    const candidates = this.listRecentSessionFiles(limit);
+    for (const path of candidates) {
+      if (this.processedFiles.has(path)) continue;
+      this.processedFiles.add(path);
+      this.processSessionFileInternal(path, {
+        bootstrapTailLines: this.bootstrapTailLineLimit,
+      });
+    }
+  }
+
+  private listRecentSessionFiles(limit: number): string[] {
+    const files = this.collectSessionFiles(this.sessionsDir)
+      .map((path) => {
+        try {
+          return { path, mtimeMs: statSync(path).mtimeMs };
+        } catch {
+          return null;
+        }
+      })
+      .filter((item): item is { path: string; mtimeMs: number } => item !== null)
+      .sort((a, b) => b.mtimeMs - a.mtimeMs)
+      .slice(0, Math.max(limit, 0));
+    return files.map((item) => item.path);
+  }
+
+  private collectSessionFiles(dir: string): string[] {
+    if (!existsSync(dir)) return [];
+    const files: string[] = [];
+    try {
+      const entries = readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          files.push(...this.collectSessionFiles(fullPath));
+        } else if (entry.isFile() && fullPath.endsWith('.jsonl')) {
+          files.push(fullPath);
+        }
+      }
+    } catch (error) {
+      logger.debug('Failed to collect session files for bootstrap', { dir, error });
+    }
+    return files;
+  }
+
+  /**
    * 处理 session JSONL 文件（内部实现）
    */
-  private processSessionFileInternal(path: string): void {
+  private processSessionFileInternal(path: string, options?: { bootstrapTailLines?: number }): void {
     const sessionId = this.extractSessionId(path);
     const traces: PreprocessedTrace[] = [];
 
@@ -164,7 +215,11 @@ export class CodexObserver extends BaseObserver {
       const content = readFileSync(path, 'utf-8');
       const lines = content.split('\n').filter((line) => line.trim());
       const prevProcessed = this.processedLineCount.get(path) ?? 0;
-      const startIndex = lines.length < prevProcessed ? 0 : prevProcessed;
+      const bootstrapTailLines = options?.bootstrapTailLines ?? 0;
+      const startIndex =
+        bootstrapTailLines > 0
+          ? Math.max(lines.length - bootstrapTailLines, 0)
+          : (lines.length < prevProcessed ? 0 : prevProcessed);
       const newLines = lines.slice(startIndex);
 
       for (const line of newLines) {

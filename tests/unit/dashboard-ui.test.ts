@@ -953,4 +953,58 @@ describe('dashboard ui recovery', () => {
     expect(html).toContain('Remove');
     expect(html).toContain('Custom...');
   });
+
+  it('localizes activity detail labels and host sync help in Chinese', async () => {
+    const { dashboard, getElement, getCopiedText } = loadDashboardTestHarness({}, { lang: 'zh' });
+    const projectPath = '/tmp/ornn-project';
+
+    getElement('mainPanel');
+    getElement('eventModalTitle');
+    getElement('eventModalContent');
+    getElement('eventModal');
+
+    dashboard.state.selectedMainTab = 'activity';
+    dashboard.state.selectedProjectId = projectPath;
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [{ skillId: 'test-driven-development', runtime: 'codex' }],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+        decisionEvents: [{
+          id: 'evt-zh-detail',
+          timestamp: '2026-04-10T05:23:00.000Z',
+          tag: 'evaluation_result',
+          runtime: 'codex',
+          skillId: 'test-driven-development',
+          sessionId: 'session-zh',
+          status: 'no_patch_needed',
+          windowId: 'scope-zh',
+          detail: '系统已经完成本轮分析。',
+        }],
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+      },
+    };
+
+    dashboard.renderMainPanel(projectPath);
+    await dashboard.copyActivityDetail(projectPath, 'decision:evt-zh-detail');
+    expect(getCopiedText()).toContain('技能: test-driven-development');
+    expect(getCopiedText()).toContain('会话 ID: session-zh');
+
+    dashboard.state.selectedMainTab = 'config';
+    dashboard.state.configByProject = {
+      [projectPath]: {
+        autoOptimize: true,
+        userConfirm: false,
+        runtimeSync: true,
+        defaultProvider: '',
+        logLevel: 'info',
+        providers: [],
+      },
+    };
+    dashboard.renderMainPanel(projectPath);
+    const html = getElement('mainPanel').innerHTML;
+    expect(html).toContain('保证不同宿主使用同一份优化结果');
+    expect(html).not.toContain('保证不同 runtime 使用同一份优化结果');
+  });
 });

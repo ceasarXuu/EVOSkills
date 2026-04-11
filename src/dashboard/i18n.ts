@@ -199,6 +199,8 @@ export interface I18nStrings {
   activityTraceUserInput: string;
   activityTraceFileChange: string;
   activitySourceLabel: string;
+  activitySkillLabel: string;
+  activitySessionIdLabel: string;
 
   // Cost Panel
   costEmpty: string;
@@ -497,6 +499,8 @@ const en: I18nStrings = {
   activityTraceUserInput: 'User input',
   activityTraceFileChange: 'File change',
   activitySourceLabel: 'Source',
+  activitySkillLabel: 'Skill',
+  activitySessionIdLabel: 'Session ID',
 
   // Cost Panel
   costEmpty: 'No agent usage has been recorded yet.',
@@ -644,7 +648,7 @@ const zh: I18nStrings = {
   configUserConfirmHelp:
     '开启后，优化变更在写回前需要人工确认；关闭后按自动流程直接落盘。',
   configRuntimeSyncHelp:
-    '开启后，会把最新技能内容同步回项目 skills，保证不同 runtime 使用同一份优化结果。',
+    '开启后，会把最新技能内容同步回项目 skills，保证不同宿主使用同一份优化结果。',
   configProvidersLabel: 'Providers',
   configProvidersHelp:
     '通过下拉和输入框配置 provider：选择 provider，选择或输入 model，直接粘贴 API Key，并保留或调整写入 .env.local 的环境变量名。',
@@ -795,6 +799,8 @@ const zh: I18nStrings = {
   activityTraceUserInput: '用户输入',
   activityTraceFileChange: '文件变更',
   activitySourceLabel: '来源',
+  activitySkillLabel: '技能',
+  activitySessionIdLabel: '会话 ID',
 
   // Cost Panel
   costEmpty: '当前还没有记录到 agent 调用成本数据。',

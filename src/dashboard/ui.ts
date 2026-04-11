@@ -1356,14 +1356,14 @@ function buildActivityDetail(row) {
     t('traceTime') + ': ' + (row.timestamp || '—'),
     t('traceRuntime') + ': ' + (row.runtime || t('activityHostFallback')),
     t('traceEvent') + ': ' + businessEventLabel(row.tag),
-    'Skill: ' + (row.skillId || '—'),
+    t('activitySkillLabel') + ': ' + (row.skillId || '—'),
     t('traceStatus') + ': ' + (row.status || t('activityStatusFallback')),
     t('traceScope') + ': ' + (row.scopeId || t('activityScopeFallback')),
     t('traceDetail') + ': ' + (row.detail || t('activityDetailFallback')),
     t('activitySourceLabel') + ': ' + (row.sourceLabel || '—'),
   ];
   if (row.traceId) lines.push(t('traceId') + ': ' + row.traceId);
-  if (row.sessionId) lines.push('Session ID: ' + row.sessionId);
+  if (row.sessionId) lines.push(t('activitySessionIdLabel') + ': ' + row.sessionId);
   return lines.join('\\n');
 }
 

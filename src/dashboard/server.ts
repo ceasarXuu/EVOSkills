@@ -23,6 +23,7 @@ import {
   readSkillVersion,
   readRecentTraces,
   computeTraceStats,
+  readProjectSnapshot,
   readGlobalLogs,
   readLogsSince,
   type ProjectData,
@@ -164,13 +165,7 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
   }
 
   function getProjectSnapshot(projectPath: string): ProjectData {
-    const traces = readRecentTraces(projectPath, 50);
-    return {
-      daemon: readDaemonStatus(projectPath),
-      skills: readSkills(projectPath),
-      traceStats: computeTraceStats(traces),
-      recentTraces: traces,
-    };
+    return readProjectSnapshot(projectPath);
   }
 
   async function getProviderHealthSummary(projectPath: string): Promise<ProviderHealthSummary> {

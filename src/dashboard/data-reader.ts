@@ -17,6 +17,8 @@ import {
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import type { ShadowEntry } from '../core/shadow-registry/index.js';
+import type { DecisionEventRecord } from '../core/decision-events/index.js';
+import type { AgentUsageSummary } from '../core/agent-usage/index.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -71,6 +73,27 @@ export interface ProjectData {
   skills: SkillInfo[];
   traceStats: TraceStats;
   recentTraces: TraceEntry[];
+  decisionEvents: DecisionEventRecord[];
+  agentUsage: AgentUsageStats;
+}
+
+export interface AgentUsageStats {
+  callCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  byModel: Record<string, {
+    callCount: number;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  }>;
+  byScope: Record<string, {
+    callCount: number;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  }>;
 }
 
 // ─── Daemon Status ────────────────────────────────────────────────────────────
@@ -124,11 +147,65 @@ export function readDaemonStatus(projectRoot: string): DaemonStatus {
 
   const isRunning = pid !== null && isProcessRunning(pid);
 
+  const backfilled = backfillOptimizationStatus(projectRoot, checkpoint.optimizationStatus);
+
   return {
     isRunning,
     pid,
     ...checkpoint,
+    optimizationStatus: backfilled,
   };
+}
+
+function backfillOptimizationStatus(
+  projectRoot: string,
+  current: DaemonStatus['optimizationStatus']
+): DaemonStatus['optimizationStatus'] {
+  let next = { ...current };
+  const taskEpisodesPath = join(projectRoot, '.ornn', 'state', 'task-episodes.json');
+  if (existsSync(taskEpisodesPath)) {
+    try {
+      const parsed = JSON.parse(readFileSync(taskEpisodesPath, 'utf-8')) as {
+        episodes?: Array<{
+          state?: string;
+          skillSegments?: Array<{ skillId?: string }>;
+          analysisStatus?: string;
+        }>;
+      };
+      const activeEpisode = parsed.episodes?.find((episode) => episode.analysisStatus === 'running' || episode.state === 'analyzing');
+      if (activeEpisode) {
+        next = {
+          ...next,
+          currentState: 'analyzing',
+          currentSkillId: activeEpisode.skillSegments?.[0]?.skillId ?? next.currentSkillId,
+          queueSize: Math.max(next.queueSize, 1),
+        };
+      }
+    } catch {
+      // ignore malformed snapshot
+    }
+  }
+
+  const events = readRecentDecisionEvents(projectRoot, 200);
+  if (!next.lastOptimizationAt) {
+    const latestPatch = events.find((event) => event.tag === 'patch_applied');
+    if (latestPatch?.timestamp) {
+      next.lastOptimizationAt = latestPatch.timestamp;
+    }
+  }
+  if (next.currentState === 'idle') {
+    const latestFailure = events.find((event) => event.tag === 'analysis_failed');
+    if (latestFailure) {
+      next = {
+        ...next,
+        currentState: 'error',
+        currentSkillId: latestFailure.skillId ?? next.currentSkillId,
+        lastError: latestFailure.detail ?? latestFailure.reason ?? next.lastError,
+      };
+    }
+  }
+
+  return next;
 }
 
 // ─── Shadow Skills ────────────────────────────────────────────────────────────
@@ -382,5 +459,81 @@ export function readProjectSnapshot(projectRoot: string): ProjectData {
     skills: readSkills(projectRoot),
     traceStats: computeTraceStats(traces),
     recentTraces: traces,
+    decisionEvents: readRecentDecisionEvents(projectRoot),
+    agentUsage: readAgentUsageStats(projectRoot),
   };
+}
+
+export function readRecentDecisionEvents(projectRoot: string, limit = 50): DecisionEventRecord[] {
+  const ndjsonPath = join(projectRoot, '.ornn', 'state', 'decision-events.ndjson');
+  const lines = tailNdjson(ndjsonPath, Math.max(limit * 2, 200));
+  const events: DecisionEventRecord[] = [];
+  for (const line of lines) {
+    try {
+      const raw = JSON.parse(line) as Partial<DecisionEventRecord>;
+      if (!raw.id || !raw.tag) continue;
+      events.push({
+        id: String(raw.id),
+        timestamp: String(raw.timestamp ?? ''),
+        tag: String(raw.tag),
+        skillId: raw.skillId ?? null,
+        runtime: raw.runtime ?? null,
+        windowId: raw.windowId ?? null,
+        traceId: raw.traceId ?? null,
+        sessionId: raw.sessionId ?? null,
+        status: raw.status ?? null,
+        detail: raw.detail ?? null,
+        confidence: raw.confidence ?? null,
+        changeType: raw.changeType ?? null,
+        reason: raw.reason ?? null,
+        strategy: raw.strategy ?? null,
+        traceCount: raw.traceCount ?? null,
+        sessionCount: raw.sessionCount ?? null,
+        ruleName: raw.ruleName ?? null,
+        linesAdded: raw.linesAdded ?? null,
+        linesRemoved: raw.linesRemoved ?? null,
+        runtimeDrift: raw.runtimeDrift ?? null,
+        evidence: raw.evidence ?? null,
+      });
+    } catch {
+      // skip malformed lines
+    }
+  }
+
+  return events
+    .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)))
+    .slice(0, limit);
+}
+
+function emptyAgentUsageStats(): AgentUsageStats {
+  return {
+    callCount: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    byModel: {},
+    byScope: {},
+  };
+}
+
+export function readAgentUsageStats(projectRoot: string): AgentUsageStats {
+  const summaryPath = join(projectRoot, '.ornn', 'state', 'agent-usage-summary.json');
+  if (!existsSync(summaryPath)) return emptyAgentUsageStats();
+  try {
+    const parsed = JSON.parse(readFileSync(summaryPath, 'utf-8')) as Partial<AgentUsageSummary>;
+    return {
+      callCount: typeof parsed.callCount === 'number' ? parsed.callCount : 0,
+      promptTokens: typeof parsed.promptTokens === 'number' ? parsed.promptTokens : 0,
+      completionTokens: typeof parsed.completionTokens === 'number' ? parsed.completionTokens : 0,
+      totalTokens: typeof parsed.totalTokens === 'number' ? parsed.totalTokens : 0,
+      byModel: parsed.byModel && typeof parsed.byModel === 'object'
+        ? parsed.byModel
+        : {},
+      byScope: parsed.byScope && typeof parsed.byScope === 'object'
+        ? parsed.byScope
+        : {},
+    };
+  } catch {
+    return emptyAgentUsageStats();
+  }
 }

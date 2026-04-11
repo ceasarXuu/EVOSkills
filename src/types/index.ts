@@ -148,6 +148,34 @@ export interface EvaluationResult {
   source_sessions: string[];
   confidence: number; // 0-1
   target_section?: string;
+  rule_name?: string;
+  patch_context?: {
+    pattern?: string;
+    reason?: string;
+    section?: string;
+  };
+}
+
+export type AgentUsageScope = 'decision_explainer' | 'skill_call_analyzer' | 'readiness_probe';
+
+export interface AgentUsageRecord {
+  id: string;
+  timestamp: string;
+  scope: AgentUsageScope;
+  eventId: string;
+  skillId?: string | null;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  durationMs: number;
+}
+
+export interface DecisionEventEvidence {
+  directEvidence?: string[];
+  causalJudgment?: string[];
+  action?: string;
+  rawEvidence?: string;
 }
 
 // Patch Result

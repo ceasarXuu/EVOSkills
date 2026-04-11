@@ -879,6 +879,9 @@ describe('dashboard ui recovery', () => {
     expect(html).not.toContain('.ornn/ornn.toml');
     expect(html).not.toContain('id="cfg_default_provider"');
     expect(html).not.toContain('id="cfg_log_level"');
+    expect(html).not.toContain('class="config-input cfg_env"');
+    expect(html).toContain('name="cfg_provider_active"');
+    expect(html).toContain('value="1" checked');
     expect(html).not.toContain('Default Provider');
     expect(html).not.toContain('Log Level');
   });
@@ -991,6 +994,10 @@ describe('dashboard ui recovery', () => {
     expect(html).toContain('Custom provider id (e.g. xai)');
     expect(html).toContain('Custom model (e.g. grok-3)');
     expect(html).toContain('API key stored; leave blank to keep');
+    expect(html).toContain('mark exactly one provider as active');
+    expect(html).toContain('cfg_provider_active');
+    expect(html).toContain('Use');
+    expect(html).not.toContain('cfg_env');
     expect(html).toContain('Remove');
     expect(html).toContain('Custom...');
   });
@@ -1048,6 +1055,8 @@ describe('dashboard ui recovery', () => {
     expect(html).toContain('保证不同宿主使用同一份优化结果');
     expect(html).toContain('.ornn/config/settings.toml');
     expect(html).toContain('暂无模型服务');
+    expect(html).toContain('只启用其中一个默认模型服务');
+    expect(html).not.toContain('cfg_env');
     expect(html).not.toContain('保证不同 runtime 使用同一份优化结果');
     expect(html).not.toContain('暂无 providers');
   });

@@ -80,6 +80,7 @@ export interface I18nStrings {
   configProviderAlertNotConfiguredMessage: string;
   configProviderAlertConnectivityFailedPrefix: string;
   configProviderAlertHint: string;
+  configProviderActiveLabel: string;
 
   // Stats
   statShadowSkills: string;
@@ -353,7 +354,7 @@ const en: I18nStrings = {
     'When enabled, latest skill content is synced back to project skills so all runtimes share the same optimized version.',
   configProvidersLabel: 'Providers',
   configProvidersHelp:
-    'Configure providers with dropdown + inputs. Pick provider, choose or type model, paste API Key, and keep or adjust the env var name used in .env.local.',
+    'Configure providers with dropdown + inputs. Pick provider, choose or type model, paste API Key, and mark exactly one provider as active.',
   configProvidersExample:
     '',
   configCheckConnectivity: 'Check Connectivity',
@@ -382,6 +383,7 @@ const en: I18nStrings = {
   configProviderAlertNotConfiguredMessage: 'No provider is configured for this project.',
   configProviderAlertConnectivityFailedPrefix: 'Failed provider connectivity:',
   configProviderAlertHint: 'Open the Config tab to set provider and re-run connectivity check.',
+  configProviderActiveLabel: 'Use',
 
   // Stats
   statShadowSkills: 'Shadow Skills',
@@ -655,7 +657,7 @@ const zh: I18nStrings = {
     '开启后，会把最新技能内容同步回项目 skills，保证不同宿主使用同一份优化结果。',
   configProvidersLabel: '模型服务列表',
   configProvidersHelp:
-    '通过下拉和输入框配置模型服务：选择模型服务，选择或输入模型，直接粘贴 API Key，并保留或调整写入 .env.local 的环境变量名。',
+    '通过下拉和输入框配置模型服务：选择模型服务，选择或输入模型，直接粘贴 API Key，并且只启用其中一个默认模型服务。',
   configProvidersExample:
     '',
   configCheckConnectivity: '检查连通性',
@@ -684,6 +686,7 @@ const zh: I18nStrings = {
   configProviderAlertNotConfiguredMessage: '当前项目尚未配置任何模型服务。',
   configProviderAlertConnectivityFailedPrefix: '检测到模型服务连通失败：',
   configProviderAlertHint: '请在配置页补充模型服务并完成连通性检查。',
+  configProviderActiveLabel: '启用',
 
   // Stats
   statShadowSkills: '影子技能',

@@ -2365,8 +2365,9 @@ function renderConfigPanel(projectPath) {
   const configUi = state.configUiByProject[projectPath] || {};
 
   const providers = Array.isArray(config.providers) ? config.providers : [];
+  const activeProviderIndex = getActiveProviderIndex(config.defaultProvider, providers);
   const rowsHtml = providers.length > 0
-    ? providers.map((row, index) => renderProviderRow(row, index)).join('')
+    ? providers.map((row, index) => renderProviderRow(row, index, activeProviderIndex)).join('')
     : \`<div class="config-help">\${t('configNoProviders')}</div>\`;
 
   return \`
@@ -2460,7 +2461,14 @@ function setConfigUi(projectPath, patch) {
   state.configUiByProject[projectPath] = { ...prev, ...patch };
 }
 
-function renderProviderRow(row, index) {
+function getActiveProviderIndex(defaultProvider, providers) {
+  const rows = Array.isArray(providers) ? providers : [];
+  if (rows.length === 0) return -1;
+  const matchedIndex = rows.findIndex((row) => String(row?.provider || '') === String(defaultProvider || ''));
+  return matchedIndex >= 0 ? matchedIndex : 0;
+}
+
+function renderProviderRow(row, index, activeProviderIndex) {
   const normalizedProvider = String(row.provider || '');
   const knownProvider = isKnownProvider(normalizedProvider);
   const providerOptions = getProviderOptionsHtml(knownProvider ? normalizedProvider : '__custom__');
@@ -2468,12 +2476,13 @@ function renderProviderRow(row, index) {
   const modelOptions = getModelOptionsHtml(normalizedProvider, normalizedModel);
   const modelIsCustom = !isKnownModel(normalizedProvider, normalizedModel);
   const hasApiKey = !!row.hasApiKey;
+  const apiKeyEnvVar = String(row.apiKeyEnvVar || guessApiKeyEnvVar(normalizedProvider));
   return \`
-    <div class="provider-row" data-row-index="\${index}" data-has-api-key="\${hasApiKey ? 'true' : 'false'}">
+    <div class="provider-row" data-row-index="\${index}" data-has-api-key="\${hasApiKey ? 'true' : 'false'}" data-api-key-env-var="\${escHtml(apiKeyEnvVar)}">
       <select class="config-select cfg_provider" onchange="handleProviderChange(this)">
         \${providerOptions}
       </select>
-      <input class="config-input cfg_provider_custom" value="\${knownProvider ? '' : escHtml(normalizedProvider)}" placeholder="\${t('configCustomProviderPlaceholder')}" style="\${knownProvider ? 'display:none;' : ''}" />
+      <input class="config-input cfg_provider_custom" value="\${knownProvider ? '' : escHtml(normalizedProvider)}" placeholder="\${t('configCustomProviderPlaceholder')}" style="\${knownProvider ? 'display:none;' : ''}" oninput="handleCustomProviderInput(this)" />
       <div>
         <select class="config-select cfg_model" onchange="handleModelChange(this)">
           \${modelOptions}
@@ -2482,8 +2491,11 @@ function renderProviderRow(row, index) {
       </div>
       <div>
         <input class="config-input cfg_api_key" type="password" value="" placeholder="\${hasApiKey ? t('configApiKeyStoredPlaceholder') : t('configApiKeyPastePlaceholder')}" />
-        <input class="config-input cfg_env" value="\${escHtml(row.apiKeyEnvVar || '')}" placeholder="OPENAI_API_KEY" style="margin-top:6px" />
       </div>
+      <label class="config-check" style="height:100%;justify-content:center;">
+        <input type="radio" class="cfg_provider_active" name="cfg_provider_active" value="\${index}" \${index === activeProviderIndex ? 'checked' : ''}/>
+        \${t('configProviderActiveLabel')}
+      </label>
       <button class="btn-danger" type="button" onclick="removeProviderRow(this)">\${t('configRemoveProvider')}</button>
     </div>
   \`;
@@ -2549,7 +2561,8 @@ function collectProvidersFromConfigEditor() {
     const modelCustom = row.querySelector('.cfg_model_custom')?.value?.trim() || '';
     const modelName = modelSelect === '__custom__' ? modelCustom : modelSelect;
     const apiKey = row.querySelector('.cfg_api_key')?.value || '';
-    const apiKeyEnvVar = row.querySelector('.cfg_env')?.value?.trim() || '';
+    const storedApiKeyEnvVar = row.getAttribute('data-api-key-env-var')?.trim() || '';
+    const apiKeyEnvVar = storedApiKeyEnvVar || guessApiKeyEnvVar(provider);
     const hasApiKey = row.getAttribute('data-has-api-key') === 'true';
     return { provider, modelName, apiKeyEnvVar, apiKey, hasApiKey };
   }).filter((item) => item.provider || item.modelName || item.apiKeyEnvVar || item.apiKey);
@@ -2571,7 +2584,6 @@ function handleProviderChange(selectEl) {
   if (!row) return;
   const providerId = selectEl.value;
   const customInput = row.querySelector('.cfg_provider_custom');
-  const envInput = row.querySelector('.cfg_env');
   const modelSelect = row.querySelector('.cfg_model');
   const modelCustomInput = row.querySelector('.cfg_model_custom');
   if (customInput) {
@@ -2584,11 +2596,10 @@ function handleProviderChange(selectEl) {
     if (modelCustomInput) {
       modelCustomInput.style.display = '';
     }
+    row.setAttribute('data-api-key-env-var', guessApiKeyEnvVar(customInput?.value?.trim() || ''));
     return;
   }
-  if (envInput && !envInput.value.trim()) {
-    envInput.value = guessApiKeyEnvVar(providerId);
-  }
+  row.setAttribute('data-api-key-env-var', guessApiKeyEnvVar(providerId));
   if (modelSelect) {
     const prevValue = modelSelect.value || '';
     modelSelect.innerHTML = getModelOptionsHtml(providerId, prevValue);
@@ -2600,6 +2611,12 @@ function handleProviderChange(selectEl) {
   if (modelCustomInput) {
     modelCustomInput.style.display = 'none';
   }
+}
+
+function handleCustomProviderInput(inputEl) {
+  const row = inputEl.closest('.provider-row');
+  if (!row) return;
+  row.setAttribute('data-api-key-env-var', guessApiKeyEnvVar(inputEl.value.trim()));
 }
 
 function handleModelChange(selectEl) {
@@ -2624,7 +2641,8 @@ function addProviderRow() {
     apiKey: '',
     hasApiKey: false,
   });
-  state.configByProject[state.selectedProjectId] = { ...config, providers: rows };
+  const nextDefaultProvider = config.defaultProvider || rows[0]?.provider || '';
+  state.configByProject[state.selectedProjectId] = { ...config, defaultProvider: nextDefaultProvider, providers: rows };
   renderMainPanel(state.selectedProjectId);
 }
 
@@ -2640,8 +2658,20 @@ function removeProviderRow(btn) {
   if (Number.isInteger(index) && index >= 0 && index < rows.length) {
     rows.splice(index, 1);
   }
-  state.configByProject[state.selectedProjectId] = { ...config, providers: rows };
+  const nextDefaultProvider = rows.some((item) => item.provider === config.defaultProvider)
+    ? config.defaultProvider
+    : (rows[0]?.provider || '');
+  state.configByProject[state.selectedProjectId] = { ...config, defaultProvider: nextDefaultProvider, providers: rows };
   renderMainPanel(state.selectedProjectId);
+}
+
+function getSelectedProviderIndexFromEditor(providerCount, fallbackDefaultProvider, providers) {
+  const selected = document.querySelector('input[name="cfg_provider_active"]:checked');
+  const index = Number(selected?.value);
+  if (Number.isInteger(index) && index >= 0 && index < providerCount) {
+    return index;
+  }
+  return getActiveProviderIndex(fallbackDefaultProvider, providers);
 }
 
 async function ensureProjectConfig(projectPath) {
@@ -2681,12 +2711,17 @@ async function saveProjectConfig() {
   try {
     const providers = collectProvidersFromConfigEditor();
     const currentConfig = state.configByProject[projectPath] || {};
+    const selectedProviderIndex = getSelectedProviderIndexFromEditor(
+      providers.length,
+      currentConfig.defaultProvider,
+      providers
+    );
     const payload = {
       config: {
         autoOptimize: document.getElementById('cfg_auto_optimize').checked,
         userConfirm: document.getElementById('cfg_user_confirm').checked,
         runtimeSync: document.getElementById('cfg_runtime_sync').checked,
-        defaultProvider: currentConfig.defaultProvider || '',
+        defaultProvider: selectedProviderIndex >= 0 ? (providers[selectedProviderIndex]?.provider || '') : '',
         logLevel: currentConfig.logLevel || 'info',
         providers,
       },
@@ -2743,6 +2778,12 @@ async function checkProvidersConnectivity() {
   renderMainPanel(projectPath);
   try {
     const providers = collectProvidersFromConfigEditor();
+    const currentConfig = state.configByProject[projectPath] || {};
+    const selectedProviderIndex = getSelectedProviderIndexFromEditor(
+      providers.length,
+      currentConfig.defaultProvider,
+      providers
+    );
     const enc = encodeURIComponent(projectPath);
     const data = await fetchJsonWithTimeout('/api/projects/' + enc + '/config/providers/connectivity', 15000, {
       method: 'POST',
@@ -2751,6 +2792,7 @@ async function checkProvidersConnectivity() {
     });
     state.configByProject[projectPath] = {
       ...(state.configByProject[projectPath] || {}),
+      defaultProvider: selectedProviderIndex >= 0 ? (providers[selectedProviderIndex]?.provider || '') : '',
       providers: sanitizeProvidersForState(providers),
     };
     setConfigUi(projectPath, {

@@ -143,9 +143,123 @@ describe('dashboard decision event reader', () => {
       promptTokens: 0,
       completionTokens: 0,
       totalTokens: 0,
+      durationMsTotal: 0,
+      avgDurationMs: 0,
+      lastCallAt: null,
       byModel: {},
       byScope: {},
+      bySkill: {},
     });
+  });
+
+  it('aggregates agent usage stats from ndjson with scope, skill, and latency metadata', () => {
+    const projectRoot = join(tmpdir(), `ornn-dashboard-agent-usage-${Date.now()}`);
+    testRoots.push(projectRoot);
+    mkdirSync(join(projectRoot, '.ornn', 'state'), { recursive: true });
+
+    writeFileSync(
+      join(projectRoot, '.ornn', 'state', 'agent-usage.ndjson'),
+      [
+        JSON.stringify({
+          id: 'u1',
+          timestamp: '2026-04-10T01:00:00.000Z',
+          scope: 'decision_explainer',
+          eventId: 'e1',
+          skillId: 'show-my-repo',
+          model: 'deepseek/deepseek-reasoner',
+          promptTokens: 1200,
+          completionTokens: 340,
+          totalTokens: 1540,
+          durationMs: 1800,
+        }),
+        JSON.stringify({
+          id: 'u2',
+          timestamp: '2026-04-10T01:01:00.000Z',
+          scope: 'skill_call_analyzer',
+          eventId: 'e2',
+          skillId: 'show-my-repo',
+          model: 'deepseek/deepseek-reasoner',
+          promptTokens: 4000,
+          completionTokens: 900,
+          totalTokens: 4900,
+          durationMs: 3200,
+        }),
+        JSON.stringify({
+          id: 'u3',
+          timestamp: '2026-04-10T01:03:00.000Z',
+          scope: 'readiness_probe',
+          eventId: 'e3',
+          skillId: 'summary-my-repo',
+          model: 'deepseek/deepseek-chat',
+          promptTokens: 600,
+          completionTokens: 100,
+          totalTokens: 700,
+          durationMs: 1000,
+        }),
+      ].join('\n') + '\n',
+      'utf-8'
+    );
+
+    const stats = readAgentUsageStats(projectRoot);
+    expect(stats).toMatchObject({
+      callCount: 3,
+      promptTokens: 5800,
+      completionTokens: 1340,
+      totalTokens: 7140,
+      durationMsTotal: 6000,
+      avgDurationMs: 2000,
+      lastCallAt: '2026-04-10T01:03:00.000Z',
+    });
+    expect(stats.byModel['deepseek/deepseek-reasoner']).toMatchObject({
+      callCount: 2,
+      totalTokens: 6440,
+      durationMsTotal: 5000,
+      lastCallAt: '2026-04-10T01:01:00.000Z',
+    });
+    expect(stats.byScope.decision_explainer).toMatchObject({
+      callCount: 1,
+      totalTokens: 1540,
+    });
+    expect(stats.byScope.skill_call_analyzer).toMatchObject({
+      callCount: 1,
+      totalTokens: 4900,
+    });
+    expect(stats.bySkill['show-my-repo']).toMatchObject({
+      callCount: 2,
+      totalTokens: 6440,
+      durationMsTotal: 5000,
+      lastCallAt: '2026-04-10T01:01:00.000Z',
+    });
+  });
+
+  it('does not truncate cumulative agent usage totals when ndjson grows beyond the old snapshot window', () => {
+    const projectRoot = join(tmpdir(), `ornn-dashboard-agent-usage-full-${Date.now()}`);
+    testRoots.push(projectRoot);
+    mkdirSync(join(projectRoot, '.ornn', 'state'), { recursive: true });
+
+    const rows = Array.from({ length: 2505 }, (_, index) =>
+      JSON.stringify({
+        id: `u-${index}`,
+        timestamp: '2026-04-10T01:00:00.000Z',
+        scope: 'decision_explainer',
+        eventId: `e-${index}`,
+        skillId: 'show-my-repo',
+        model: 'deepseek/deepseek-reasoner',
+        promptTokens: 10,
+        completionTokens: 2,
+        totalTokens: 12,
+        durationMs: 500,
+      })
+    );
+    writeFileSync(join(projectRoot, '.ornn', 'state', 'agent-usage.ndjson'), rows.join('\n') + '\n', 'utf-8');
+
+    const stats = readAgentUsageStats(projectRoot);
+    expect(stats.callCount).toBe(2505);
+    expect(stats.promptTokens).toBe(25050);
+    expect(stats.completionTokens).toBe(5010);
+    expect(stats.totalTokens).toBe(30060);
+    expect(stats.durationMsTotal).toBe(1252500);
+    expect(stats.bySkill['show-my-repo']?.callCount).toBe(2505);
   });
 
   it('backfills daemon activity from task episodes and patch history', () => {

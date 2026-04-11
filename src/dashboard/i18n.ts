@@ -64,6 +64,25 @@ export interface I18nStrings {
   statUptimeSub: string;
   statQueue: string;
   statQueueSub: string;
+  overviewMapped: string;
+  overviewMappedSub: string;
+  overviewSkipped: string;
+  overviewSkippedSub: string;
+  overviewPatchDelta: string;
+  overviewPatchDeltaSub: string;
+  overviewHostDrift: string;
+  overviewHostDriftSub: string;
+  overviewMappingStrategy: string;
+  overviewEvaluationRules: string;
+  overviewSkipReasons: string;
+  overviewPatchTypes: string;
+  overviewNoMappingData: string;
+  overviewNoEvaluationData: string;
+  overviewNoSkipData: string;
+  overviewNoPatchData: string;
+  overviewAgentScopes: string;
+  overviewNoAgentScopes: string;
+  overviewAgentUsageSub: string;
 
   // Daemon Status
   daemonStatus: string;
@@ -248,6 +267,25 @@ const en: I18nStrings = {
   statUptimeSub: 'running',
   statQueue: 'Queue',
   statQueueSub: 'pending optimization',
+  overviewMapped: 'Mapped',
+  overviewMappedSub: 'strategy-classified traces',
+  overviewSkipped: 'Skipped',
+  overviewSkippedSub: 'optimization guardrails hit',
+  overviewPatchDelta: 'Patch Delta',
+  overviewPatchDeltaSub: 'lines changed',
+  overviewHostDrift: 'Host Drift',
+  overviewHostDriftSub: 'skills out of sync',
+  overviewMappingStrategy: 'Mapping Strategy',
+  overviewEvaluationRules: 'Evaluation Rules',
+  overviewSkipReasons: 'Skip Reasons',
+  overviewPatchTypes: 'Patch Types',
+  overviewNoMappingData: 'No mapping data yet',
+  overviewNoEvaluationData: 'No evaluation data yet',
+  overviewNoSkipData: 'No skipped optimizations',
+  overviewNoPatchData: 'No applied patches',
+  overviewAgentScopes: 'Agent Scopes',
+  overviewNoAgentScopes: 'No scoped usage yet',
+  overviewAgentUsageSub: 'probe + optimization + explanation',
 
   // Daemon Status
   daemonStatus: 'Daemon Status',
@@ -432,6 +470,25 @@ const zh: I18nStrings = {
   statUptimeSub: '运行状态',
   statQueue: '队列',
   statQueueSub: '等待优化',
+  overviewMapped: '映射数',
+  overviewMappedSub: '已分类的技能映射',
+  overviewSkipped: '跳过数',
+  overviewSkippedSub: '命中优化保护条件',
+  overviewPatchDelta: '变更行数',
+  overviewPatchDeltaSub: '累计补丁改动',
+  overviewHostDrift: '宿主漂移',
+  overviewHostDriftSub: '技能未与宿主对齐',
+  overviewMappingStrategy: '映射策略',
+  overviewEvaluationRules: '评估规则',
+  overviewSkipReasons: '跳过原因',
+  overviewPatchTypes: 'Patch 类型',
+  overviewNoMappingData: '暂无映射数据',
+  overviewNoEvaluationData: '暂无评估规则数据',
+  overviewNoSkipData: '暂无跳过记录',
+  overviewNoPatchData: '暂无补丁记录',
+  overviewAgentScopes: '调用范围',
+  overviewNoAgentScopes: '暂无范围级调用数据',
+  overviewAgentUsageSub: '探测 + 优化 + 解释',
 
   // Daemon Status
   daemonStatus: '守护进程状态',

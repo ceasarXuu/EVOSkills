@@ -175,6 +175,195 @@ function loadDashboardTestHarness(storageSeed: Record<string, string> = {}) {
 }
 
 describe('dashboard ui recovery', () => {
+  it('renders decision summary cards and metric groups in overview', () => {
+    const { dashboard, getElement } = loadDashboardTestHarness();
+    const projectPath = '/tmp/ornn-project';
+
+    getElement('mainPanel');
+    dashboard.state.selectedMainTab = 'overview';
+    dashboard.state.selectedProjectId = projectPath;
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {
+          isRunning: true,
+          startedAt: '2026-04-10T00:00:00.000Z',
+          processedTraces: 42,
+          lastCheckpointAt: null,
+          retryQueueSize: 0,
+          optimizationStatus: { currentState: 'idle', currentSkillId: null, lastOptimizationAt: null, lastError: null, queueSize: 0 },
+        },
+        skills: [],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+        decisionEvents: [
+          {
+            id: 'mapped-1',
+            timestamp: '2026-04-10T01:00:00.000Z',
+            tag: 'skill_mapped',
+            skillId: 'summary-my-repo',
+            runtime: 'codex',
+            status: 'mapped',
+            reason: 'tool_call',
+          },
+          {
+            id: 'eval-1',
+            timestamp: '2026-04-10T01:01:00.000Z',
+            tag: 'evaluation_result',
+            skillId: 'summary-my-repo',
+            runtime: 'codex',
+            status: 'needs_patch',
+            ruleName: 'analysis_failed_output',
+          },
+          {
+            id: 'skip-1',
+            timestamp: '2026-04-10T01:02:00.000Z',
+            tag: 'skill_feedback',
+            skillId: 'summary-my-repo',
+            runtime: 'codex',
+            status: 'skipped',
+            reason: 'low_confidence',
+          },
+          {
+            id: 'patch-1',
+            timestamp: '2026-04-10T01:03:00.000Z',
+            tag: 'patch_applied',
+            skillId: 'summary-my-repo',
+            runtime: 'codex',
+            status: 'success',
+            changeType: 'add_fallback',
+            linesAdded: 12,
+            linesRemoved: 3,
+          },
+          {
+            id: 'drift-1',
+            timestamp: '2026-04-10T01:04:00.000Z',
+            tag: 'analysis_failed',
+            skillId: 'summary-my-repo',
+            runtime: 'codex',
+            status: 'failed',
+            runtimeDrift: 'claude->codex',
+          },
+        ],
+        agentUsage: {
+          callCount: 0,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          durationMsTotal: 0,
+          avgDurationMs: 0,
+          lastCallAt: null,
+          byModel: {},
+          byScope: {},
+          bySkill: {},
+        },
+      },
+    };
+
+    dashboard.renderMainPanel(projectPath);
+
+    const html = getElement('mainPanel').innerHTML;
+    expect(html).toContain('映射数');
+    expect(html).toContain('跳过数');
+    expect(html).toContain('变更行数');
+    expect(html).toContain('宿主漂移');
+    expect(html).toContain('+12/-3');
+    expect(html).toContain('映射策略');
+    expect(html).toContain('评估规则');
+    expect(html).toContain('跳过原因');
+    expect(html).toContain('Patch 类型');
+    expect(html).toContain('tool_call');
+    expect(html).toContain('analysis_failed_output');
+    expect(html).toContain('low_confidence');
+    expect(html).toContain('add_fallback');
+  });
+
+  it('renders agent usage overview cards and scope buckets', () => {
+    const { dashboard, getElement } = loadDashboardTestHarness();
+    const projectPath = '/tmp/ornn-project';
+
+    getElement('mainPanel');
+    dashboard.state.selectedMainTab = 'overview';
+    dashboard.state.selectedProjectId = projectPath;
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {
+          isRunning: true,
+          startedAt: '2026-04-10T00:00:00.000Z',
+          processedTraces: 10,
+          lastCheckpointAt: null,
+          retryQueueSize: 0,
+          optimizationStatus: { currentState: 'idle', currentSkillId: null, lastOptimizationAt: null, lastError: null, queueSize: 0 },
+        },
+        skills: [],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+        decisionEvents: [],
+        agentUsage: {
+          callCount: 1250,
+          promptTokens: 2300000,
+          completionTokens: 540000,
+          totalTokens: 2840000,
+          durationMsTotal: 4650000,
+          avgDurationMs: 3720,
+          lastCallAt: '2026-04-10T02:00:00.000Z',
+          byModel: {
+            'deepseek/deepseek-reasoner': {
+              callCount: 1250,
+              promptTokens: 2300000,
+              completionTokens: 540000,
+              totalTokens: 2840000,
+              durationMsTotal: 4650000,
+              avgDurationMs: 3720,
+              lastCallAt: '2026-04-10T02:00:00.000Z',
+            },
+          },
+          byScope: {
+            decision_explainer: {
+              callCount: 1000,
+              promptTokens: 1800000,
+              completionTokens: 420000,
+              totalTokens: 2220000,
+              durationMsTotal: 3600000,
+              avgDurationMs: 3600,
+              lastCallAt: '2026-04-10T02:00:00.000Z',
+            },
+            skill_call_analyzer: {
+              callCount: 250,
+              promptTokens: 500000,
+              completionTokens: 120000,
+              totalTokens: 620000,
+              durationMsTotal: 1050000,
+              avgDurationMs: 4200,
+              lastCallAt: '2026-04-10T01:50:00.000Z',
+            },
+          },
+          bySkill: {
+            'summary-my-repo': {
+              callCount: 1200,
+              promptTokens: 2200000,
+              completionTokens: 500000,
+              totalTokens: 2700000,
+              durationMsTotal: 4300000,
+              avgDurationMs: 3583,
+              lastCallAt: '2026-04-10T02:00:00.000Z',
+            },
+          },
+        },
+      },
+    };
+
+    dashboard.renderMainPanel(projectPath);
+
+    const html = getElement('mainPanel').innerHTML;
+    expect(html).toContain('Agent 调用');
+    expect(html).toContain('调用范围');
+    expect(html).toContain('探测 + 优化 + 解释');
+    expect(html).toContain('skill_call_analyzer');
+    expect(html).toContain('1.3千');
+    expect(html).toContain('2.3百万');
+    expect(html).toContain('540千');
+  });
+
   it('renders a cost tab with estimated spend and LiteLLM model metadata', () => {
     const { dashboard, getElement } = loadDashboardTestHarness();
     const projectPath = '/tmp/ornn-project';
@@ -215,12 +404,18 @@ describe('dashboard ui recovery', () => {
           promptTokens: 1000,
           completionTokens: 250,
           totalTokens: 1250,
+          durationMsTotal: 3000,
+          avgDurationMs: 1000,
+          lastCallAt: '2026-04-10T05:23:00.000Z',
           byModel: {
             'deepseek/deepseek-reasoner': {
               callCount: 3,
               promptTokens: 1000,
               completionTokens: 250,
               totalTokens: 1250,
+              durationMsTotal: 3000,
+              avgDurationMs: 1000,
+              lastCallAt: '2026-04-10T05:23:00.000Z',
             },
           },
           byScope: {
@@ -229,8 +424,12 @@ describe('dashboard ui recovery', () => {
               promptTokens: 900,
               completionTokens: 200,
               totalTokens: 1100,
+              durationMsTotal: 2200,
+              avgDurationMs: 1100,
+              lastCallAt: '2026-04-10T05:23:00.000Z',
             },
           },
+          bySkill: {},
         },
       },
     };
@@ -270,7 +469,7 @@ describe('dashboard ui recovery', () => {
           windowId: 'scope-123',
           detail: '系统已经完成本轮分析。',
         }],
-        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, byModel: {}, byScope: {} },
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
       },
     };
 
@@ -317,7 +516,7 @@ describe('dashboard ui recovery', () => {
           windowId: 'scope-trace-1',
           detail: 'same trace scope',
         }],
-        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, byModel: {}, byScope: {} },
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
       },
     };
 
@@ -345,7 +544,7 @@ describe('dashboard ui recovery', () => {
           status: 'success',
         }],
         decisionEvents: [],
-        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, byModel: {}, byScope: {} },
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
       },
     };
 
@@ -397,7 +596,7 @@ describe('dashboard ui recovery', () => {
             detail: 'same conclusion',
           },
         ],
-        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, byModel: {}, byScope: {} },
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
       },
     };
 
@@ -429,7 +628,7 @@ describe('dashboard ui recovery', () => {
           status: 'success',
         }],
         decisionEvents: [],
-        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, byModel: {}, byScope: {} },
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
       },
     };
 

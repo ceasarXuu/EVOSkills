@@ -19,6 +19,7 @@ import { homedir } from 'node:os';
 import type { ShadowEntry } from '../core/shadow-registry/index.js';
 import type { DecisionEventRecord } from '../core/decision-events/index.js';
 import type { AgentUsageSummary } from '../core/agent-usage/index.js';
+import type { AgentUsageRecord } from '../types/index.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -82,18 +83,22 @@ export interface AgentUsageStats {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
-  byModel: Record<string, {
-    callCount: number;
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  }>;
-  byScope: Record<string, {
-    callCount: number;
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  }>;
+  durationMsTotal: number;
+  avgDurationMs: number;
+  lastCallAt: string | null;
+  byModel: Record<string, AgentUsageBucket>;
+  byScope: Record<string, AgentUsageBucket>;
+  bySkill: Record<string, AgentUsageBucket>;
+}
+
+export interface AgentUsageBucket {
+  callCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  durationMsTotal: number;
+  avgDurationMs: number;
+  lastCallAt: string | null;
 }
 
 // ─── Daemon Status ────────────────────────────────────────────────────────────
@@ -511,12 +516,21 @@ function emptyAgentUsageStats(): AgentUsageStats {
     promptTokens: 0,
     completionTokens: 0,
     totalTokens: 0,
+    durationMsTotal: 0,
+    avgDurationMs: 0,
+    lastCallAt: null,
     byModel: {},
     byScope: {},
+    bySkill: {},
   };
 }
 
 export function readAgentUsageStats(projectRoot: string): AgentUsageStats {
+  const ndjsonPath = join(projectRoot, '.ornn', 'state', 'agent-usage.ndjson');
+  if (existsSync(ndjsonPath)) {
+    return readAgentUsageStatsFromNdjson(ndjsonPath);
+  }
+
   const summaryPath = join(projectRoot, '.ornn', 'state', 'agent-usage-summary.json');
   if (!existsSync(summaryPath)) return emptyAgentUsageStats();
   try {
@@ -526,14 +540,160 @@ export function readAgentUsageStats(projectRoot: string): AgentUsageStats {
       promptTokens: typeof parsed.promptTokens === 'number' ? parsed.promptTokens : 0,
       completionTokens: typeof parsed.completionTokens === 'number' ? parsed.completionTokens : 0,
       totalTokens: typeof parsed.totalTokens === 'number' ? parsed.totalTokens : 0,
+      durationMsTotal: typeof (parsed as { durationMsTotal?: unknown }).durationMsTotal === 'number'
+        ? (parsed as { durationMsTotal: number }).durationMsTotal
+        : 0,
+      avgDurationMs: typeof (parsed as { avgDurationMs?: unknown }).avgDurationMs === 'number'
+        ? (parsed as { avgDurationMs: number }).avgDurationMs
+        : 0,
+      lastCallAt: typeof (parsed as { lastCallAt?: unknown }).lastCallAt === 'string'
+        ? (parsed as { lastCallAt: string }).lastCallAt
+        : null,
       byModel: parsed.byModel && typeof parsed.byModel === 'object'
-        ? parsed.byModel
+        ? normalizeUsageBucketMap(parsed.byModel as Record<string, unknown>)
         : {},
       byScope: parsed.byScope && typeof parsed.byScope === 'object'
-        ? parsed.byScope
+        ? normalizeUsageBucketMap(parsed.byScope as Record<string, unknown>)
+        : {},
+      bySkill: (parsed as { bySkill?: unknown }).bySkill && typeof (parsed as { bySkill?: unknown }).bySkill === 'object'
+        ? normalizeUsageBucketMap((parsed as { bySkill: Record<string, unknown> }).bySkill)
         : {},
     };
   } catch {
     return emptyAgentUsageStats();
+  }
+}
+
+function readAgentUsageStatsFromNdjson(filePath: string): AgentUsageStats {
+  const stats = emptyAgentUsageStats();
+  try {
+    const lines = readFileSync(filePath, 'utf-8')
+      .split('\n')
+      .filter((line) => line.trim().length > 0);
+
+    for (const line of lines) {
+      try {
+        const record = JSON.parse(line) as Partial<AgentUsageRecord>;
+        ingestUsageRecord(stats, record);
+      } catch {
+        // skip malformed rows
+      }
+    }
+
+    finalizeUsageStats(stats);
+    return stats;
+  } catch {
+    return emptyAgentUsageStats();
+  }
+}
+
+function emptyUsageBucket(): AgentUsageBucket {
+  return {
+    callCount: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    durationMsTotal: 0,
+    avgDurationMs: 0,
+    lastCallAt: null,
+  };
+}
+
+function normalizeUsageBucketMap(input: Record<string, unknown>): Record<string, AgentUsageBucket> {
+  const out: Record<string, AgentUsageBucket> = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (!value || typeof value !== 'object') continue;
+    const item = value as Partial<AgentUsageBucket>;
+    const bucket = emptyUsageBucket();
+    bucket.callCount = typeof item.callCount === 'number' ? item.callCount : 0;
+    bucket.promptTokens = typeof item.promptTokens === 'number' ? item.promptTokens : 0;
+    bucket.completionTokens = typeof item.completionTokens === 'number' ? item.completionTokens : 0;
+    bucket.totalTokens = typeof item.totalTokens === 'number' ? item.totalTokens : 0;
+    bucket.durationMsTotal = typeof item.durationMsTotal === 'number' ? item.durationMsTotal : 0;
+    bucket.avgDurationMs = typeof item.avgDurationMs === 'number'
+      ? item.avgDurationMs
+      : (bucket.callCount > 0 ? Math.round(bucket.durationMsTotal / bucket.callCount) : 0);
+    bucket.lastCallAt = typeof item.lastCallAt === 'string' ? item.lastCallAt : null;
+    out[key] = bucket;
+  }
+  return out;
+}
+
+function ingestUsageRecord(stats: AgentUsageStats, record: Partial<AgentUsageRecord>): void {
+  const model = typeof record.model === 'string' ? record.model.trim() : '';
+  const scope = typeof record.scope === 'string' ? record.scope.trim() : '';
+  const skillId = typeof record.skillId === 'string' ? record.skillId.trim() : '';
+  if (!model || !scope) return;
+
+  const promptTokens = typeof record.promptTokens === 'number' ? record.promptTokens : 0;
+  const completionTokens = typeof record.completionTokens === 'number' ? record.completionTokens : 0;
+  const totalTokens = typeof record.totalTokens === 'number' ? record.totalTokens : 0;
+  const durationMs = typeof record.durationMs === 'number' ? record.durationMs : 0;
+  const timestamp = typeof record.timestamp === 'string' ? record.timestamp : null;
+
+  applyUsageDelta(stats, promptTokens, completionTokens, totalTokens, durationMs, timestamp);
+  applyUsageDelta(
+    ensureUsageBucket(stats.byModel, model),
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    durationMs,
+    timestamp
+  );
+  applyUsageDelta(
+    ensureUsageBucket(stats.byScope, scope),
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    durationMs,
+    timestamp
+  );
+  if (skillId) {
+    applyUsageDelta(
+      ensureUsageBucket(stats.bySkill, skillId),
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      durationMs,
+      timestamp
+    );
+  }
+}
+
+function ensureUsageBucket(map: Record<string, AgentUsageBucket>, key: string): AgentUsageBucket {
+  if (!map[key]) {
+    map[key] = emptyUsageBucket();
+  }
+  return map[key];
+}
+
+function applyUsageDelta(
+  target: AgentUsageStats | AgentUsageBucket,
+  promptTokens: number,
+  completionTokens: number,
+  totalTokens: number,
+  durationMs: number,
+  timestamp: string | null
+): void {
+  target.callCount += 1;
+  target.promptTokens += promptTokens;
+  target.completionTokens += completionTokens;
+  target.totalTokens += totalTokens;
+  target.durationMsTotal += durationMs;
+  if (timestamp && (!target.lastCallAt || timestamp > target.lastCallAt)) {
+    target.lastCallAt = timestamp;
+  }
+}
+
+function finalizeUsageStats(stats: AgentUsageStats): void {
+  stats.avgDurationMs = stats.callCount > 0 ? Math.round(stats.durationMsTotal / stats.callCount) : 0;
+  finalizeUsageBucketMap(stats.byModel);
+  finalizeUsageBucketMap(stats.byScope);
+  finalizeUsageBucketMap(stats.bySkill);
+}
+
+function finalizeUsageBucketMap(map: Record<string, AgentUsageBucket>): void {
+  for (const bucket of Object.values(map)) {
+    bucket.avgDurationMs = bucket.callCount > 0 ? Math.round(bucket.durationMsTotal / bucket.callCount) : 0;
   }
 }

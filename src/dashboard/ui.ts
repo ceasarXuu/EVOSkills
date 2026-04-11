@@ -1614,6 +1614,91 @@ function renderCapabilityPills(detail) {
   return '<div class="capability-pills">' + pills.map((label) => '<span class="capability-pill">' + escHtml(label) + '</span>').join('') + '</div>';
 }
 
+function formatUsageCompact(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num)) return '0';
+  if (currentLang === 'zh') {
+    const abs = Math.abs(num);
+    if (abs >= 1000000) {
+      return (Math.round((num / 1000000) * 10) / 10).toString().replace(/\\.0$/, '') + '百万';
+    }
+    if (abs >= 1000) {
+      return (Math.round((num / 1000) * 10) / 10).toString().replace(/\\.0$/, '') + '千';
+    }
+    return String(Math.round(num));
+  }
+  return new Intl.NumberFormat(currentLang === 'zh' ? 'zh-CN' : 'en-US', {
+    notation: num >= 1000 ? 'compact' : 'standard',
+    maximumFractionDigits: num >= 1000 ? 1 : 0,
+  }).format(num);
+}
+
+function incrementCounter(map, key) {
+  const normalizedKey = String(key || 'unknown').trim() || 'unknown';
+  map[normalizedKey] = (map[normalizedKey] || 0) + 1;
+}
+
+function summarizeDecisionEvents(events) {
+  const summary = {
+    mappingByStrategy: {},
+    evaluationByRule: {},
+    skippedByReason: {},
+    patchByType: {},
+    patchVolume: {
+      linesAdded: 0,
+      linesRemoved: 0,
+    },
+    runtimeDriftCount: 0,
+  };
+
+  const rows = Array.isArray(events) ? events : [];
+  for (const event of rows) {
+    const tag = String(event?.tag || '');
+    if (tag === 'skill_mapping' || tag === 'skill_mapped' || tag === 'skill_mapping_result') {
+      incrementCounter(summary.mappingByStrategy, event.reason || event.detail || event.status || 'mapped');
+    }
+    if (tag === 'evaluation_result' || tag === 'skill_evaluation') {
+      incrementCounter(summary.evaluationByRule, event.ruleName || event.reason || event.status || 'unclassified');
+    }
+    if (event?.status === 'skipped') {
+      incrementCounter(summary.skippedByReason, event.reason || event.detail || 'skipped');
+    }
+    if (tag === 'patch_applied') {
+      incrementCounter(summary.patchByType, event.changeType || 'patch');
+      summary.patchVolume.linesAdded += Number(event.linesAdded || 0);
+      summary.patchVolume.linesRemoved += Number(event.linesRemoved || 0);
+    }
+    if (event?.runtimeDrift) {
+      summary.runtimeDriftCount += 1;
+    }
+  }
+
+  return summary;
+}
+
+function renderMetricRows(title, rows, emptyText) {
+  const entries = Object.entries(rows || {})
+    .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0));
+
+  const body = entries.length > 0
+    ? entries.map(([label, count]) =>
+      '<div class="scope-item">' +
+        '<div class="scope-item-top">' +
+          '<div class="scope-item-name">' + escHtml(label) + '</div>' +
+          '<div class="scope-item-value">' + formatCompactNumber(count) + '</div>' +
+        '</div>' +
+      '</div>'
+    ).join('')
+    : '<div class="config-help">' + escHtml(emptyText) + '</div>';
+
+  return '<div class="card">' +
+    '<div class="card-header"><span>' + escHtml(title) + '</span><span style="color:var(--muted)">' + entries.length + '</span></div>' +
+    '<div class="card-body">' +
+      '<div class="scope-list">' + body + '</div>' +
+    '</div>' +
+  '</div>';
+}
+
 function renderCostPanel(projectPath) {
   const pd = state.projectData[projectPath] || {};
   const usage = pd.agentUsage || {
@@ -1621,8 +1706,12 @@ function renderCostPanel(projectPath) {
     promptTokens: 0,
     completionTokens: 0,
     totalTokens: 0,
+    durationMsTotal: 0,
+    avgDurationMs: 0,
+    lastCallAt: null,
     byModel: {},
     byScope: {},
+    bySkill: {},
   };
   if (!usage.callCount) {
     return '<div class="empty-state">' + t('costEmpty') + '</div>';
@@ -1751,7 +1840,20 @@ function renderMainPanel(projectPath) {
   const skills = pd.skills || [];
   const traceStats = pd.traceStats || { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} };
   const recentTraces = pd.recentTraces || [];
-  const agentUsage = pd.agentUsage || { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, byModel: {}, byScope: {} };
+  const decisionEvents = pd.decisionEvents || [];
+  const decisionSummary = summarizeDecisionEvents(decisionEvents);
+  const agentUsage = pd.agentUsage || {
+    callCount: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    durationMsTotal: 0,
+    avgDurationMs: 0,
+    lastCallAt: null,
+    byModel: {},
+    byScope: {},
+    bySkill: {},
+  };
 
   const uptime = daemon.isRunning && daemon.startedAt ? formatUptime(daemon.startedAt) : '—';
 
@@ -1816,6 +1918,65 @@ function renderMainPanel(projectPath) {
         </div>
       </div>
     </div>
+    \${decisionEvents.length > 0 ? \`
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">\${t('overviewMapped')}</div>
+        <div class="stat-value">\${Object.values(decisionSummary.mappingByStrategy).reduce((sum, count) => sum + count, 0)}</div>
+        <div class="stat-sub">\${t('overviewMappedSub')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">\${t('overviewSkipped')}</div>
+        <div class="stat-value">\${Object.values(decisionSummary.skippedByReason).reduce((sum, count) => sum + count, 0)}</div>
+        <div class="stat-sub">\${t('overviewSkippedSub')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">\${t('overviewPatchDelta')}</div>
+        <div class="stat-value" style="font-size:15px">+\${decisionSummary.patchVolume.linesAdded}/-\${decisionSummary.patchVolume.linesRemoved}</div>
+        <div class="stat-sub">\${t('overviewPatchDeltaSub')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">\${t('overviewHostDrift')}</div>
+        <div class="stat-value">\${decisionSummary.runtimeDriftCount}</div>
+        <div class="stat-sub">\${t('overviewHostDriftSub')}</div>
+      </div>
+    </div>
+
+    <div class="skills-list" style="grid-template-columns:repeat(2,1fr)">
+      \${renderMetricRows(t('overviewMappingStrategy'), decisionSummary.mappingByStrategy, t('overviewNoMappingData'))}
+      \${renderMetricRows(t('overviewEvaluationRules'), decisionSummary.evaluationByRule, t('overviewNoEvaluationData'))}
+      \${renderMetricRows(t('overviewSkipReasons'), decisionSummary.skippedByReason, t('overviewNoSkipData'))}
+      \${renderMetricRows(t('overviewPatchTypes'), decisionSummary.patchByType, t('overviewNoPatchData'))}
+    </div>
+    \` : ''}
+    \${agentUsage.callCount > 0 ? \`
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">\${t('costCalls')}</div>
+        <div class="stat-value">\${formatUsageCompact(agentUsage.callCount)}</div>
+        <div class="stat-sub">\${t('overviewAgentUsageSub')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">\${t('costInputTokens')}</div>
+        <div class="stat-value">\${formatUsageCompact(agentUsage.promptTokens)}</div>
+        <div class="stat-sub">\${t('overviewAgentUsageSub')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">\${t('costOutputTokens')}</div>
+        <div class="stat-value">\${formatUsageCompact(agentUsage.completionTokens)}</div>
+        <div class="stat-sub">\${t('overviewAgentUsageSub')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">\${t('costTotalTokens')}</div>
+        <div class="stat-value">\${formatUsageCompact(agentUsage.totalTokens)}</div>
+        <div class="stat-sub">\${t('overviewAgentUsageSub')}</div>
+      </div>
+    </div>
+
+    <div class="skills-list" style="grid-template-columns:repeat(1,1fr)">
+      \${renderMetricRows(t('overviewAgentScopes'), Object.fromEntries(Object.entries(agentUsage.byScope || {}).map(([scope, item]) => [scope, item.callCount || 0])), t('overviewNoAgentScopes'))}
+    </div>
+    \` : ''}
     \${traceStats.total > 0 ? \`
     <div class="card">
       <div class="card-header"><span>\${t('traceTitle')}</span><span style="color:var(--muted)">\${traceStats.total} \${t('traceTotal')}</span></div>

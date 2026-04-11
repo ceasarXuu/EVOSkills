@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createShadowManager } from '../../src/core/shadow-manager/index.js';
+import { createJournalManager } from '../../src/core/journal/index.js';
 import type { EvaluationResult, Trace } from '../../src/types/index.js';
 import type { DecisionEventRecord } from '../../src/core/decision-events/index.js';
 
@@ -140,6 +141,14 @@ describe('ShadowManager decision events', () => {
       sessionId: 'sess-1',
       changeType: 'prune_noise',
     });
+
+    const journal = createJournalManager(testProjectPath);
+    await journal.init();
+    expect(journal.getLatestRevision(`codex::test-skill@${testProjectPath}`)).toBe(1);
+    expect(journal.getSnapshots(`codex::test-skill@${testProjectPath}`)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ revision: 0 })])
+    );
+    await journal.close();
   });
 
   it('records analysis failures when patch generation breaks', async () => {

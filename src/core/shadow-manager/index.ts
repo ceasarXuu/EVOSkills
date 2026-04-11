@@ -630,6 +630,9 @@ export class ShadowManager {
       // 获取当前 revision
       const currentRevision = this.journalManager.getLatestRevision(shadowId);
 
+      // 先为当前 revision 保留快照，确保后续可回滚到本次改动前的版本。
+      this.journalManager.createSnapshot(shadowId, currentRevision);
+
       // 写入新内容
       this.shadowRegistry.writeContent(skillId, patchResult.newContent, runtime);
 

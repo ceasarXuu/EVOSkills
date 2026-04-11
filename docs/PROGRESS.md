@@ -13,6 +13,7 @@
 - ✅ 继续校正配置页默认策略：移除 `tracking.auto_optimize / tracking.user_confirm / tracking.runtime_sync` 三个可编辑开关，dashboard 保存配置时固定写入默认策略，避免页面残留“可改但实际不该改”的假入口
 - ✅ 继续校正配置页交互：移除“保存配置”按钮，provider 编辑器改为防抖自动保存；选择 provider/model、输入自定义值、切换默认启用项、增删 provider 后都会自动落盘，不再要求用户手工点保存
 - ✅ 继续校正配置页 API Key 行为：dashboard 现已读取并回填 `.env.local` 中的真实 `apiKey`，输入框改为明文展示和持久化保存；自动保存、连通性检查和重渲染后不再把已录入 key 清空或退回占位提示
+- ✅ 修复模型服务连通性检查误报：`checkProvidersConnectivity` 不再用普通 `completion("ping")` 验活，而是统一改走 LiteLLM client 的 `probeConnectivity()`；对 `deepseek-reasoner` 这类 reasoning 模型现在会按探测协议正确判活，不再误报 `Empty content in LLM response`
 - ✅ 继续恢复 dashboard 多语言收尾：补齐技能页筛选/搜索/排序文案、provider 告警、provider 编辑器占位文案、trace 表头与 modal 保存提示的中英文切换，避免中文页面继续混入英文控件词
 - ✅ 继续收敛 dashboard 术语残留：活动详情复制文本中的 `Skill / Session ID` 已改为多语言标签，`runtime_sync` 帮助文案中的“runtime”已统一改为“宿主”
 - ✅ 收敛 activity 文案实现：`daemon_state` 事件描述已从内联语言分支改为统一走 i18n，避免后续再出现“行为正常但字典不完整”的分叉实现
@@ -49,6 +50,7 @@
 - 📝 记录恢复经验：对“默认不可变”的配置项，正确做法不是把控件禁用或隐藏后继续从 DOM 取值，而是直接从保存链路移除并在 payload 中写死默认值；否则后续重构或测试桩很容易把这些控件偷偷接回来
 - 📝 记录恢复经验：配置页改自动保存时，不能沿用“保存成功后整页重渲染”的旧逻辑；否则用户在请求尚未返回时继续输入，成功回包会把最新未提交内容覆盖掉。正确做法是自动保存场景只更新 hint/state，不主动重绘当前编辑表单
 - 📝 记录恢复经验：如果 UI 需要展示“已保存的 API Key”，根因通常不在输入框类型，而在读配置接口是否只返回 `hasApiKey` 这种布尔摘要。要让页面刷新后仍保留值，必须同时打通 `readDashboardConfig -> dashboard state -> renderProviderRow -> sanitizeProvidersForState` 整条链
+- 📝 记录恢复经验：模型服务“连通性检查”不能复用普通文本生成路径。连通性验证的目标是确认“鉴权 + 模型可访问”，而不是验证“该模型一定会返回最终 content”；对于 reasoning 模型或 provider 特化模型，应该优先走专用 probe 路径，否则极易把协议差异误判成连通失败
 
 | 阶段 | 状态 | 进度 | 预计时间 |
 |------|------|------|---------|

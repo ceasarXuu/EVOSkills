@@ -446,12 +446,10 @@ export async function checkProvidersConnectivity(
         apiKey,
         maxTokens: 8,
       });
-      await client.completion({
-        prompt: "ping",
-        maxTokens: 8,
-        temperature: 0,
-        timeout: 10000,
-      });
+      const probe = await client.probeConnectivity();
+      if (!probe.hasContent && !probe.hasReasoningContent) {
+        throw new Error('Connectivity probe returned no content');
+      }
       results.push({
         provider: providerConfig.provider,
         modelName: providerConfig.modelName,

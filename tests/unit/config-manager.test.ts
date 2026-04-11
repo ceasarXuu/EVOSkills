@@ -197,6 +197,58 @@ describe('Config File Operations', () => {
     }
   });
 
+  it('should use connectivity probe for deepseek reasoner providers', async () => {
+    const { checkProvidersConnectivity } = await import('../../src/config/manager.js');
+    const envPath = join(testDir, '.env.local');
+    writeFileSync(envPath, 'DEEPSEEK_API_KEY=sk-test-deepseek\n', 'utf-8');
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url.endsWith('/models')) {
+        return new Response(
+          JSON.stringify({
+            data: [{ id: 'deepseek-chat' }, { id: 'deepseek-reasoner' }],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          model: 'deepseek-reasoner',
+          choices: [
+            {
+              index: 0,
+              finish_reason: 'length',
+              message: {
+                role: 'assistant',
+                content: '',
+                reasoning_content: 'thinking',
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
+    });
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    try {
+      const result = await checkProvidersConnectivity(testDir, [
+        { provider: 'deepseek', modelName: 'deepseek/deepseek-reasoner', apiKeyEnvVar: 'DEEPSEEK_API_KEY' },
+      ]);
+      expect(result).toHaveLength(1);
+      expect(result[0].ok).toBe(true);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.deepseek.com/v1/models',
+        expect.objectContaining({ method: 'GET' })
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('should return missing api key error when env var is absent', async () => {
     const { checkProvidersConnectivity } = await import('../../src/config/manager.js');
     const result = await checkProvidersConnectivity(testDir, [

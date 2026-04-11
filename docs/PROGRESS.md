@@ -3,6 +3,10 @@
 ## 📊 总体进度：Phase 1 ✅ 完成
 
 ### 2026-04-12
+- ✅ 修复实时追踪“长期无事件统计”的链路断层：`CodexObserver` 启动时现在会回放最近活跃的 session 文件尾部，不再只依赖新文件创建或偶发文件变更；daemon 重启后也能立刻重新接上正在进行中的 Codex 会话
+- ✅ 补齐 dashboard trace 读侧兼容：实时追踪与项目快照版本现在会同时纳入 `default.ndjson` 和会话级 `*.ndjson` trace 文件，避免未来 trace store 切到按 session 分文件时，看板再次因为只盯旧文件名而显示“0 事件”
+- 📝 记录恢复经验：实时追踪不能把“事件发现”完全押在文件系统实时通知上；daemon 重启时，活跃会话文件通常已经存在，如果 observer 又启了 `ignoreInitial`，就必须有启动回放或持久化 offset，否则只能等“新文件创建”才恢复，旧会话会整段失联
+- 📝 记录恢复经验：dashboard 的 trace 读侧不要写死单个 `default.ndjson` 文件名，trace store 的落盘策略天然可能从“单文件”演进到“按 session 分文件”；快照版本和活动读取都应该以“trace 文件集合”而不是“某一个约定文件名”为事实来源
 - ✅ 修复配置页“内置模型被误判成自定义模型”的回归：dashboard 现在会在同一 provider 内把 `deepseek-reasoner` 与 `deepseek/deepseek-reasoner` 视为同一个内置模型，避免旧配置或不同来源的 model id 格式不一致时，页面错误回退到“自定义”输入框
 - 📝 记录恢复经验：provider catalog 与已保存配置之间必须定义“模型 ID 等价规则”，不能只做精确字符串匹配；像 LiteLLM registry 常带 `provider/` 前缀，而项目历史配置可能只存裸 model 名，不做归一化就会把内置模型误判成自定义模型，并在自动保存后继续放大配置漂移
 

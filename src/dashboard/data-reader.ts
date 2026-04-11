@@ -108,6 +108,22 @@ interface CachedAgentUsageStats {
 
 const agentUsageStatsCache = new Map<string, CachedAgentUsageStats>();
 
+function listTraceNdjsonPaths(projectRoot: string): string[] {
+  const stateDir = join(projectRoot, '.ornn', 'state');
+  if (!existsSync(stateDir)) return [];
+
+  try {
+    return readdirSync(stateDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ndjson'))
+      .map((entry) => entry.name)
+      .filter((name) => name !== 'decision-events.ndjson' && name !== 'agent-usage.ndjson')
+      .sort()
+      .map((name) => join(stateDir, name));
+  } catch {
+    return [];
+  }
+}
+
 // ─── Daemon Status ────────────────────────────────────────────────────────────
 
 function isProcessRunning(pid: number): boolean {
@@ -371,31 +387,34 @@ function readFileSignature(filePath: string): string {
 }
 
 export function readRecentTraces(projectRoot: string, limit = 50): TraceEntry[] {
-  const ndjsonPath = join(projectRoot, '.ornn', 'state', 'default.ndjson');
-  const lines = tailNdjson(ndjsonPath, 200);
+  const tracePaths = listTraceNdjsonPaths(projectRoot);
+  const traces = new Map<string, TraceEntry>();
 
-  const traces: TraceEntry[] = [];
-  for (const line of lines) {
-    try {
-      const raw = JSON.parse(line) as Partial<TraceEntry> & { skill_refs?: string[] };
-      if (!raw.trace_id) continue;
-      // Dashboard 只保留展示所需字段，避免 user_input / payload 等大字段导致页面卡顿
-      traces.push({
-        trace_id: String(raw.trace_id),
-        runtime: String(raw.runtime ?? 'unknown'),
-        session_id: String(raw.session_id ?? ''),
-        turn_id: String(raw.turn_id ?? ''),
-        event_type: String(raw.event_type ?? 'unknown'),
-        timestamp: String(raw.timestamp ?? ''),
-        skill_refs: Array.isArray(raw.skill_refs) ? raw.skill_refs : [],
-        status: String(raw.status ?? 'unknown'),
-      });
-    } catch {
-      // skip malformed lines
+  for (const ndjsonPath of tracePaths) {
+    const lines = tailNdjson(ndjsonPath, Math.max(limit * 4, 200));
+    for (const line of lines) {
+      try {
+        const raw = JSON.parse(line) as Partial<TraceEntry> & { skill_refs?: string[] };
+        if (!raw.trace_id) continue;
+        traces.set(String(raw.trace_id), {
+          trace_id: String(raw.trace_id),
+          runtime: String(raw.runtime ?? 'unknown'),
+          session_id: String(raw.session_id ?? ''),
+          turn_id: String(raw.turn_id ?? ''),
+          event_type: String(raw.event_type ?? 'unknown'),
+          timestamp: String(raw.timestamp ?? ''),
+          skill_refs: Array.isArray(raw.skill_refs) ? raw.skill_refs : [],
+          status: String(raw.status ?? 'unknown'),
+        });
+      } catch {
+        // skip malformed lines
+      }
     }
   }
 
-  return traces.slice(-limit).reverse();
+  return [...traces.values()]
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .slice(0, limit);
 }
 
 export function computeTraceStats(traces: TraceEntry[]): TraceStats {
@@ -489,11 +508,14 @@ export function readProjectSnapshot(projectRoot: string): ProjectData {
 export function readProjectSnapshotVersion(projectRoot: string): string {
   const stateDir = join(projectRoot, '.ornn', 'state');
   const shadowsDir = join(projectRoot, '.ornn', 'shadows');
+  const traceSignatures = listTraceNdjsonPaths(projectRoot)
+    .map((filePath) => `${filePath}:${readFileSignature(filePath)}`)
+    .join(',');
   const parts = [
     readFileSignature(join(projectRoot, '.ornn', 'daemon.pid')),
     readFileSignature(join(stateDir, 'daemon-checkpoint.json')),
     readFileSignature(join(stateDir, 'task-episodes.json')),
-    readFileSignature(join(stateDir, 'default.ndjson')),
+    traceSignatures || 'missing',
     readFileSignature(join(stateDir, 'decision-events.ndjson')),
     readFileSignature(join(stateDir, 'agent-usage.ndjson')),
     readFileSignature(join(stateDir, 'agent-usage-summary.json')),

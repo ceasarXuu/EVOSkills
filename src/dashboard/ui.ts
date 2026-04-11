@@ -1478,7 +1478,15 @@ function startActivityColumnResize(event, columnKey) {
 
 function formatEventTimestamp(iso) {
   if (!iso) return '—';
-  return String(iso).slice(11, 19) || '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return String(iso).slice(11, 19) || '—';
+  }
+  return [
+    String(date.getHours()).padStart(2, '0'),
+    String(date.getMinutes()).padStart(2, '0'),
+    String(date.getSeconds()).padStart(2, '0'),
+  ].join(':');
 }
 
 function summarizeTraceEventType(trace) {

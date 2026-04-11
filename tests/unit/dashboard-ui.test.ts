@@ -794,6 +794,46 @@ describe('dashboard ui recovery', () => {
     expect(html).not.toContain('>patch_applied<');
   });
 
+  it('renders activity timestamps in local system time instead of raw UTC slices', () => {
+    const { dashboard, getElement } = loadDashboardTestHarness({}, { lang: 'zh' });
+    const projectPath = '/tmp/ornn-project';
+    const iso = '2026-04-10T00:05:06.000Z';
+    const date = new Date(iso);
+    const expectedLocalTime = [
+      String(date.getHours()).padStart(2, '0'),
+      String(date.getMinutes()).padStart(2, '0'),
+      String(date.getSeconds()).padStart(2, '0'),
+    ].join(':');
+
+    getElement('mainPanel');
+    dashboard.state.selectedMainTab = 'activity';
+    dashboard.state.selectedProjectId = projectPath;
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [{ skillId: 'test-driven-development', runtime: 'codex' }],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+        decisionEvents: [{
+          id: 'evt-local-time-1',
+          timestamp: iso,
+          tag: 'evaluation_result',
+          runtime: 'codex',
+          skillId: 'test-driven-development',
+          status: 'no_patch_needed',
+          windowId: 'scope-local-time-1',
+          detail: 'done',
+        }],
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+      },
+    };
+
+    dashboard.renderMainPanel(projectPath);
+    const html = getElement('mainPanel').innerHTML;
+    expect(html).toContain(expectedLocalTime);
+    expect(html).not.toContain('>00:05:06<');
+  });
+
   it('degrades to a project-level fallback when main panel rendering throws', () => {
     const { dashboard, getElement } = loadDashboardTestHarness({}, { lang: 'zh' });
     const projectPath = '/tmp/ornn-project';

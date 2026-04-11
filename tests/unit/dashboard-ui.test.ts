@@ -841,4 +841,116 @@ describe('dashboard ui recovery', () => {
     expect(html).toContain('value="deepseek" selected');
     expect(html).toContain('value="debug" selected');
   });
+
+  it('renders localized skill filters and raw trace headers in Chinese', () => {
+    const { dashboard, getElement } = loadDashboardTestHarness({}, { lang: 'zh' });
+    const projectPath = '/tmp/ornn-project';
+
+    getElement('mainPanel');
+    dashboard.state.selectedProjectId = projectPath;
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [{
+          skillId: 'test-driven-development',
+          runtime: 'codex',
+          status: 'active',
+          traceCount: 2,
+          current_revision: 3,
+          updatedAt: '2026-04-10T05:23:00.000Z',
+        }],
+        traceStats: { total: 1, byRuntime: { codex: 1 }, byStatus: { success: 1 }, byEventType: { tool_call: 1 } },
+        recentTraces: [{
+          trace_id: 'trace-1',
+          session_id: 'session-1',
+          runtime: 'codex',
+          timestamp: '2026-04-10T05:23:00.000Z',
+          event_type: 'tool_call',
+          skill_refs: ['test-driven-development'],
+          status: 'success',
+        }],
+        decisionEvents: [],
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+      },
+    };
+
+    dashboard.state.selectedMainTab = 'skills';
+    dashboard.renderMainPanel(projectPath);
+    let html = getElement('mainPanel').innerHTML;
+    expect(html).toContain('全部');
+    expect(html).toContain('搜索技能...');
+    expect(html).toContain('排序：');
+    expect(html).toContain('名称');
+    expect(html).toContain('更新时间');
+    expect(html).not.toContain('Search skills...');
+    expect(html).not.toContain('Sort:');
+
+    dashboard.state.selectedMainTab = 'activity';
+    dashboard.state.activityLayer = 'raw';
+    dashboard.renderMainPanel(projectPath);
+    html = getElement('mainPanel').innerHTML;
+    expect(html).toContain('追踪 ID');
+    expect(html).not.toContain('<th>Trace ID</th>');
+  });
+
+  it('renders provider editor rows and alerts with localized English copy', () => {
+    const { dashboard, getElement } = loadDashboardTestHarness({}, { lang: 'en' });
+    const projectPath = '/tmp/ornn-project';
+
+    getElement('mainPanel');
+    dashboard.state.selectedMainTab = 'config';
+    dashboard.state.selectedProjectId = projectPath;
+    dashboard.state.providerCatalog = [
+      {
+        id: 'openai',
+        name: 'openai',
+        models: ['openai/gpt-4o-mini'],
+        defaultModel: 'openai/gpt-4o-mini',
+        apiKeyEnvVar: 'OPENAI_API_KEY',
+        modelDetails: [],
+      },
+    ];
+    dashboard.state.providerHealthByProject = {
+      [projectPath]: {
+        level: 'warn',
+        code: 'provider_connectivity_failed',
+        message: '',
+        checkedAt: '2026-04-10T05:23:00.000Z',
+        results: [{ ok: false, provider: 'openai', modelName: 'openai/gpt-4o-mini' }],
+      },
+    };
+    dashboard.state.configByProject = {
+      [projectPath]: {
+        autoOptimize: true,
+        userConfirm: false,
+        runtimeSync: true,
+        defaultProvider: 'openai',
+        logLevel: 'info',
+        providers: [
+          { provider: 'custom-provider', modelName: 'custom-model', apiKeyEnvVar: 'OPENAI_API_KEY', hasApiKey: true },
+        ],
+      },
+    };
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+        decisionEvents: [],
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+      },
+    };
+
+    dashboard.renderMainPanel(projectPath);
+    const html = getElement('mainPanel').innerHTML;
+    expect(html).toContain('Provider Connectivity Failed');
+    expect(html).toContain('Failed provider connectivity: openai/openai/gpt-4o-mini');
+    expect(html).toContain('Open the Config tab to set provider and re-run connectivity check.');
+    expect(html).toContain('Custom provider id (e.g. xai)');
+    expect(html).toContain('Custom model (e.g. grok-3)');
+    expect(html).toContain('API key stored; leave blank to keep');
+    expect(html).toContain('Remove');
+    expect(html).toContain('Custom...');
+  });
 });

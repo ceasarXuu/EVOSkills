@@ -839,9 +839,7 @@ async function loadRuntimeInfo() {
     const runtimeBuildShort = runtimeBuildId ? runtimeBuildId.slice(-8) : 'unknown';
     if (runtimeBuildId && runtimeBuildId !== DASHBOARD_BUILD_ID) {
       el.style.color = 'var(--yellow)';
-      el.textContent = currentLang === 'zh'
-        ? ('版本不一致 ui#' + DASHBOARD_BUILD_SHORT + ' / svr#' + runtimeBuildShort)
-        : ('build mismatch ui#' + DASHBOARD_BUILD_SHORT + ' / svr#' + runtimeBuildShort);
+      el.textContent = t('runtimeBuildMismatchPrefix') + ' ui#' + DASHBOARD_BUILD_SHORT + ' / svr#' + runtimeBuildShort;
       if (!hasRequestedHardReload) {
         hasRequestedHardReload = true;
         console.warn('[dashboard] build mismatch detected, forcing reload', {
@@ -857,7 +855,7 @@ async function loadRuntimeInfo() {
     el.textContent = 'build #' + runtimeBuildShort + pidSuffix;
   } catch (err) {
     el.style.color = 'var(--yellow)';
-    el.textContent = currentLang === 'zh' ? ('build #' + DASHBOARD_BUILD_SHORT + ' (宿主信息不可用)') : ('build #' + DASHBOARD_BUILD_SHORT + ' (host unavailable)');
+    el.textContent = 'build #' + DASHBOARD_BUILD_SHORT + ' (' + t('runtimeHostUnavailable') + ')';
     console.warn('[dashboard] runtime info unavailable', { error: String(err) });
   }
 }
@@ -1058,15 +1056,11 @@ async function init() {
     // Show error state in sidebar and main panel
     const projectListEl = document.getElementById('projectList');
     if (projectListEl) {
-      projectListEl.innerHTML = '<div class="empty-state" style="color:var(--red)">Failed to load projects</div>';
+      projectListEl.innerHTML = '<div class="empty-state" style="color:var(--red)">' + t('initProjectsLoadFailed') + '</div>';
     }
     const mainPanelEl = document.getElementById('mainPanel');
     if (mainPanelEl) {
-      mainPanelEl.innerHTML = '<div class="panel-inner"><div class="no-project" style="color:var(--yellow)">' +
-        (currentLang === 'zh'
-          ? '初始化失败，正在等待后台数据自动恢复...'
-          : 'Initialization failed. Waiting for backend data to recover...') +
-        '</div></div>';
+      mainPanelEl.innerHTML = '<div class="panel-inner"><div class="no-project" style="color:var(--yellow)">' + t('initRecoveryWaiting') + '</div></div>';
     }
   }
   connectSSE();
@@ -1181,12 +1175,12 @@ async function ensureProviderHealth(projectPath, force = false) {
 
 function providerAlertTitle(code) {
   if (code === 'provider_not_configured') {
-    return currentLang === 'zh' ? 'Provider 未配置' : 'Provider Not Configured';
+    return t('configProviderAlertNotConfigured');
   }
   if (code === 'provider_connectivity_failed') {
-    return currentLang === 'zh' ? 'Provider 无法连通' : 'Provider Connectivity Failed';
+    return t('configProviderAlertConnectivityFailed');
   }
-  return currentLang === 'zh' ? 'Provider 检查异常' : 'Provider Health Warning';
+  return t('configProviderAlertWarning');
 }
 
 function renderProviderAlert(projectPath) {
@@ -1195,15 +1189,11 @@ function renderProviderAlert(projectPath) {
 
   let message = health.message || '';
   if (health.code === 'provider_not_configured') {
-    message = currentLang === 'zh'
-      ? '当前项目尚未配置任何 provider。'
-      : 'No provider is configured for this project.';
+    message = t('configProviderAlertNotConfiguredMessage');
   } else if (health.code === 'provider_connectivity_failed' && Array.isArray(health.results) && health.results.length > 0) {
     const failed = health.results.filter((item) => !item.ok);
     const failedText = failed.slice(0, 3).map((item) => item.provider + '/' + item.modelName).join(', ');
-    message = currentLang === 'zh'
-      ? '检测到 provider 连通失败：' + failedText
-      : 'Failed provider connectivity: ' + failedText;
+    message = t('configProviderAlertConnectivityFailedPrefix') + ' ' + failedText;
   }
 
   return '<div class="provider-alert">' +
@@ -1211,11 +1201,7 @@ function renderProviderAlert(projectPath) {
     '<div>' +
       '<div class="provider-alert-title">⚠ ' + escHtml(providerAlertTitle(health.code)) + '</div>' +
       '<div class="provider-alert-message">' + escHtml(message) + '</div>' +
-      '<div class="provider-alert-hint">' +
-        (currentLang === 'zh'
-          ? '请在 Config 页补充 provider 配置并完成连通性检查。'
-          : 'Open the Config tab to set provider and re-run connectivity check.') +
-      '</div>' +
+      '<div class="provider-alert-hint">' + t('configProviderAlertHint') + '</div>' +
     '</div>' +
   '</div>';
 }
@@ -1254,33 +1240,33 @@ function businessEventLabel(tag) {
 function formatBusinessEvent(e) {
   switch (e.tag) {
     case 'skill_called':
-      return (currentLang === 'zh' ? '调用技能' : 'Skill called') + ': ' + (e.skillId || 'unknown');
+      return t('activitySummarySkillCalled') + ': ' + (e.skillId || 'unknown');
     case 'skill_monitoring_started':
-      return (currentLang === 'zh' ? '开始监控技能' : 'Started monitoring skill') + ': ' + (e.skillId || 'unknown');
+      return t('activitySummarySkillAdded') + ': ' + (e.skillId || 'unknown');
     case 'skill_removed':
-      return (currentLang === 'zh' ? '移除技能监控' : 'Stopped monitoring skill') + ': ' + (e.skillId || 'unknown');
+      return t('activitySummarySkillRemoved') + ': ' + (e.skillId || 'unknown');
     case 'skill_edited':
-      return (currentLang === 'zh' ? '技能被编辑' : 'Skill edited') + ': ' + (e.skillId || 'unknown');
+      return t('activitySummarySkillEdited') + ': ' + (e.skillId || 'unknown');
     case 'skill_version_iterated':
-      return (currentLang === 'zh' ? '技能版本迭代' : 'Skill version iterated') + (e.skillId ? ': ' + e.skillId : '');
+      return t('activitySummarySkillVersion') + (e.skillId ? ': ' + e.skillId : '');
     case 'daemon_state':
       return currentLang === 'zh'
         ? ('守护进程' + (e.status === 'started' ? '已启动' : '已停止'))
         : ('Daemon ' + (e.status === 'started' ? 'started' : 'stopped'));
     case 'optimization_state':
-      return (currentLang === 'zh' ? '优化状态变化' : 'Optimization state changed') + ': ' + (e.status || 'idle');
+      return t('activitySummaryOptimizationChanged') + ': ' + (e.status || 'idle');
     case 'evaluation_result':
-      return (currentLang === 'zh' ? '评估结果' : 'Evaluation result') + ': ' + (e.detail || e.reason || '');
+      return t('activitySummaryEvaluationResult') + ': ' + (e.detail || e.reason || '');
     case 'skill_feedback':
-      return (currentLang === 'zh' ? '技能反馈' : 'Skill feedback') + ': ' + (e.detail || e.reason || '');
+      return t('activitySummarySkillFeedback') + ': ' + (e.detail || e.reason || '');
     case 'analysis_failed':
-      return (currentLang === 'zh' ? '分析失败' : 'Analysis failed') + ': ' + (e.detail || e.reason || '');
+      return t('activitySummaryAnalysisFailed') + ': ' + (e.detail || e.reason || '');
     case 'analysis_requested':
-      return currentLang === 'zh' ? '已提交分析请求' : 'Analysis submitted';
+      return t('activitySummaryAnalysisSubmitted');
     case 'episode_probe_result':
-      return (currentLang === 'zh' ? '时机探测结果' : 'Probe result') + ': ' + (e.status || '');
+      return t('activitySummaryProbeResult') + ': ' + (e.status || '');
     case 'episode_probe_requested':
-      return currentLang === 'zh' ? '已提交时机探测' : 'Probe submitted';
+      return t('activitySummaryProbeSubmitted');
     default:
       return e.tag;
   }
@@ -1356,11 +1342,11 @@ function formatEventTimestamp(iso) {
 
 function summarizeTraceEventType(trace) {
   if (!trace) return t('activityDetailFallback');
-  if (trace.event_type === 'tool_call') return currentLang === 'zh' ? '工具调用' : 'Tool call';
-  if (trace.event_type === 'tool_result') return currentLang === 'zh' ? '工具返回' : 'Tool result';
-  if (trace.event_type === 'assistant_output') return currentLang === 'zh' ? '助手输出' : 'Assistant output';
-  if (trace.event_type === 'user_input') return currentLang === 'zh' ? '用户输入' : 'User input';
-  if (trace.event_type === 'file_change') return currentLang === 'zh' ? '文件变更' : 'File change';
+  if (trace.event_type === 'tool_call') return t('activityTraceToolCall');
+  if (trace.event_type === 'tool_result') return t('activityTraceToolResult');
+  if (trace.event_type === 'assistant_output') return t('activityTraceAssistantOutput');
+  if (trace.event_type === 'user_input') return t('activityTraceUserInput');
+  if (trace.event_type === 'file_change') return t('activityTraceFileChange');
   return trace.event_type || t('activityDetailFallback');
 }
 
@@ -1374,9 +1360,9 @@ function buildActivityDetail(row) {
     t('traceStatus') + ': ' + (row.status || t('activityStatusFallback')),
     t('traceScope') + ': ' + (row.scopeId || t('activityScopeFallback')),
     t('traceDetail') + ': ' + (row.detail || t('activityDetailFallback')),
-    (currentLang === 'zh' ? '来源' : 'Source') + ': ' + (row.sourceLabel || '—'),
+    t('activitySourceLabel') + ': ' + (row.sourceLabel || '—'),
   ];
-  if (row.traceId) lines.push('Trace ID: ' + row.traceId);
+  if (row.traceId) lines.push(t('traceId') + ': ' + row.traceId);
   if (row.sessionId) lines.push('Session ID: ' + row.sessionId);
   return lines.join('\\n');
 }
@@ -2104,7 +2090,7 @@ function renderMainPanel(projectPath) {
         <span>\${t('skillsTitle')}</span>
         <div style="display:flex;align-items:center;gap:12px;">
           <div class="runtime-tabs">
-            <button class="runtime-tab \${state.selectedRuntimeTab === 'all' ? 'active' : ''}" onclick="selectRuntimeTab('all')">All</button>
+            <button class="runtime-tab \${state.selectedRuntimeTab === 'all' ? 'active' : ''}" onclick="selectRuntimeTab('all')">\${t('skillsRuntimeAll')}</button>
             <button class="runtime-tab tab-codex \${state.selectedRuntimeTab === 'codex' ? 'active' : ''}" onclick="selectRuntimeTab('codex')">Codex</button>
             <button class="runtime-tab tab-claude \${state.selectedRuntimeTab === 'claude' ? 'active' : ''}" onclick="selectRuntimeTab('claude')">Claude</button>
             <button class="runtime-tab tab-opencode \${state.selectedRuntimeTab === 'opencode' ? 'active' : ''}" onclick="selectRuntimeTab('opencode')">OpenCode</button>
@@ -2117,22 +2103,22 @@ function renderMainPanel(projectPath) {
         <div class="skills-controls">
           <div class="search-box">
             <span class="search-icon">🔍</span>
-            <input type="text" class="search-input" id="skillSearchInput" placeholder="Search skills..." value="\${state.searchQuery}" oninput="handleSearch(this.value)" />
+            <input type="text" class="search-input" id="skillSearchInput" placeholder="\${t('skillsSearchPlaceholder')}" value="\${state.searchQuery}" oninput="handleSearch(this.value)" />
           </div>
           <div class="sort-controls">
-            <span class="sort-label">Sort:</span>
+            <span class="sort-label">\${t('skillsSortLabel')}</span>
             <button class="sort-btn \${state.sortBy === 'name' ? 'active' : ''}" onclick="toggleSort('name')">
-              Name <span class="arrow">\${state.sortBy === 'name' ? (state.sortOrder === 'asc' ? '↑' : '↓') : ''}</span>
+              \${t('skillsSortName')} <span class="arrow">\${state.sortBy === 'name' ? (state.sortOrder === 'asc' ? '↑' : '↓') : ''}</span>
             </button>
             <button class="sort-btn \${state.sortBy === 'updated' ? 'active' : ''}" onclick="toggleSort('updated')">
-              Updated <span class="arrow">\${state.sortBy === 'updated' ? (state.sortOrder === 'asc' ? '↑' : '↓') : ''}</span>
+              \${t('skillsSortUpdated')} <span class="arrow">\${state.sortBy === 'updated' ? (state.sortOrder === 'asc' ? '↑' : '↓') : ''}</span>
             </button>
           </div>
         </div>
         
         <div id="skillsListContainer">
           \${getFilteredAndSortedSkills(skills).length === 0
-            ? '<div class="empty-state">' + (state.searchQuery ? 'No skills found matching "' + escHtml(state.searchQuery) + '"' : t('skillsEmpty')) + '</div>'
+            ? renderSkillsEmptyState()
             : '<div class="skills-list">' + getFilteredAndSortedSkills(skills).map(s => renderSkillCard(s, projectPath)).join('') + '</div>'
           }
         </div>
@@ -2396,18 +2382,18 @@ function renderProviderRow(row, index) {
       <select class="config-select cfg_provider" onchange="handleProviderChange(this)">
         \${providerOptions}
       </select>
-      <input class="config-input cfg_provider_custom" value="\${knownProvider ? '' : escHtml(normalizedProvider)}" placeholder="\${currentLang === 'zh' ? '自定义 provider id（例如：xai）' : 'Custom provider id (e.g. xai)'}" style="\${knownProvider ? 'display:none;' : ''}" />
+      <input class="config-input cfg_provider_custom" value="\${knownProvider ? '' : escHtml(normalizedProvider)}" placeholder="\${t('configCustomProviderPlaceholder')}" style="\${knownProvider ? 'display:none;' : ''}" />
       <div>
         <select class="config-select cfg_model" onchange="handleModelChange(this)">
           \${modelOptions}
         </select>
-        <input class="config-input cfg_model_custom" value="\${modelIsCustom ? escHtml(normalizedModel) : ''}" placeholder="\${currentLang === 'zh' ? '自定义 model（例如：grok-3）' : 'Custom model (e.g. grok-3)'}" style="margin-top:6px;\${modelIsCustom ? '' : 'display:none;'}" />
+        <input class="config-input cfg_model_custom" value="\${modelIsCustom ? escHtml(normalizedModel) : ''}" placeholder="\${t('configCustomModelPlaceholder')}" style="margin-top:6px;\${modelIsCustom ? '' : 'display:none;'}" />
       </div>
       <div>
-        <input class="config-input cfg_api_key" type="password" value="" placeholder="\${hasApiKey ? (currentLang === 'zh' ? 'API Key 已保存；留空表示不修改' : 'API key stored; leave blank to keep') : (currentLang === 'zh' ? '直接粘贴 API Key' : 'Paste API key')}" />
+        <input class="config-input cfg_api_key" type="password" value="" placeholder="\${hasApiKey ? t('configApiKeyStoredPlaceholder') : t('configApiKeyPastePlaceholder')}" />
         <input class="config-input cfg_env" value="\${escHtml(row.apiKeyEnvVar || '')}" placeholder="OPENAI_API_KEY" style="margin-top:6px" />
       </div>
-      <button class="btn-danger" type="button" onclick="removeProviderRow(this)">\${currentLang === 'zh' ? '删除' : 'Remove'}</button>
+      <button class="btn-danger" type="button" onclick="removeProviderRow(this)">\${t('configRemoveProvider')}</button>
     </div>
   \`;
 }
@@ -2415,14 +2401,14 @@ function renderProviderRow(row, index) {
 function getProviderOptionsHtml(selectedProvider) {
   const catalog = Array.isArray(state.providerCatalog) ? state.providerCatalog : [];
   if (catalog.length === 0) {
-    return '<option value="__custom__">' + escHtml(currentLang === 'zh' ? 'LiteLLM 列表未就绪（仅可自定义）' : 'LiteLLM catalog not ready (custom only)') + '</option>';
+    return '<option value="__custom__">' + escHtml(t('configCatalogCustomOnly')) + '</option>';
   }
   return catalog
     .map((item) => {
       const selected = item.id === selectedProvider ? 'selected' : '';
       return '<option value="' + escHtml(item.id) + '" ' + selected + '>' + escHtml(item.id) + '</option>';
     })
-    .join('') + '<option value="__custom__" ' + (selectedProvider === '__custom__' ? 'selected' : '') + '>' + escHtml(currentLang === 'zh' ? '自定义' : 'Custom...') + '</option>';
+    .join('') + '<option value="__custom__" ' + (selectedProvider === '__custom__' ? 'selected' : '') + '>' + escHtml(t('configCustomOption')) + '</option>';
 }
 
 function isKnownProvider(providerId) {
@@ -2446,7 +2432,7 @@ function getModelOptionsHtml(providerId, selectedModel) {
     })
     .join('');
   const customSelected = isKnownModel(providerId, selectedModel) ? '' : 'selected';
-  return options + '<option value="__custom__" ' + customSelected + '>' + escHtml(currentLang === 'zh' ? '自定义' : 'Custom...') + '</option>';
+  return options + '<option value="__custom__" ' + customSelected + '>' + escHtml(t('configCustomOption')) + '</option>';
 }
 
 function isKnownModel(providerId, modelName) {
@@ -2502,7 +2488,7 @@ function handleProviderChange(selectEl) {
   }
   if (providerId === '__custom__') {
     if (modelSelect) {
-      modelSelect.innerHTML = '<option value="__custom__" selected>' + escHtml(currentLang === 'zh' ? '自定义' : 'Custom...') + '</option>';
+      modelSelect.innerHTML = '<option value="__custom__" selected>' + escHtml(t('configCustomOption')) + '</option>';
     }
     if (modelCustomInput) {
       modelCustomInput.style.display = '';
@@ -2725,6 +2711,13 @@ function toggleSort(sortBy) {
   updateSkillsList();
 }
 
+function renderSkillsEmptyState() {
+  if (!state.searchQuery) {
+    return '<div class="empty-state">' + t('skillsEmpty') + '</div>';
+  }
+  return '<div class="empty-state">' + t('skillsSearchEmptyPrefix') + ' "' + escHtml(state.searchQuery) + '"</div>';
+}
+
 function updateSkillsList() {
   const container = document.getElementById('skillsListContainer');
   const countEl = document.getElementById('skillsCount');
@@ -2741,7 +2734,7 @@ function updateSkillsList() {
   }
   
   container.innerHTML = filtered.length === 0
-    ? '<div class="empty-state">' + (state.searchQuery ? 'No skills found matching "' + escHtml(state.searchQuery) + '"' : t('skillsEmpty')) + '</div>'
+    ? renderSkillsEmptyState()
     : '<div class="skills-list">' + filtered.map(s => renderSkillCard(s, state.selectedProjectId)).join('') + '</div>';
 }
 
@@ -2837,7 +2830,7 @@ function renderTraceBars(label, data, keys) {
 function renderRecentTraces(traces) {
   if (!traces.length) return '';
   return \`<table class="trace-table">
-    <thead><tr><th>\${t('traceTime')}</th><th>\${t('traceRuntime')}</th><th>\${t('traceEvent')}</th><th>\${t('traceStatus')}</th><th>\${t('traceSession')}</th><th>Trace ID</th></tr></thead>
+    <thead><tr><th>\${t('traceTime')}</th><th>\${t('traceRuntime')}</th><th>\${t('traceEvent')}</th><th>\${t('traceStatus')}</th><th>\${t('traceSession')}</th><th>\${t('traceId')}</th></tr></thead>
     <tbody>\${traces.map(t => \`<tr>
       <td style="color:var(--muted)">\${t.timestamp ? t.timestamp.slice(11,19) : '—'}</td>
       <td>\${t.runtime}</td>
@@ -2896,7 +2889,7 @@ async function viewSkill(projectPath, skillId, runtime = 'codex') {
     }
   } catch (e) {
     console.error('[dashboard] failed to load skill content', { projectPath, skillId, runtime, error: String(e) });
-    document.getElementById('modalContent').value = 'Error loading skill content.';
+    document.getElementById('modalContent').value = t('modalLoadError');
   }
 }
 
@@ -2940,7 +2933,7 @@ async function saveCurrentSkill() {
   const runtime = state.currentSkillRuntime || 'codex';
 
   saveBtn.disabled = true;
-  hintEl.textContent = currentLang === 'zh' ? '保存中...' : 'Saving...';
+  hintEl.textContent = t('modalSaving');
 
   try {
     const encProject = encodeURIComponent(state.selectedProjectId);
@@ -2951,7 +2944,7 @@ async function saveCurrentSkill() {
       body: JSON.stringify({
         content,
         runtime,
-        reason: 'Manual edit from dashboard',
+        reason: t('modalManualEditReason'),
       }),
     });
     if (!r.ok) {
@@ -2959,8 +2952,8 @@ async function saveCurrentSkill() {
     }
     const data = await r.json();
     hintEl.textContent = data.unchanged
-      ? (currentLang === 'zh' ? '内容未变化' : 'No changes detected')
-      : (currentLang === 'zh' ? \`保存成功，已创建 v\${data.version}\` : \`Saved. Created v\${data.version}\`);
+      ? t('modalNoChanges')
+      : (t('modalSavedVersionPrefix') + data.version);
 
     const sr = await fetch(\`/api/projects/\${encProject}/snapshot\`);
     if (sr.ok) {
@@ -2975,7 +2968,7 @@ async function saveCurrentSkill() {
       runtime,
       error: String(e),
     });
-    hintEl.textContent = currentLang === 'zh' ? '保存失败' : 'Save failed';
+    hintEl.textContent = t('modalSaveFailed');
   } finally {
     saveBtn.disabled = false;
   }

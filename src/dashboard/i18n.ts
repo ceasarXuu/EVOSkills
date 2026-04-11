@@ -67,6 +67,19 @@ export interface I18nStrings {
   configConnectivityCheckingHint: string;
   configConnectivityDone: string;
   configConnectivityFailed: string;
+  configCustomProviderPlaceholder: string;
+  configCustomModelPlaceholder: string;
+  configApiKeyStoredPlaceholder: string;
+  configApiKeyPastePlaceholder: string;
+  configRemoveProvider: string;
+  configCatalogCustomOnly: string;
+  configCustomOption: string;
+  configProviderAlertNotConfigured: string;
+  configProviderAlertConnectivityFailed: string;
+  configProviderAlertWarning: string;
+  configProviderAlertNotConfiguredMessage: string;
+  configProviderAlertConnectivityFailedPrefix: string;
+  configProviderAlertHint: string;
 
   // Stats
   statShadowSkills: string;
@@ -122,6 +135,12 @@ export interface I18nStrings {
   skillHistory: string;
   skillTraces: string;
   skillConfidence: string;
+  skillsRuntimeAll: string;
+  skillsSearchPlaceholder: string;
+  skillsSortLabel: string;
+  skillsSortName: string;
+  skillsSortUpdated: string;
+  skillsSearchEmptyPrefix: string;
 
   // Trace Activity
   traceTitle: string;
@@ -134,6 +153,7 @@ export interface I18nStrings {
   traceTime: string;
   traceEvent: string;
   traceSession: string;
+  traceId: string;
   activityLayerBusiness: string;
   activityLayerRaw: string;
   activityTagAll: string;
@@ -160,6 +180,25 @@ export interface I18nStrings {
   activityDetailFallback: string;
   activitySourceDecision: string;
   activitySourceTrace: string;
+  activitySummarySkillCalled: string;
+  activitySummarySkillAdded: string;
+  activitySummarySkillRemoved: string;
+  activitySummarySkillEdited: string;
+  activitySummarySkillVersion: string;
+  activitySummarySkillMapped: string;
+  activitySummaryOptimizationChanged: string;
+  activitySummaryEvaluationResult: string;
+  activitySummarySkillFeedback: string;
+  activitySummaryAnalysisFailed: string;
+  activitySummaryAnalysisSubmitted: string;
+  activitySummaryProbeResult: string;
+  activitySummaryProbeSubmitted: string;
+  activityTraceToolCall: string;
+  activityTraceToolResult: string;
+  activityTraceAssistantOutput: string;
+  activityTraceUserInput: string;
+  activityTraceFileChange: string;
+  activitySourceLabel: string;
 
   // Cost Panel
   costEmpty: string;
@@ -225,6 +264,10 @@ export interface I18nStrings {
   // Log Panel
   logTitle: string;
   logFilterAll: string;
+  initProjectsLoadFailed: string;
+  initRecoveryWaiting: string;
+  runtimeBuildMismatchPrefix: string;
+  runtimeHostUnavailable: string;
 
   // Modal
   modalClose: string;
@@ -234,6 +277,12 @@ export interface I18nStrings {
   modalNoVersions: string;
   modalCurrent: string;
   modalClickToLoad: string;
+  modalLoadError: string;
+  modalSaving: string;
+  modalNoChanges: string;
+  modalSavedVersionPrefix: string;
+  modalManualEditReason: string;
+  modalSaveFailed: string;
 
   // Time
   timeAgo: string;
@@ -316,6 +365,19 @@ const en: I18nStrings = {
   configConnectivityCheckingHint: 'Checking connectivity...',
   configConnectivityDone: 'Connectivity check completed',
   configConnectivityFailed: 'Connectivity check failed',
+  configCustomProviderPlaceholder: 'Custom provider id (e.g. xai)',
+  configCustomModelPlaceholder: 'Custom model (e.g. grok-3)',
+  configApiKeyStoredPlaceholder: 'API key stored; leave blank to keep',
+  configApiKeyPastePlaceholder: 'Paste API key',
+  configRemoveProvider: 'Remove',
+  configCatalogCustomOnly: 'LiteLLM catalog not ready (custom only)',
+  configCustomOption: 'Custom...',
+  configProviderAlertNotConfigured: 'Provider Not Configured',
+  configProviderAlertConnectivityFailed: 'Provider Connectivity Failed',
+  configProviderAlertWarning: 'Provider Health Warning',
+  configProviderAlertNotConfiguredMessage: 'No provider is configured for this project.',
+  configProviderAlertConnectivityFailedPrefix: 'Failed provider connectivity:',
+  configProviderAlertHint: 'Open the Config tab to set provider and re-run connectivity check.',
 
   // Stats
   statShadowSkills: 'Shadow Skills',
@@ -371,6 +433,12 @@ const en: I18nStrings = {
   skillHistory: 'History',
   skillTraces: 'traces',
   skillConfidence: 'conf',
+  skillsRuntimeAll: 'All',
+  skillsSearchPlaceholder: 'Search skills...',
+  skillsSortLabel: 'Sort:',
+  skillsSortName: 'Name',
+  skillsSortUpdated: 'Updated',
+  skillsSearchEmptyPrefix: 'No skills found matching',
 
   // Trace Activity
   traceTitle: 'Trace Activity',
@@ -383,6 +451,7 @@ const en: I18nStrings = {
   traceTime: 'Time',
   traceEvent: 'Event',
   traceSession: 'Session',
+  traceId: 'Trace ID',
   activityLayerBusiness: 'Ornn Events',
   activityLayerRaw: 'Raw Traces',
   activityTagAll: 'All',
@@ -409,6 +478,25 @@ const en: I18nStrings = {
   activityDetailFallback: 'No detail',
   activitySourceDecision: 'Decision Event',
   activitySourceTrace: 'Trace',
+  activitySummarySkillCalled: 'Skill called',
+  activitySummarySkillAdded: 'Started monitoring skill',
+  activitySummarySkillRemoved: 'Stopped monitoring skill',
+  activitySummarySkillEdited: 'Skill edited',
+  activitySummarySkillVersion: 'Skill version iterated',
+  activitySummarySkillMapped: 'Skill mapped',
+  activitySummaryOptimizationChanged: 'Optimization state changed',
+  activitySummaryEvaluationResult: 'Evaluation result',
+  activitySummarySkillFeedback: 'Skill feedback',
+  activitySummaryAnalysisFailed: 'Analysis failed',
+  activitySummaryAnalysisSubmitted: 'Analysis submitted',
+  activitySummaryProbeResult: 'Probe result',
+  activitySummaryProbeSubmitted: 'Probe submitted',
+  activityTraceToolCall: 'Tool call',
+  activityTraceToolResult: 'Tool result',
+  activityTraceAssistantOutput: 'Assistant output',
+  activityTraceUserInput: 'User input',
+  activityTraceFileChange: 'File change',
+  activitySourceLabel: 'Source',
 
   // Cost Panel
   costEmpty: 'No agent usage has been recorded yet.',
@@ -474,6 +562,10 @@ const en: I18nStrings = {
   // Log Panel
   logTitle: 'Logs',
   logFilterAll: 'ALL',
+  initProjectsLoadFailed: 'Failed to load projects',
+  initRecoveryWaiting: 'Initialization failed. Waiting for backend data to recover...',
+  runtimeBuildMismatchPrefix: 'build mismatch',
+  runtimeHostUnavailable: 'host unavailable',
 
   // Modal
   modalClose: 'Close',
@@ -483,6 +575,12 @@ const en: I18nStrings = {
   modalNoVersions: 'No versions yet',
   modalCurrent: 'current',
   modalClickToLoad: 'Click to load',
+  modalLoadError: 'Error loading skill content.',
+  modalSaving: 'Saving...',
+  modalNoChanges: 'No changes detected',
+  modalSavedVersionPrefix: 'Saved. Created v',
+  modalManualEditReason: 'Manual edit from dashboard',
+  modalSaveFailed: 'Save failed',
 
   // Time
   timeAgo: 'ago',
@@ -565,6 +663,19 @@ const zh: I18nStrings = {
   configConnectivityCheckingHint: '连通性检查中...',
   configConnectivityDone: '连通性检查完成',
   configConnectivityFailed: '连通性检查失败',
+  configCustomProviderPlaceholder: '自定义 provider id（例如：xai）',
+  configCustomModelPlaceholder: '自定义 model（例如：grok-3）',
+  configApiKeyStoredPlaceholder: 'API Key 已保存；留空表示不修改',
+  configApiKeyPastePlaceholder: '直接粘贴 API Key',
+  configRemoveProvider: '删除',
+  configCatalogCustomOnly: 'LiteLLM 列表未就绪（仅可自定义）',
+  configCustomOption: '自定义',
+  configProviderAlertNotConfigured: 'Provider 未配置',
+  configProviderAlertConnectivityFailed: 'Provider 无法连通',
+  configProviderAlertWarning: 'Provider 检查异常',
+  configProviderAlertNotConfiguredMessage: '当前项目尚未配置任何 provider。',
+  configProviderAlertConnectivityFailedPrefix: '检测到 provider 连通失败：',
+  configProviderAlertHint: '请在 Config 页补充 provider 配置并完成连通性检查。',
 
   // Stats
   statShadowSkills: 'Shadow 技能',
@@ -620,6 +731,12 @@ const zh: I18nStrings = {
   skillHistory: '历史',
   skillTraces: '次追踪',
   skillConfidence: '置信度',
+  skillsRuntimeAll: '全部',
+  skillsSearchPlaceholder: '搜索技能...',
+  skillsSortLabel: '排序：',
+  skillsSortName: '名称',
+  skillsSortUpdated: '更新时间',
+  skillsSearchEmptyPrefix: '没有匹配的技能',
 
   // Trace Activity
   traceTitle: '追踪活动',
@@ -632,6 +749,7 @@ const zh: I18nStrings = {
   traceTime: '时间',
   traceEvent: '事件',
   traceSession: '会话',
+  traceId: '追踪 ID',
   activityLayerBusiness: 'Ornn 业务事件',
   activityLayerRaw: '原始 Trace',
   activityTagAll: '全部',
@@ -658,6 +776,25 @@ const zh: I18nStrings = {
   activityDetailFallback: '暂无详情',
   activitySourceDecision: '决策事件',
   activitySourceTrace: 'Trace',
+  activitySummarySkillCalled: '调用技能',
+  activitySummarySkillAdded: '开始监控技能',
+  activitySummarySkillRemoved: '移除技能监控',
+  activitySummarySkillEdited: '技能被编辑',
+  activitySummarySkillVersion: '技能版本迭代',
+  activitySummarySkillMapped: '技能映射成功',
+  activitySummaryOptimizationChanged: '优化状态变化',
+  activitySummaryEvaluationResult: '评估结果',
+  activitySummarySkillFeedback: '技能反馈',
+  activitySummaryAnalysisFailed: '分析失败',
+  activitySummaryAnalysisSubmitted: '已提交分析请求',
+  activitySummaryProbeResult: '时机探测结果',
+  activitySummaryProbeSubmitted: '已提交时机探测',
+  activityTraceToolCall: '工具调用',
+  activityTraceToolResult: '工具返回',
+  activityTraceAssistantOutput: '助手输出',
+  activityTraceUserInput: '用户输入',
+  activityTraceFileChange: '文件变更',
+  activitySourceLabel: '来源',
 
   // Cost Panel
   costEmpty: '当前还没有记录到 agent 调用成本数据。',
@@ -723,6 +860,10 @@ const zh: I18nStrings = {
   // Log Panel
   logTitle: '日志',
   logFilterAll: '全部',
+  initProjectsLoadFailed: '加载项目失败',
+  initRecoveryWaiting: '初始化失败，正在等待后台数据自动恢复...',
+  runtimeBuildMismatchPrefix: '版本不一致',
+  runtimeHostUnavailable: '宿主信息不可用',
 
   // Modal
   modalClose: '关闭',
@@ -732,6 +873,12 @@ const zh: I18nStrings = {
   modalNoVersions: '暂无版本',
   modalCurrent: '当前',
   modalClickToLoad: '点击加载',
+  modalLoadError: '加载技能内容失败。',
+  modalSaving: '保存中...',
+  modalNoChanges: '内容未变化',
+  modalSavedVersionPrefix: '保存成功，已创建 v',
+  modalManualEditReason: '通过 dashboard 手动编辑',
+  modalSaveFailed: '保存失败',
 
   // Time
   timeAgo: '前',

@@ -142,7 +142,7 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
   .card-body { padding: 12px; }
 
   /* Stats row */
-  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
   .stat-card {
     background: var(--bg1); border: 1px solid var(--border); border-radius: 6px;
     padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;
@@ -256,6 +256,128 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
     cursor: pointer;
   }
   .tag-chip.active { color: #fff; border-color: var(--blue); background: var(--blue); }
+  .activity-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .activity-table th {
+    position: relative;
+    font-size: 9px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 4px 18px 4px 6px;
+    border-bottom: 1px solid var(--border);
+    user-select: none;
+    white-space: nowrap;
+  }
+  .activity-table td {
+    font-size: 10px;
+    padding: 6px;
+    border-bottom: 1px solid rgba(48,54,61,.5);
+    vertical-align: top;
+    word-break: break-word;
+  }
+  .activity-table tr:last-child td { border-bottom: none; }
+  .column-resizer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 8px;
+    height: 100%;
+    cursor: col-resize;
+  }
+  .column-resizer::after {
+    content: '';
+    position: absolute;
+    top: 20%;
+    bottom: 20%;
+    left: 3px;
+    width: 1px;
+    background: rgba(139,148,158,.45);
+  }
+  .business-detail-preview {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.55;
+  }
+  .business-detail-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .detail-copy-btn, .detail-view-btn {
+    border: none;
+    background: transparent;
+    color: var(--blue);
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 10px;
+    padding: 0;
+  }
+  .detail-copy-btn:hover, .detail-view-btn:hover { text-decoration: underline; }
+
+  /* Cost tab */
+  .cost-stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  @media (max-width: 1100px) { .cost-stats-row { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 720px) { .cost-stats-row { grid-template-columns: 1fr; } }
+  .stat-value.cost-accent { color: var(--green); }
+  .cost-layout {
+    display: grid;
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 1080px) { .cost-layout { grid-template-columns: 1fr; } }
+  .cost-spotlight {
+    background: linear-gradient(135deg, rgba(57,211,83,.12), rgba(88,166,255,.08));
+    border: 1px solid rgba(57,211,83,.25);
+    border-radius: 6px;
+    padding: 12px;
+  }
+  .cost-spotlight-title { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .cost-spotlight-value { font-size: 28px; color: var(--green); font-weight: 700; margin-top: 8px; }
+  .cost-spotlight-sub { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+  .scope-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .scope-item {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg2);
+    padding: 8px;
+  }
+  .scope-item-top { display: flex; justify-content: space-between; gap: 8px; }
+  .scope-item-name { color: var(--text); font-size: 11px; }
+  .scope-item-value { color: var(--muted); font-size: 10px; }
+  .scope-item-sub { color: var(--muted); font-size: 10px; margin-top: 4px; }
+  .cost-table-wrap { border: 1px solid var(--border); border-radius: 6px; overflow: auto; }
+  .cost-table { width: 100%; border-collapse: collapse; }
+  .cost-table th, .cost-table td {
+    font-size: 10px;
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(48,54,61,.5);
+    vertical-align: top;
+    text-align: left;
+  }
+  .cost-table th {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    white-space: nowrap;
+  }
+  .cost-table tr:last-child td { border-bottom: none; }
+  .capability-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .capability-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(88,166,255,.12);
+    border: 1px solid rgba(88,166,255,.2);
+    color: var(--blue);
+    font-size: 9px;
+    white-space: nowrap;
+  }
+  .mono-compact { font-size: 10px; color: var(--muted); }
 
   /* ─── Skill Detail Modal ─────────────────────────── */
   .modal-overlay {
@@ -504,6 +626,22 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
   </div>
 </div>
 
+<div class="modal-overlay" id="eventModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <span id="eventModalTitle">${t.activityDetailTitle}</span>
+      </div>
+      <button class="modal-close" onclick="closeEventModal()">✕ ${t.modalClose}</button>
+    </div>
+    <div class="modal-body" style="grid-template-columns: 1fr;">
+      <div class="modal-content" style="border-right:none;">
+        <pre id="eventModalContent">${t.activityDetailEmpty}</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ─── i18n ─────────────────────────────────────────────────────────────────────
 const I18N = ${JSON.stringify({ en: getI18n('en'), zh: getI18n('zh') })};
@@ -547,10 +685,13 @@ function switchLang(lang) {
   if (addFormHintEl) addFormHintEl.textContent = t('sidebarAddHint');
   const logTitleEl = document.querySelector('.log-title');
   if (logTitleEl) logTitleEl.textContent = t('logTitle');
-  const modalCloseEl = document.querySelector('.modal-close');
-  if (modalCloseEl) modalCloseEl.textContent = '✕ ' + t('modalClose');
+  document.querySelectorAll('.modal-close').forEach((el) => {
+    el.textContent = '✕ ' + t('modalClose');
+  });
   const modalHistoryTitleEl = document.querySelector('.modal-history h4');
   if (modalHistoryTitleEl) modalHistoryTitleEl.textContent = t('modalVersionHistory');
+  const eventModalTitleEl = document.getElementById('eventModalTitle');
+  if (eventModalTitleEl) eventModalTitleEl.textContent = t('activityDetailTitle');
   // Re-render dynamic content
   renderSidebar();
   if (state.selectedProjectId) renderMainPanel(state.selectedProjectId);
@@ -574,8 +715,9 @@ const state = {
   currentSkillRuntime: 'codex',
   activityLayer: 'business',
   activityTagFilter: 'all',
-  businessEventsByProject: {},
-  seenTraceIdsByProject: {},
+  activityRowsByProject: {},
+  activityColumnWidths: loadSavedActivityColumnWidths(),
+  lastCopiedActivityText: '',
   providerHealthByProject: {},
   providerCatalog: [],
   providerCatalogLoading: false,
@@ -699,7 +841,7 @@ async function loadRuntimeInfo() {
     el.textContent = 'build #' + runtimeBuildShort + pidSuffix;
   } catch (err) {
     el.style.color = 'var(--yellow)';
-    el.textContent = currentLang === 'zh' ? ('build #' + DASHBOARD_BUILD_SHORT + ' (运行信息不可用)') : ('build #' + DASHBOARD_BUILD_SHORT + ' (runtime unavailable)');
+    el.textContent = currentLang === 'zh' ? ('build #' + DASHBOARD_BUILD_SHORT + ' (宿主信息不可用)') : ('build #' + DASHBOARD_BUILD_SHORT + ' (host unavailable)');
     console.warn('[dashboard] runtime info unavailable', { error: String(err) });
   }
 }
@@ -735,10 +877,6 @@ function handleUpdate(data) {
     }
   }
   if (data.projectData) {
-    for (const [projectPath, nextPd] of Object.entries(data.projectData)) {
-      const prevPd = state.projectData[projectPath];
-      updateBusinessEvents(projectPath, prevPd, nextPd);
-    }
     state.projectData = { ...state.projectData, ...data.projectData };
     if (state.selectedProjectId && Object.prototype.hasOwnProperty.call(data.projectData, state.selectedProjectId)) {
       shouldRerenderMain = true;
@@ -960,14 +1098,6 @@ async function selectProject(path) {
         console.warn('[dashboard] first snapshot fetch failed, retrying', { path, error: String(firstErr) });
         data = await fetchJsonWithTimeout(\`/api/projects/\${enc}/snapshot\`, 12000);
       }
-      try {
-        updateBusinessEvents(path, state.projectData[path], data);
-      } catch (evtErr) {
-        console.error('[dashboard] updateBusinessEvents failed; continuing with snapshot', {
-          path,
-          error: String(evtErr),
-        });
-      }
       state.projectData[path] = data;
     } catch (e) {
       console.error('[dashboard] failed to load project snapshot', { path, error: String(e) });
@@ -990,6 +1120,15 @@ async function selectProject(path) {
         skills: [],
         traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
         recentTraces: [],
+        decisionEvents: [],
+        agentUsage: {
+          callCount: 0,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          byModel: {},
+          byScope: {},
+        },
       };
     }
   }
@@ -1074,130 +1213,7 @@ function maxVersion(skill) {
   return versions.length > 0 ? Math.max(...versions) : (skill.current_revision || skill.version || 1);
 }
 
-function pushBusinessEvent(projectPath, event) {
-  const list = state.businessEventsByProject[projectPath] || [];
-  const id = event.id || (event.timestamp + ':' + event.tag + ':' + (event.skillId || '') + ':' + Math.random().toString(36).slice(2, 8));
-  list.unshift({ ...event, id });
-  state.businessEventsByProject[projectPath] = list.slice(0, 300);
-  console.debug('[dashboard] ornn business event', {
-    projectPath,
-    tag: event.tag,
-    skillId: event.skillId || null,
-    runtime: event.runtime || null,
-    status: event.status || null,
-  });
-}
-
-function updateBusinessEvents(projectPath, prevPd, nextPd) {
-  if (!nextPd) return;
-  const nowIso = new Date().toISOString();
-
-  const prevDaemon = prevPd?.daemon || null;
-  const nextDaemon = nextPd.daemon || null;
-  if (prevDaemon && nextDaemon) {
-    if (!!prevDaemon.isRunning !== !!nextDaemon.isRunning) {
-      pushBusinessEvent(projectPath, {
-        timestamp: nowIso,
-        tag: 'daemon_state',
-        status: nextDaemon.isRunning ? 'started' : 'stopped',
-      });
-    }
-    if (
-      (prevDaemon.optimizationStatus?.currentState || 'idle') !==
-      (nextDaemon.optimizationStatus?.currentState || 'idle')
-    ) {
-      pushBusinessEvent(projectPath, {
-        timestamp: nowIso,
-        tag: 'optimization_state',
-        status: nextDaemon.optimizationStatus?.currentState || 'idle',
-        skillId: nextDaemon.optimizationStatus?.currentSkillId || null,
-      });
-    }
-    if (
-      prevDaemon.optimizationStatus?.lastOptimizationAt &&
-      nextDaemon.optimizationStatus?.lastOptimizationAt &&
-      prevDaemon.optimizationStatus.lastOptimizationAt !== nextDaemon.optimizationStatus.lastOptimizationAt
-    ) {
-      pushBusinessEvent(projectPath, {
-        timestamp: nextDaemon.optimizationStatus.lastOptimizationAt,
-        tag: 'skill_version_iterated',
-        skillId: nextDaemon.optimizationStatus?.currentSkillId || null,
-      });
-    }
-  }
-
-  const prevSkills = Array.isArray(prevPd?.skills) ? prevPd.skills : [];
-  const nextSkills = Array.isArray(nextPd.skills) ? nextPd.skills : [];
-  const prevMap = new Map(prevSkills.map((s) => [skillKey(s), s]));
-  const nextMap = new Map(nextSkills.map((s) => [skillKey(s), s]));
-
-  for (const [key, skill] of nextMap.entries()) {
-    if (!prevMap.has(key)) {
-      pushBusinessEvent(projectPath, {
-        timestamp: nowIso,
-        tag: 'skill_monitoring_started',
-        skillId: skill.skillId,
-        runtime: skill.runtime || 'codex',
-      });
-      continue;
-    }
-    const prev = prevMap.get(key);
-    const prevMaxV = maxVersion(prev);
-    const nextMaxV = maxVersion(skill);
-    if (nextMaxV > prevMaxV) {
-      pushBusinessEvent(projectPath, {
-        timestamp: nowIso,
-        tag: 'skill_version_iterated',
-        skillId: skill.skillId,
-        runtime: skill.runtime || 'codex',
-        detail: 'v' + prevMaxV + ' -> v' + nextMaxV,
-      });
-    }
-    const prevRev = prev.current_revision || prev.version || 1;
-    const nextRev = skill.current_revision || skill.version || 1;
-    if (nextRev !== prevRev) {
-      pushBusinessEvent(projectPath, {
-        timestamp: nowIso,
-        tag: 'skill_edited',
-        skillId: skill.skillId,
-        runtime: skill.runtime || 'codex',
-        detail: 'rev ' + prevRev + ' -> ' + nextRev,
-      });
-    }
-  }
-  for (const [key, skill] of prevMap.entries()) {
-    if (!nextMap.has(key)) {
-      pushBusinessEvent(projectPath, {
-        timestamp: nowIso,
-        tag: 'skill_removed',
-        skillId: skill.skillId,
-        runtime: skill.runtime || 'codex',
-      });
-    }
-  }
-
-  const seen = state.seenTraceIdsByProject[projectPath] || {};
-  const recentTraces = Array.isArray(nextPd.recentTraces) ? nextPd.recentTraces : [];
-  for (const trace of recentTraces) {
-    const traceId = trace.trace_id;
-    if (!traceId || seen[traceId]) continue;
-    seen[traceId] = true;
-    if (Array.isArray(trace.skill_refs) && trace.skill_refs.length > 0) {
-      for (const skillRef of trace.skill_refs) {
-        pushBusinessEvent(projectPath, {
-          id: 'trace:' + traceId + ':' + skillRef,
-          timestamp: trace.timestamp || nowIso,
-          tag: 'skill_called',
-          skillId: skillRef,
-          runtime: trace.runtime || 'unknown',
-          status: trace.status || 'success',
-          detail: trace.event_type || '',
-        });
-      }
-    }
-  }
-  state.seenTraceIdsByProject[projectPath] = seen;
-}
+function updateBusinessEvents() {}
 
 function businessEventLabel(tag) {
   const map = {
@@ -1209,6 +1225,12 @@ function businessEventLabel(tag) {
     skill_version_iterated: t('activityTagSkillVersion'),
     daemon_state: t('activityTagDaemon'),
     optimization_state: t('activityTagOptimization'),
+    evaluation_result: t('activityTagEvaluationResult'),
+    skill_feedback: t('activityTagSkillFeedback'),
+    analysis_failed: t('activityTagAnalysisFailed'),
+    analysis_requested: t('activityTagAnalysisSubmitted'),
+    episode_probe_result: t('activityTagProbeResult'),
+    episode_probe_requested: t('activityTagProbeSubmitted'),
   };
   return map[tag] || tag;
 }
@@ -1231,13 +1253,261 @@ function formatBusinessEvent(e) {
         : ('Daemon ' + (e.status === 'started' ? 'started' : 'stopped'));
     case 'optimization_state':
       return (currentLang === 'zh' ? '优化状态变化' : 'Optimization state changed') + ': ' + (e.status || 'idle');
+    case 'evaluation_result':
+      return (currentLang === 'zh' ? '评估结果' : 'Evaluation result') + ': ' + (e.detail || e.reason || '');
+    case 'skill_feedback':
+      return (currentLang === 'zh' ? '技能反馈' : 'Skill feedback') + ': ' + (e.detail || e.reason || '');
+    case 'analysis_failed':
+      return (currentLang === 'zh' ? '分析失败' : 'Analysis failed') + ': ' + (e.detail || e.reason || '');
+    case 'analysis_requested':
+      return currentLang === 'zh' ? '已提交分析请求' : 'Analysis submitted';
+    case 'episode_probe_result':
+      return (currentLang === 'zh' ? '时机探测结果' : 'Probe result') + ': ' + (e.status || '');
+    case 'episode_probe_requested':
+      return currentLang === 'zh' ? '已提交时机探测' : 'Probe submitted';
     default:
       return e.tag;
   }
 }
 
+function normalizeDecisionTag(tag) {
+  if (!tag) return null;
+  if (tag === 'skill_mapping' || tag === 'skill_mapped' || tag === 'skill_mapping_result') return null;
+  return tag;
+}
+
+function getActivityScopeId(event) {
+  if (!event) return null;
+  if (event.windowId) return event.windowId;
+  if (event.evidence && typeof event.evidence === 'object' && event.evidence.windowId) return event.evidence.windowId;
+  return null;
+}
+
+function loadSavedActivityColumnWidths() {
+  try {
+    const raw = localStorage.getItem('ornn-dashboard-activity-columns');
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistActivityColumnWidths() {
+  try {
+    localStorage.setItem('ornn-dashboard-activity-columns', JSON.stringify(state.activityColumnWidths || {}));
+  } catch {}
+}
+
+function getActivityColumnWidth(columnKey, fallbackWidth) {
+  const width = Number(state.activityColumnWidths?.[columnKey]);
+  if (!Number.isFinite(width) || width <= 0) return fallbackWidth;
+  return width;
+}
+
+function getActivityColumnStyle(columnKey, fallbackWidth) {
+  const width = getActivityColumnWidth(columnKey, fallbackWidth);
+  return 'width:' + width + 'px;min-width:' + width + 'px;';
+}
+
+function startActivityColumnResize(event, columnKey) {
+  if (!event || !columnKey) return;
+  if (event.preventDefault) event.preventDefault();
+  const startX = event.clientX || 0;
+  const startWidth = getActivityColumnWidth(columnKey, 120);
+
+  function handleMove(moveEvent) {
+    const delta = (moveEvent.clientX || 0) - startX;
+    state.activityColumnWidths[columnKey] = Math.max(72, startWidth + delta);
+    if (state.selectedProjectId) renderMainPanel(state.selectedProjectId);
+  }
+
+  function handleUp() {
+    window.removeEventListener('mousemove', handleMove);
+    window.removeEventListener('mouseup', handleUp);
+    persistActivityColumnWidths();
+  }
+
+  window.addEventListener('mousemove', handleMove);
+  window.addEventListener('mouseup', handleUp);
+}
+
+function formatEventTimestamp(iso) {
+  if (!iso) return '—';
+  return String(iso).slice(11, 19) || '—';
+}
+
+function summarizeTraceEventType(trace) {
+  if (!trace) return t('activityDetailFallback');
+  if (trace.event_type === 'tool_call') return currentLang === 'zh' ? '工具调用' : 'Tool call';
+  if (trace.event_type === 'tool_result') return currentLang === 'zh' ? '工具返回' : 'Tool result';
+  if (trace.event_type === 'assistant_output') return currentLang === 'zh' ? '助手输出' : 'Assistant output';
+  if (trace.event_type === 'user_input') return currentLang === 'zh' ? '用户输入' : 'User input';
+  if (trace.event_type === 'file_change') return currentLang === 'zh' ? '文件变更' : 'File change';
+  return trace.event_type || t('activityDetailFallback');
+}
+
+function buildActivityDetail(row) {
+  if (!row) return t('activityDetailEmpty');
+  const lines = [
+    t('traceTime') + ': ' + (row.timestamp || '—'),
+    t('traceRuntime') + ': ' + (row.runtime || t('activityHostFallback')),
+    t('traceEvent') + ': ' + businessEventLabel(row.tag),
+    'Skill: ' + (row.skillId || '—'),
+    t('traceStatus') + ': ' + (row.status || t('activityStatusFallback')),
+    t('traceScope') + ': ' + (row.scopeId || t('activityScopeFallback')),
+    t('traceDetail') + ': ' + (row.detail || t('activityDetailFallback')),
+    (currentLang === 'zh' ? '来源' : 'Source') + ': ' + (row.sourceLabel || '—'),
+  ];
+  if (row.traceId) lines.push('Trace ID: ' + row.traceId);
+  if (row.sessionId) lines.push('Session ID: ' + row.sessionId);
+  return lines.join('\\n');
+}
+
+function buildActivityRows(projectPath) {
+  const pd = state.projectData[projectPath] || {};
+  const traces = Array.isArray(pd.recentTraces) ? pd.recentTraces : [];
+  const decisionEvents = Array.isArray(pd.decisionEvents) ? pd.decisionEvents : [];
+  const knownSkills = new Set(
+    []
+      .concat(Array.isArray(pd.skills) ? pd.skills.map((skill) => skill.skillId).filter(Boolean) : [])
+      .concat(decisionEvents.map((event) => event.skillId).filter(Boolean))
+  );
+  const runtimeByTraceId = new Map();
+  const scopeByTraceId = new Map();
+  const scopeBySessionSkill = new Map();
+
+  for (const trace of traces) {
+    if (trace.trace_id) runtimeByTraceId.set(trace.trace_id, trace.runtime || null);
+  }
+
+  const decisionRows = [];
+  for (const event of decisionEvents) {
+    const tag = normalizeDecisionTag(event.tag);
+    if (!tag) continue;
+    const scopeId = getActivityScopeId(event);
+    if (scopeId && event.traceId) scopeByTraceId.set(event.traceId, scopeId);
+    if (scopeId && event.sessionId && event.skillId) scopeBySessionSkill.set(event.sessionId + '::' + event.skillId, scopeId);
+    decisionRows.push({
+      id: 'decision:' + event.id,
+      timestamp: event.timestamp || '',
+      tag,
+      runtime: event.runtime || (event.traceId ? runtimeByTraceId.get(event.traceId) : null) || t('activityHostFallback'),
+      skillId: event.skillId || null,
+      status: event.status || (tag === 'analysis_failed' ? 'failed' : t('activityStatusFallback')),
+      scopeId: scopeId || null,
+      detail: event.detail || event.reason || formatBusinessEvent(event),
+      sourceLabel: t('activitySourceDecision'),
+      traceId: event.traceId || null,
+      sessionId: event.sessionId || null,
+    });
+  }
+
+  const traceRows = [];
+  for (const trace of traces) {
+    const skillRefs = Array.isArray(trace.skill_refs) ? [...new Set(trace.skill_refs.filter(Boolean))] : [];
+    if (skillRefs.length === 0) continue;
+    for (const skillRef of skillRefs) {
+      if (knownSkills.size > 0 && !knownSkills.has(skillRef)) continue;
+      traceRows.push({
+        id: 'trace:' + trace.trace_id + ':' + skillRef,
+        timestamp: trace.timestamp || '',
+        tag: 'skill_called',
+        runtime: trace.runtime || t('activityHostFallback'),
+        skillId: skillRef,
+        status: trace.status || 'success',
+        scopeId:
+          scopeByTraceId.get(trace.trace_id) ||
+          scopeBySessionSkill.get(trace.session_id + '::' + skillRef) ||
+          null,
+        detail: summarizeTraceEventType(trace),
+        sourceLabel: t('activitySourceTrace'),
+        traceId: trace.trace_id || null,
+        sessionId: trace.session_id || null,
+      });
+    }
+  }
+
+  const daemon = pd.daemon || null;
+  const daemonRows = [];
+  if (daemon?.optimizationStatus?.currentState && daemon.optimizationStatus.currentState !== 'idle') {
+    daemonRows.push({
+      id: 'daemon:' + daemon.optimizationStatus.currentState + ':' + (daemon.optimizationStatus.lastOptimizationAt || ''),
+      timestamp: daemon.optimizationStatus.lastOptimizationAt || daemon.lastCheckpointAt || '',
+      tag: 'optimization_state',
+      runtime: daemon.optimizationStatus.currentSkillId ? 'codex' : t('activityHostFallback'),
+      skillId: daemon.optimizationStatus.currentSkillId || null,
+      status: daemon.optimizationStatus.currentState,
+      scopeId: null,
+      detail: formatBusinessEvent({ tag: 'optimization_state', status: daemon.optimizationStatus.currentState }),
+      sourceLabel: t('activitySourceDecision'),
+      traceId: null,
+      sessionId: null,
+    });
+  }
+
+  const dedupe = new Map();
+  const rows = decisionRows
+    .concat(traceRows)
+    .concat(daemonRows)
+    .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)))
+    .filter((row) => {
+      const dedupeKey = [row.tag, row.skillId || '', row.status || '', row.scopeId || '', row.detail || ''].join('::');
+      const prevTs = dedupe.get(dedupeKey);
+      if (!prevTs) {
+        dedupe.set(dedupeKey, row.timestamp);
+        return true;
+      }
+      const delta = Math.abs(new Date(prevTs).getTime() - new Date(row.timestamp).getTime());
+      if (!Number.isFinite(delta) || delta > 15000) {
+        dedupe.set(dedupeKey, row.timestamp);
+        return true;
+      }
+      return false;
+    })
+    .slice(0, 150);
+
+  state.activityRowsByProject[projectPath] = rows;
+  console.debug('[dashboard] activity rows rebuilt', {
+    projectPath,
+    rowCount: rows.length,
+    decisionCount: decisionRows.length,
+    traceCount: traceRows.length,
+    daemonCount: daemonRows.length,
+  });
+  return rows;
+}
+
+function getActivityRow(projectPath, rowId) {
+  const rows = state.activityRowsByProject[projectPath] || [];
+  return rows.find((row) => row.id === rowId) || null;
+}
+
+async function copyActivityDetail(projectPath, rowId) {
+  const row = getActivityRow(projectPath, rowId);
+  const text = buildActivityDetail(row);
+  state.lastCopiedActivityText = text;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    await navigator.clipboard.writeText(text);
+  }
+}
+
+async function openActivityDetail(projectPath, rowId) {
+  const row = getActivityRow(projectPath, rowId);
+  document.getElementById('eventModalTitle').textContent = row
+    ? (businessEventLabel(row.tag) + ' · ' + (row.skillId || '—'))
+    : t('activityDetailTitle');
+  document.getElementById('eventModalContent').textContent = buildActivityDetail(row);
+  document.getElementById('eventModal').classList.add('visible');
+}
+
+function closeEventModal() {
+  document.getElementById('eventModal').classList.remove('visible');
+}
+
 function renderBusinessEvents(projectPath) {
-  const events = (state.businessEventsByProject[projectPath] || []).slice(0, 150);
+  const events = buildActivityRows(projectPath);
   const allTags = ['all', ...Array.from(new Set(events.map((e) => e.tag)))];
   const filtered = state.activityTagFilter === 'all'
     ? events
@@ -1255,21 +1525,214 @@ function renderBusinessEvents(projectPath) {
       <div style="font-size:10px;color:var(--muted)">\${filtered.length} / \${events.length}</div>
     </div>
     <div class="trace-table-wrap">
-      <table class="trace-table">
-        <thead><tr><th>\${t('traceTime')}</th><th>\${t('traceRuntime')}</th><th>\${t('traceEvent')}</th><th>Skill</th><th>\${t('traceStatus')}</th><th>Detail</th></tr></thead>
+      <table class="activity-table">
+        <thead><tr>
+          <th style="\${getActivityColumnStyle('time', 92)}">\${t('traceTime')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'time')"></span></th>
+          <th style="\${getActivityColumnStyle('host', 96)}">\${t('traceRuntime')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'host')"></span></th>
+          <th style="\${getActivityColumnStyle('event', 128)}">\${t('traceEvent')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'event')"></span></th>
+          <th style="\${getActivityColumnStyle('skill', 220)}">Skill<span class="column-resizer" onmousedown="startActivityColumnResize(event,'skill')"></span></th>
+          <th style="\${getActivityColumnStyle('status', 140)}">\${t('traceStatus')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'status')"></span></th>
+          <th style="\${getActivityColumnStyle('scope', 180)}">\${t('traceScope')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'scope')"></span></th>
+          <th style="\${getActivityColumnStyle('detail', 520)}">\${t('traceDetail')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'detail')"></span></th>
+        </tr></thead>
         <tbody>
           \${filtered.slice(0, 80).map((e) => \`<tr>
-            <td style="color:var(--muted)">\${e.timestamp ? e.timestamp.slice(11,19) : '—'}</td>
-            <td>\${escHtml(e.runtime || '—')}</td>
-            <td>\${escHtml(businessEventLabel(e.tag))}</td>
-            <td>\${escHtml(e.skillId || '—')}</td>
-            <td style="color:var(--muted)">\${escHtml(e.status || '—')}</td>
-            <td style="color:var(--muted)">\${escHtml(e.detail || formatBusinessEvent(e))}</td>
+            <td style="color:var(--muted);\${getActivityColumnStyle('time', 92)}">\${formatEventTimestamp(e.timestamp)}</td>
+            <td style="\${getActivityColumnStyle('host', 96)}">\${escHtml(e.runtime || t('activityHostFallback'))}</td>
+            <td style="\${getActivityColumnStyle('event', 128)}">\${escHtml(businessEventLabel(e.tag))}</td>
+            <td style="\${getActivityColumnStyle('skill', 220)}">\${escHtml(e.skillId || '—')}</td>
+            <td style="color:var(--muted);\${getActivityColumnStyle('status', 140)}">\${escHtml(e.status || t('activityStatusFallback'))}</td>
+            <td style="\${getActivityColumnStyle('scope', 180)}">\${escHtml(e.scopeId || t('activityScopeFallback'))}</td>
+            <td style="\${getActivityColumnStyle('detail', 520)}">
+              <div class="business-detail-preview">\${escHtml(e.detail || formatBusinessEvent(e) || t('activityDetailFallback'))}</div>
+              <div class="business-detail-actions">
+                <button class="detail-copy-btn" onclick="copyActivityDetail('\${escJsStr(projectPath)}','\${escJsStr(e.id)}')">\${t('activityCopy')}</button>
+                <button class="detail-view-btn" onclick="openActivityDetail('\${escJsStr(projectPath)}','\${escJsStr(e.id)}')">\${t('activityViewDetails')}</button>
+              </div>
+            </td>
           </tr>\`).join('')}
         </tbody>
       </table>
     </div>
   \`;
+}
+
+function formatCompactNumber(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num)) return '0';
+  return new Intl.NumberFormat(currentLang === 'zh' ? 'zh-CN' : 'en-US', {
+    notation: num >= 10000 ? 'compact' : 'standard',
+    maximumFractionDigits: num >= 10000 ? 1 : 0,
+  }).format(num);
+}
+
+function formatUsd(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return '—';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: num < 0.01 ? 4 : 2,
+    maximumFractionDigits: num < 0.01 ? 4 : 2,
+  }).format(num);
+}
+
+function getLiteLLMModelDetailsIndex() {
+  const index = {};
+  const catalog = Array.isArray(state.providerCatalog) ? state.providerCatalog : [];
+  for (const provider of catalog) {
+    const details = Array.isArray(provider.modelDetails) ? provider.modelDetails : [];
+    for (const detail of details) {
+      if (!detail || !detail.id) continue;
+      index[detail.id] = detail;
+      const shortName = String(detail.id).split('/').pop();
+      if (shortName && !index[shortName]) index[shortName] = detail;
+    }
+  }
+  return index;
+}
+
+function estimateModelSpend(modelStats, detail) {
+  if (!detail) return null;
+  const inputRate = Number(detail.inputCostPerToken);
+  const outputRate = Number(detail.outputCostPerToken);
+  if (!Number.isFinite(inputRate) && !Number.isFinite(outputRate)) return null;
+  return (modelStats.promptTokens || 0) * (Number.isFinite(inputRate) ? inputRate : 0) +
+    (modelStats.completionTokens || 0) * (Number.isFinite(outputRate) ? outputRate : 0);
+}
+
+function renderCapabilityPills(detail) {
+  if (!detail) return '<span class="mono-compact">' + t('costCapabilityNone') + '</span>';
+  const pills = [];
+  if (detail.supportsReasoning) pills.push(t('costCapabilityReasoning'));
+  if (detail.supportsFunctionCalling) pills.push(t('costCapabilityFunctionCalling'));
+  if (detail.supportsPromptCaching) pills.push(t('costCapabilityPromptCaching'));
+  if (detail.supportsStructuredOutput) pills.push(t('costCapabilityStructuredOutput'));
+  if (detail.supportsVision) pills.push(t('costCapabilityVision'));
+  if (detail.supportsWebSearch) pills.push(t('costCapabilityWebSearch'));
+  if (pills.length === 0) return '<span class="mono-compact">' + t('costCapabilityNone') + '</span>';
+  return '<div class="capability-pills">' + pills.map((label) => '<span class="capability-pill">' + escHtml(label) + '</span>').join('') + '</div>';
+}
+
+function renderCostPanel(projectPath) {
+  const pd = state.projectData[projectPath] || {};
+  const usage = pd.agentUsage || {
+    callCount: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    byModel: {},
+    byScope: {},
+  };
+  if (!usage.callCount) {
+    return '<div class="empty-state">' + t('costEmpty') + '</div>';
+  }
+
+  const modelIndex = getLiteLLMModelDetailsIndex();
+  const modelRows = Object.entries(usage.byModel || {})
+    .map(([model, stats]) => {
+      const detail = modelIndex[model] || modelIndex[String(model).split('/').pop() || ''] || null;
+      const estimatedSpend = estimateModelSpend(stats, detail);
+      return {
+        model,
+        stats,
+        detail,
+        estimatedSpend,
+      };
+    })
+    .sort((a, b) => (b.stats.totalTokens || 0) - (a.stats.totalTokens || 0));
+
+  const pricedModelCount = modelRows.filter((row) => row.estimatedSpend !== null).length;
+  const totalEstimatedSpend = modelRows.reduce((sum, row) => sum + (row.estimatedSpend || 0), 0);
+  const scopeRows = Object.entries(usage.byScope || {}).sort((a, b) => (b[1].totalTokens || 0) - (a[1].totalTokens || 0));
+
+  const scopeHtml = scopeRows.map(([scope, stats]) =>
+    '<div class="scope-item">' +
+      '<div class="scope-item-top">' +
+        '<div class="scope-item-name">' + escHtml(scope) + '</div>' +
+        '<div class="scope-item-value">' + formatCompactNumber(stats.callCount || 0) + ' ' + (currentLang === 'zh' ? '次' : 'calls') + '</div>' +
+      '</div>' +
+      '<div class="scope-item-sub">' + formatCompactNumber(stats.totalTokens || 0) + ' tokens</div>' +
+    '</div>'
+  ).join('');
+
+  const modelHtml = modelRows.map((row) =>
+    '<tr>' +
+      '<td><div>' + escHtml(row.model) + '</div><div class="mono-compact">' + escHtml(row.detail?.mode || '') + '</div></td>' +
+      '<td>' + formatCompactNumber(row.stats.callCount || 0) + '</td>' +
+      '<td>' + formatCompactNumber(row.stats.promptTokens || 0) + '</td>' +
+      '<td>' + formatCompactNumber(row.stats.completionTokens || 0) + '</td>' +
+      '<td>' + formatCompactNumber(row.stats.totalTokens || 0) + '</td>' +
+      '<td>' + (row.estimatedSpend === null ? '<span class="mono-compact">' + t('costUnknownPricing') + '</span>' : formatUsd(row.estimatedSpend)) + '</td>' +
+      '<td>' + (row.detail?.maxInputTokens ? formatCompactNumber(row.detail.maxInputTokens) : '—') + '</td>' +
+      '<td>' + (row.detail?.maxOutputTokens ? formatCompactNumber(row.detail.maxOutputTokens) : '—') + '</td>' +
+      '<td>' + renderCapabilityPills(row.detail) + '</td>' +
+    '</tr>'
+  ).join('');
+
+  return '<div class="cost-stats-row">' +
+      '<div class="stat-card">' +
+        '<div class="stat-label">' + t('costEstimated') + '</div>' +
+        '<div class="stat-value cost-accent">' + (pricedModelCount === 0 ? '—' : formatUsd(totalEstimatedSpend)) + '</div>' +
+        '<div class="stat-sub">' + (pricedModelCount === 0 ? t('costUnknownPricing') : t('costEstimatedSub')) + '</div>' +
+      '</div>' +
+      '<div class="stat-card">' +
+        '<div class="stat-label">' + t('costCalls') + '</div>' +
+        '<div class="stat-value">' + formatCompactNumber(usage.callCount) + '</div>' +
+        '<div class="stat-sub">' + t('costCallsSub') + '</div>' +
+      '</div>' +
+      '<div class="stat-card">' +
+        '<div class="stat-label">' + t('costInputTokens') + '</div>' +
+        '<div class="stat-value">' + formatCompactNumber(usage.promptTokens) + '</div>' +
+        '<div class="stat-sub">' + t('costInputTokensSub') + '</div>' +
+      '</div>' +
+      '<div class="stat-card">' +
+        '<div class="stat-label">' + t('costOutputTokens') + '</div>' +
+        '<div class="stat-value">' + formatCompactNumber(usage.completionTokens) + '</div>' +
+        '<div class="stat-sub">' + t('costOutputTokensSub') + '</div>' +
+      '</div>' +
+      '<div class="stat-card">' +
+        '<div class="stat-label">' + t('costTotalTokens') + '</div>' +
+        '<div class="stat-value">' + formatCompactNumber(usage.totalTokens) + '</div>' +
+        '<div class="stat-sub">' + t('costTotalTokensSub') + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="cost-layout">' +
+      '<div class="card">' +
+        '<div class="card-body">' +
+          '<div class="cost-spotlight">' +
+            '<div class="cost-spotlight-title">' + t('costEstimated') + '</div>' +
+            '<div class="cost-spotlight-value">' + (pricedModelCount === 0 ? '—' : formatUsd(totalEstimatedSpend)) + '</div>' +
+            '<div class="cost-spotlight-sub">' + (pricedModelCount === 0 ? t('costUnknownPricing') : t('costEstimatedSub')) + '</div>' +
+          '</div>' +
+          '<div class="scope-list">' +
+            '<div class="mono-compact">' + t('costByScope') + '</div>' +
+            scopeHtml +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="card">' +
+        '<div class="card-header"><span>' + t('mainTabCost') + '</span><span style="color:var(--muted)">' + modelRows.length + '</span></div>' +
+        '<div class="card-body">' +
+          '<div class="cost-table-wrap">' +
+            '<table class="cost-table">' +
+              '<thead><tr>' +
+                '<th>' + t('costModel') + '</th>' +
+                '<th>' + t('costCalls') + '</th>' +
+                '<th>' + t('costInputTokens') + '</th>' +
+                '<th>' + t('costOutputTokens') + '</th>' +
+                '<th>' + t('costTotalTokens') + '</th>' +
+                '<th>' + t('costEstimatedSpend') + '</th>' +
+                '<th>' + t('costMaxInput') + '</th>' +
+                '<th>' + t('costMaxOutput') + '</th>' +
+                '<th>' + t('costCapabilities') + '</th>' +
+              '</tr></thead>' +
+              '<tbody>' + modelHtml + '</tbody>' +
+            '</table>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
 }
 
 // ─── Main Panel ───────────────────────────────────────────────────────────────
@@ -1288,6 +1751,7 @@ function renderMainPanel(projectPath) {
   const skills = pd.skills || [];
   const traceStats = pd.traceStats || { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} };
   const recentTraces = pd.recentTraces || [];
+  const agentUsage = pd.agentUsage || { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, byModel: {}, byScope: {} };
 
   const uptime = daemon.isRunning && daemon.startedAt ? formatUptime(daemon.startedAt) : '—';
 
@@ -1296,6 +1760,7 @@ function renderMainPanel(projectPath) {
       <button class="main-tab \${state.selectedMainTab === 'overview' ? 'active' : ''}" onclick="selectMainTab('overview')">\${t('mainTabOverview')}</button>
       <button class="main-tab \${state.selectedMainTab === 'skills' ? 'active' : ''}" onclick="selectMainTab('skills')">\${t('mainTabSkills')}</button>
       <button class="main-tab \${state.selectedMainTab === 'activity' ? 'active' : ''}" onclick="selectMainTab('activity')">\${t('mainTabActivity')}</button>
+      <button class="main-tab \${state.selectedMainTab === 'cost' ? 'active' : ''}" onclick="selectMainTab('cost')">\${t('mainTabCost')}</button>
       <button class="main-tab \${state.selectedMainTab === 'logs' ? 'active' : ''}" onclick="selectMainTab('logs')">\${t('mainTabLogs')}</button>
       <button class="main-tab \${state.selectedMainTab === 'config' ? 'active' : ''}" onclick="selectMainTab('config')">\${t('mainTabConfig')}</button>
     </div>
@@ -1323,6 +1788,11 @@ function renderMainPanel(projectPath) {
         <div class="stat-label">\${t('statQueue')}</div>
         <div class="stat-value">\${daemon.optimizationStatus?.queueSize ?? 0}</div>
         <div class="stat-sub">\${t('statQueueSub')}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">\${t('costCalls')}</div>
+        <div class="stat-value">\${agentUsage.callCount ?? 0}</div>
+        <div class="stat-sub">\${t('costCallsSub')}</div>
       </div>
     </div>
 
@@ -1421,6 +1891,15 @@ function renderMainPanel(projectPath) {
     </div>
     \` : ''}
 
+    \${state.selectedMainTab === 'cost' ? \`
+    <div class="card">
+      <div class="card-header"><span>\${t('mainTabCost')}</span><span style="color:var(--muted)">\${agentUsage.callCount ?? 0}</span></div>
+      <div class="card-body">
+        \${renderCostPanel(projectPath)}
+      </div>
+    </div>
+    \` : ''}
+
     \${state.selectedMainTab === 'logs' ? \`
     <div class="log-panel">
       <div class="log-header">
@@ -1467,7 +1946,7 @@ function renderMainPanel(projectPath) {
 
 function selectMainTab(tab) {
   state.selectedMainTab = tab;
-  if (tab === 'config' && state.providerCatalog.length === 0) {
+  if ((tab === 'config' || tab === 'cost') && state.providerCatalog.length === 0) {
     void loadProviderCatalog(true);
   }
   if (state.selectedProjectId) {
@@ -2194,6 +2673,9 @@ function closeModal() {
 // Close modal on overlay click
 document.getElementById('skillModal').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) closeModal();
+});
+document.getElementById('eventModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeEventModal();
 });
 
 // ─── Logs ─────────────────────────────────────────────────────────────────────

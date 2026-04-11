@@ -33,6 +33,7 @@ export interface I18nStrings {
   mainTabOverview: string;
   mainTabSkills: string;
   mainTabActivity: string;
+  mainTabCost: string;
   mainTabLogs: string;
   mainTabConfig: string;
   activityEmpty: string;
@@ -94,6 +95,9 @@ export interface I18nStrings {
   traceTitle: string;
   traceTotal: string;
   traceRuntime: string;
+  traceScope: string;
+  traceDetail: string;
+  traceAction: string;
   traceStatus: string;
   traceTime: string;
   traceEvent: string;
@@ -108,6 +112,50 @@ export interface I18nStrings {
   activityTagSkillVersion: string;
   activityTagDaemon: string;
   activityTagOptimization: string;
+  activityTagEvaluationResult: string;
+  activityTagSkillFeedback: string;
+  activityTagAnalysisFailed: string;
+  activityTagAnalysisSubmitted: string;
+  activityTagProbeResult: string;
+  activityTagProbeSubmitted: string;
+  activityViewDetails: string;
+  activityCopy: string;
+  activityDetailTitle: string;
+  activityDetailEmpty: string;
+  activityHostFallback: string;
+  activityScopeFallback: string;
+  activityStatusFallback: string;
+  activityDetailFallback: string;
+  activitySourceDecision: string;
+  activitySourceTrace: string;
+
+  // Cost Panel
+  costEmpty: string;
+  costEstimated: string;
+  costEstimatedSub: string;
+  costCalls: string;
+  costCallsSub: string;
+  costInputTokens: string;
+  costInputTokensSub: string;
+  costOutputTokens: string;
+  costOutputTokensSub: string;
+  costTotalTokens: string;
+  costTotalTokensSub: string;
+  costModel: string;
+  costScope: string;
+  costCapabilities: string;
+  costMaxInput: string;
+  costMaxOutput: string;
+  costEstimatedSpend: string;
+  costUnknownPricing: string;
+  costByScope: string;
+  costCapabilityReasoning: string;
+  costCapabilityFunctionCalling: string;
+  costCapabilityPromptCaching: string;
+  costCapabilityStructuredOutput: string;
+  costCapabilityVision: string;
+  costCapabilityWebSearch: string;
+  costCapabilityNone: string;
 
   // Log Panel
   logTitle: string;
@@ -161,6 +209,7 @@ const en: I18nStrings = {
   mainTabOverview: 'Overview',
   mainTabSkills: 'Skills',
   mainTabActivity: 'Activity',
+  mainTabCost: 'Cost',
   mainTabLogs: 'Logs',
   mainTabConfig: 'Config',
   activityEmpty: 'No trace activity yet.',
@@ -229,7 +278,10 @@ const en: I18nStrings = {
   // Trace Activity
   traceTitle: 'Trace Activity',
   traceTotal: 'total',
-  traceRuntime: 'Runtime',
+  traceRuntime: 'Host',
+  traceScope: 'Scope',
+  traceDetail: 'Detail',
+  traceAction: 'Action',
   traceStatus: 'Status',
   traceTime: 'Time',
   traceEvent: 'Event',
@@ -244,6 +296,50 @@ const en: I18nStrings = {
   activityTagSkillVersion: 'Version Iterated',
   activityTagDaemon: 'Daemon',
   activityTagOptimization: 'Optimization',
+  activityTagEvaluationResult: 'Evaluation Result',
+  activityTagSkillFeedback: 'Skill Feedback',
+  activityTagAnalysisFailed: 'Analysis Failed',
+  activityTagAnalysisSubmitted: 'Analysis Submitted',
+  activityTagProbeResult: 'Probe Result',
+  activityTagProbeSubmitted: 'Probe Submitted',
+  activityViewDetails: 'View Details',
+  activityCopy: 'Copy',
+  activityDetailTitle: 'Activity Detail',
+  activityDetailEmpty: 'No readable detail available.',
+  activityHostFallback: '—',
+  activityScopeFallback: '—',
+  activityStatusFallback: '—',
+  activityDetailFallback: 'No detail',
+  activitySourceDecision: 'Decision Event',
+  activitySourceTrace: 'Trace',
+
+  // Cost Panel
+  costEmpty: 'No agent usage has been recorded yet.',
+  costEstimated: 'Estimated Spend',
+  costEstimatedSub: 'Calculated from LiteLLM pricing when available',
+  costCalls: 'Agent Calls',
+  costCallsSub: 'Cumulative analyzer / explainer invocations',
+  costInputTokens: 'Input Tokens',
+  costInputTokensSub: 'Prompt and context tokens',
+  costOutputTokens: 'Output Tokens',
+  costOutputTokensSub: 'Completion and reasoning tokens',
+  costTotalTokens: 'Total Tokens',
+  costTotalTokensSub: 'Input + output tokens',
+  costModel: 'Model',
+  costScope: 'Scope',
+  costCapabilities: 'Capabilities',
+  costMaxInput: 'Max Input',
+  costMaxOutput: 'Max Output',
+  costEstimatedSpend: 'Estimated Spend',
+  costUnknownPricing: 'Pricing unavailable',
+  costByScope: 'By Scope',
+  costCapabilityReasoning: 'Reasoning',
+  costCapabilityFunctionCalling: 'Function Calling',
+  costCapabilityPromptCaching: 'Prompt Caching',
+  costCapabilityStructuredOutput: 'Structured Output',
+  costCapabilityVision: 'Vision',
+  costCapabilityWebSearch: 'Web Search',
+  costCapabilityNone: 'No capability metadata',
 
   // Log Panel
   logTitle: 'Logs',
@@ -297,6 +393,7 @@ const zh: I18nStrings = {
   mainTabOverview: '总览',
   mainTabSkills: '技能列表',
   mainTabActivity: '实时追踪',
+  mainTabCost: '成本',
   mainTabLogs: '日志',
   mainTabConfig: '配置',
   activityEmpty: '暂无追踪活动。',
@@ -365,7 +462,10 @@ const zh: I18nStrings = {
   // Trace Activity
   traceTitle: '追踪活动',
   traceTotal: '总计',
-  traceRuntime: '运行时',
+  traceRuntime: '宿主',
+  traceScope: 'Scope',
+  traceDetail: '详情',
+  traceAction: '操作',
   traceStatus: '状态',
   traceTime: '时间',
   traceEvent: '事件',
@@ -380,6 +480,50 @@ const zh: I18nStrings = {
   activityTagSkillVersion: '版本迭代',
   activityTagDaemon: '守护进程',
   activityTagOptimization: '优化状态',
+  activityTagEvaluationResult: '评估结果',
+  activityTagSkillFeedback: '技能反馈',
+  activityTagAnalysisFailed: '分析失败',
+  activityTagAnalysisSubmitted: '分析已提交',
+  activityTagProbeResult: '时机探测结果',
+  activityTagProbeSubmitted: '时机探测已提交',
+  activityViewDetails: '查看详情',
+  activityCopy: '复制',
+  activityDetailTitle: '事件详情',
+  activityDetailEmpty: '当前事件没有可读详情。',
+  activityHostFallback: '—',
+  activityScopeFallback: '—',
+  activityStatusFallback: '—',
+  activityDetailFallback: '暂无详情',
+  activitySourceDecision: '决策事件',
+  activitySourceTrace: 'Trace',
+
+  // Cost Panel
+  costEmpty: '当前还没有记录到 agent 调用成本数据。',
+  costEstimated: '预估成本',
+  costEstimatedSub: '有 LiteLLM 定价数据时按模型自动估算',
+  costCalls: 'Agent 调用',
+  costCallsSub: '累计分析 / 解释调用次数',
+  costInputTokens: '输入 Tokens',
+  costInputTokensSub: 'Prompt 与上下文消耗',
+  costOutputTokens: '输出 Tokens',
+  costOutputTokensSub: 'Completion 与 reasoning 消耗',
+  costTotalTokens: '总 Tokens',
+  costTotalTokensSub: '输入 + 输出总量',
+  costModel: '模型',
+  costScope: 'Scope',
+  costCapabilities: '能力',
+  costMaxInput: '最大输入',
+  costMaxOutput: '最大输出',
+  costEstimatedSpend: '预估成本',
+  costUnknownPricing: '暂无定价',
+  costByScope: '按 Scope',
+  costCapabilityReasoning: '推理',
+  costCapabilityFunctionCalling: '函数调用',
+  costCapabilityPromptCaching: 'Prompt 缓存',
+  costCapabilityStructuredOutput: '结构化输出',
+  costCapabilityVision: '视觉',
+  costCapabilityWebSearch: 'Web 搜索',
+  costCapabilityNone: '暂无能力元数据',
 
   // Log Panel
   logTitle: '日志',

@@ -16,12 +16,40 @@ const CACHE_TTL_MS = 10 * 60 * 1000;
 
 interface LiteLLMModelMeta {
   litellm_provider?: string;
+  mode?: string;
+  max_input_tokens?: number;
+  max_output_tokens?: number;
+  input_cost_per_token?: number;
+  output_cost_per_token?: number;
+  supports_reasoning?: boolean;
+  supports_function_calling?: boolean;
+  supports_prompt_caching?: boolean;
+  supports_response_schema?: boolean;
+  supports_native_structured_output?: boolean;
+  supports_vision?: boolean;
+  supports_web_search?: boolean;
+}
+
+interface LiteLLMModelDetail {
+  id: string;
+  mode: string | null;
+  maxInputTokens: number | null;
+  maxOutputTokens: number | null;
+  inputCostPerToken: number | null;
+  outputCostPerToken: number | null;
+  supportsReasoning: boolean;
+  supportsFunctionCalling: boolean;
+  supportsPromptCaching: boolean;
+  supportsStructuredOutput: boolean;
+  supportsVision: boolean;
+  supportsWebSearch: boolean;
 }
 
 interface CatalogEntry {
   id: string;
   name: string;
   models: string[];
+  modelDetails: LiteLLMModelDetail[];
   defaultModel: string;
   apiKeyEnvVar: string;
 }
@@ -36,7 +64,7 @@ function providerToEnvVar(providerId: string): string {
 function buildCatalogFromRegistry(
   registry: Record<string, LiteLLMModelMeta>
 ): CatalogEntry[] {
-  const map = new Map<string, Set<string>>();
+  const map = new Map<string, Map<string, LiteLLMModelDetail>>();
 
   for (const [modelName, meta] of Object.entries(registry)) {
     if (!modelName || modelName.startsWith("sample_spec")) continue;
@@ -44,17 +72,33 @@ function buildCatalogFromRegistry(
       (meta.litellm_provider && String(meta.litellm_provider).trim()) ||
       (modelName.includes("/") ? modelName.split("/")[0] : "");
     if (!provider) continue;
-    if (!map.has(provider)) map.set(provider, new Set<string>());
-    map.get(provider)?.add(modelName);
+    if (!map.has(provider)) map.set(provider, new Map<string, LiteLLMModelDetail>());
+    map.get(provider)?.set(modelName, {
+      id: modelName,
+      mode: typeof meta.mode === "string" ? meta.mode : null,
+      maxInputTokens: typeof meta.max_input_tokens === "number" ? meta.max_input_tokens : null,
+      maxOutputTokens: typeof meta.max_output_tokens === "number" ? meta.max_output_tokens : null,
+      inputCostPerToken: typeof meta.input_cost_per_token === "number" ? meta.input_cost_per_token : null,
+      outputCostPerToken: typeof meta.output_cost_per_token === "number" ? meta.output_cost_per_token : null,
+      supportsReasoning: meta.supports_reasoning === true,
+      supportsFunctionCalling: meta.supports_function_calling === true,
+      supportsPromptCaching: meta.supports_prompt_caching === true,
+      supportsStructuredOutput:
+        meta.supports_native_structured_output === true || meta.supports_response_schema === true,
+      supportsVision: meta.supports_vision === true,
+      supportsWebSearch: meta.supports_web_search === true,
+    });
   }
 
   return [...map.entries()]
-    .map(([provider, modelsSet]) => {
-      const models = [...modelsSet].sort();
+    .map(([provider, modelMap]) => {
+      const modelDetails = [...modelMap.values()].sort((a, b) => a.id.localeCompare(b.id));
+      const models = modelDetails.map((item) => item.id);
       return {
         id: provider,
         name: provider,
         models,
+        modelDetails,
         defaultModel: models[0] || "",
         apiKeyEnvVar: providerToEnvVar(provider),
       };
@@ -91,4 +135,3 @@ export async function getLiteLLMCatalog(forceRefresh = false): Promise<CatalogEn
   });
   return catalog;
 }
-

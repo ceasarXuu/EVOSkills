@@ -51,8 +51,12 @@ function createFakeElement(id = ''): FakeElement {
   };
 }
 
-function loadDashboardTestHarness(storageSeed: Record<string, string> = {}) {
-  const html = getDashboardHtml(47432, 'zh', 'test-build-id');
+function loadDashboardTestHarness(
+  storageSeed: Record<string, string> = {},
+  options: { lang?: 'zh' | 'en' } = {}
+) {
+  const lang = options.lang || 'zh';
+  const html = getDashboardHtml(47432, lang, 'test-build-id');
   const scriptMatch = html.match(/<script>([\s\S]*)<\/script>/);
   if (!scriptMatch) {
     throw new Error('Dashboard script not found');
@@ -72,7 +76,7 @@ function loadDashboardTestHarness(storageSeed: Record<string, string> = {}) {
 
   const document = {
     activeElement: null as FakeElement | null,
-    documentElement: { lang: 'zh' },
+    documentElement: { lang },
     body: createFakeElement('body'),
     getElementById(id: string) {
       return ensureElement(id);
@@ -364,7 +368,7 @@ describe('dashboard ui recovery', () => {
     expect(html).toContain('540千');
   });
 
-  it('renders a cost tab with estimated spend and LiteLLM model metadata', () => {
+  it('renders a richer cost tab with latency, skill breakdown, and LiteLLM metadata', () => {
     const { dashboard, getElement } = loadDashboardTestHarness();
     const projectPath = '/tmp/ornn-project';
 
@@ -400,36 +404,64 @@ describe('dashboard ui recovery', () => {
         recentTraces: [],
         decisionEvents: [],
         agentUsage: {
-          callCount: 3,
-          promptTokens: 1000,
-          completionTokens: 250,
-          totalTokens: 1250,
-          durationMsTotal: 3000,
-          avgDurationMs: 1000,
+          callCount: 12,
+          promptTokens: 120000,
+          completionTokens: 30000,
+          totalTokens: 150000,
+          durationMsTotal: 24000,
+          avgDurationMs: 2000,
           lastCallAt: '2026-04-10T05:23:00.000Z',
           byModel: {
             'deepseek/deepseek-reasoner': {
-              callCount: 3,
-              promptTokens: 1000,
-              completionTokens: 250,
-              totalTokens: 1250,
-              durationMsTotal: 3000,
-              avgDurationMs: 1000,
+              callCount: 12,
+              promptTokens: 120000,
+              completionTokens: 30000,
+              totalTokens: 150000,
+              durationMsTotal: 24000,
+              avgDurationMs: 2000,
               lastCallAt: '2026-04-10T05:23:00.000Z',
             },
           },
           byScope: {
             skill_call_analyzer: {
-              callCount: 2,
-              promptTokens: 900,
-              completionTokens: 200,
-              totalTokens: 1100,
-              durationMsTotal: 2200,
-              avgDurationMs: 1100,
+              callCount: 8,
+              promptTokens: 100000,
+              completionTokens: 24000,
+              totalTokens: 124000,
+              durationMsTotal: 18000,
+              avgDurationMs: 2250,
               lastCallAt: '2026-04-10T05:23:00.000Z',
             },
+            decision_explainer: {
+              callCount: 4,
+              promptTokens: 20000,
+              completionTokens: 6000,
+              totalTokens: 26000,
+              durationMsTotal: 6000,
+              avgDurationMs: 1500,
+              lastCallAt: '2026-04-10T05:19:00.000Z',
+            },
           },
-          bySkill: {},
+          bySkill: {
+            'summary-my-repo': {
+              callCount: 7,
+              promptTokens: 90000,
+              completionTokens: 21000,
+              totalTokens: 111000,
+              durationMsTotal: 14000,
+              avgDurationMs: 2000,
+              lastCallAt: '2026-04-10T05:23:00.000Z',
+            },
+            'show-my-repo': {
+              callCount: 5,
+              promptTokens: 30000,
+              completionTokens: 9000,
+              totalTokens: 39000,
+              durationMsTotal: 10000,
+              avgDurationMs: 2000,
+              lastCallAt: '2026-04-10T05:18:00.000Z',
+            },
+          },
         },
       },
     };
@@ -437,9 +469,111 @@ describe('dashboard ui recovery', () => {
     dashboard.renderMainPanel(projectPath);
     const html = getElement('mainPanel').innerHTML;
     expect(html).toContain('成本');
+    expect(html).toContain('估算成本');
+    expect(html).toContain('平均时延');
+    expect(html).toContain('单次平均 Token');
+    expect(html).toContain('最近调用');
+    expect(html).toContain('技能 Token 消耗 Top 5');
+    expect(html).toContain('summary-my-repo');
+    expect(html).toContain('LiteLLM 信号');
     expect(html).toContain('deepseek/deepseek-reasoner');
     expect(html).toContain('推理');
-    expect(html).toContain('$0.0011');
+    expect(html).toContain('函数调用');
+    expect(html).toContain('$0.13');
+  });
+
+  it('renders the richer cost tab with fully localized English copy', () => {
+    const { dashboard, getElement } = loadDashboardTestHarness({}, { lang: 'en' });
+    const projectPath = '/tmp/ornn-project';
+
+    getElement('mainPanel');
+    dashboard.state.selectedMainTab = 'cost';
+    dashboard.state.selectedProjectId = projectPath;
+    dashboard.state.providerCatalog = [{
+      id: 'deepseek',
+      name: 'deepseek',
+      models: ['deepseek/deepseek-reasoner'],
+      modelDetails: [{
+        id: 'deepseek/deepseek-reasoner',
+        mode: 'chat',
+        maxInputTokens: 64000,
+        maxOutputTokens: 8000,
+        inputCostPerToken: 0.00000055,
+        outputCostPerToken: 0.00000219,
+        supportsReasoning: true,
+        supportsFunctionCalling: true,
+        supportsPromptCaching: false,
+        supportsStructuredOutput: true,
+        supportsVision: false,
+        supportsWebSearch: false,
+      }],
+      defaultModel: 'deepseek/deepseek-reasoner',
+      apiKeyEnvVar: 'DEEPSEEK_API_KEY',
+    }];
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+        decisionEvents: [],
+        agentUsage: {
+          callCount: 12,
+          promptTokens: 120000,
+          completionTokens: 30000,
+          totalTokens: 150000,
+          durationMsTotal: 24000,
+          avgDurationMs: 2000,
+          lastCallAt: '2026-04-10T05:23:00.000Z',
+          byModel: {
+            'deepseek/deepseek-reasoner': {
+              callCount: 12,
+              promptTokens: 120000,
+              completionTokens: 30000,
+              totalTokens: 150000,
+              durationMsTotal: 24000,
+              avgDurationMs: 2000,
+              lastCallAt: '2026-04-10T05:23:00.000Z',
+            },
+          },
+          byScope: {
+            skill_call_analyzer: {
+              callCount: 8,
+              promptTokens: 100000,
+              completionTokens: 24000,
+              totalTokens: 124000,
+              durationMsTotal: 18000,
+              avgDurationMs: 2250,
+              lastCallAt: '2026-04-10T05:23:00.000Z',
+            },
+          },
+          bySkill: {
+            'summary-my-repo': {
+              callCount: 7,
+              promptTokens: 90000,
+              completionTokens: 21000,
+              totalTokens: 111000,
+              durationMsTotal: 14000,
+              avgDurationMs: 2000,
+              lastCallAt: '2026-04-10T05:23:00.000Z',
+            },
+          },
+        },
+      },
+    };
+
+    dashboard.renderMainPanel(projectPath);
+    const html = getElement('mainPanel').innerHTML;
+    expect(html).toContain('Cost');
+    expect(html).toContain('Estimated Cost');
+    expect(html).toContain('Average Latency');
+    expect(html).toContain('Average Tokens / Call');
+    expect(html).toContain('Latest Call');
+    expect(html).toContain('Top Skills by Token Spend');
+    expect(html).toContain('LiteLLM Signals');
+    expect(html).toContain(
+      'Calls, input tokens, output tokens, total tokens, average latency, latest call, and rollups by model, scope, and skill.'
+    );
   });
 
   it('renders copy and detail actions for activity rows and copies readable detail text', async () => {

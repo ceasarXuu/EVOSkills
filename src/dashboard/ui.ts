@@ -325,10 +325,11 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
   .stat-value.cost-accent { color: var(--green); }
   .cost-layout {
     display: grid;
-    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.7fr) minmax(280px, .9fr);
     gap: 12px;
   }
   @media (max-width: 1080px) { .cost-layout { grid-template-columns: 1fr; } }
+  .cost-stack { display: flex; flex-direction: column; gap: 12px; }
   .cost-spotlight {
     background: linear-gradient(135deg, rgba(57,211,83,.12), rgba(88,166,255,.08));
     border: 1px solid rgba(57,211,83,.25);
@@ -349,6 +350,21 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
   .scope-item-name { color: var(--text); font-size: 11px; }
   .scope-item-value { color: var(--muted); font-size: 10px; }
   .scope-item-sub { color: var(--muted); font-size: 10px; margin-top: 4px; }
+  .cost-primary { font-size: 12px; color: var(--text); font-weight: 600; }
+  .cost-secondary { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .cost-note { font-size: 10px; color: var(--muted); line-height: 1.5; }
+  .cost-note strong { color: var(--text); font-weight: 600; }
+  .cost-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cost-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(88,166,255,.08);
+    border: 1px solid rgba(88,166,255,.18);
+    color: var(--text);
+    font-size: 9px;
+  }
   .cost-table-wrap { border: 1px solid var(--border); border-radius: 6px; overflow: auto; }
   .cost-table { width: 100%; border-collapse: collapse; }
   .cost-table th, .cost-table td {
@@ -1577,6 +1593,31 @@ function formatUsd(value) {
   }).format(num);
 }
 
+function formatUsdPerMillion(ratePerToken) {
+  const num = Number(ratePerToken);
+  if (!Number.isFinite(num)) return '—';
+  return formatUsd(num * 1000000) + '/M';
+}
+
+function formatPlainNumber(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num)) return '0';
+  return new Intl.NumberFormat(currentLang === 'zh' ? 'zh-CN' : 'en-US', {
+    maximumFractionDigits: 0,
+  }).format(num);
+}
+
+function formatDurationMs(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num) || num <= 0) return '—';
+  if (num < 1000) return Math.round(num) + 'ms';
+  if (num < 60000) {
+    return (Math.round((num / 1000) * 10) / 10).toFixed(1).replace(/\\.0$/, '') + 's';
+  }
+  const minutes = num / 60000;
+  return (Math.round(minutes * 10) / 10).toFixed(1).replace(/\\.0$/, '') + 'm';
+}
+
 function getLiteLLMModelDetailsIndex() {
   const index = {};
   const catalog = Array.isArray(state.providerCatalog) ? state.providerCatalog : [];
@@ -1601,6 +1642,29 @@ function estimateModelSpend(modelStats, detail) {
     (modelStats.completionTokens || 0) * (Number.isFinite(outputRate) ? outputRate : 0);
 }
 
+function formatContextWindow(detail) {
+  if (!detail) return '—';
+  const input = typeof detail.maxInputTokens === 'number' ? formatUsageCompact(detail.maxInputTokens) : '—';
+  const output = typeof detail.maxOutputTokens === 'number' ? formatUsageCompact(detail.maxOutputTokens) : '—';
+  return input + ' / ' + output;
+}
+
+function buildCostRows(recordMap, modelDetailsIndex, options) {
+  const rows = Object.entries(recordMap || {})
+    .map(([key, bucket]) => {
+      const normalizedKey = String(key || '');
+      const detail = modelDetailsIndex[normalizedKey] || modelDetailsIndex[normalizedKey.split('/').pop() || ''] || null;
+      const estimatedSpend = options?.type === 'model' ? estimateModelSpend(bucket, detail) : null;
+      return { key: normalizedKey, bucket: bucket || {}, detail, estimatedSpend };
+    })
+    .sort((a, b) => {
+      const aSort = typeof a.estimatedSpend === 'number' ? a.estimatedSpend : Number(a.bucket.totalTokens || 0);
+      const bSort = typeof b.estimatedSpend === 'number' ? b.estimatedSpend : Number(b.bucket.totalTokens || 0);
+      return bSort - aSort;
+    });
+  return rows;
+}
+
 function renderCapabilityPills(detail) {
   if (!detail) return '<span class="mono-compact">' + t('costCapabilityNone') + '</span>';
   const pills = [];
@@ -1612,6 +1676,29 @@ function renderCapabilityPills(detail) {
   if (detail.supportsWebSearch) pills.push(t('costCapabilityWebSearch'));
   if (pills.length === 0) return '<span class="mono-compact">' + t('costCapabilityNone') + '</span>';
   return '<div class="capability-pills">' + pills.map((label) => '<span class="capability-pill">' + escHtml(label) + '</span>').join('') + '</div>';
+}
+
+function renderCostBreakdown(title, rows, emptyText, formatter, countLabel) {
+  const visibleRows = (rows || []).slice(0, 5);
+  const body = visibleRows.length > 0
+    ? visibleRows.map((row) =>
+      '<div class="scope-item">' +
+        '<div class="scope-item-top">' +
+          '<div class="scope-item-name">' + escHtml(row.key) + '</div>' +
+          '<div class="scope-item-value">' + escHtml(formatter(row)) + '</div>' +
+        '</div>' +
+        '<div class="scope-item-sub">' +
+          formatPlainNumber(row.bucket.callCount || 0) + ' ' + escHtml(t('costTableCallsSuffix')) +
+          ' · ' + formatUsageCompact(row.bucket.totalTokens || 0) + ' ' + escHtml(countLabel || t('costTableTokensSuffix')) +
+        '</div>' +
+      '</div>'
+    ).join('')
+    : '<div class="empty-state">' + escHtml(emptyText) + '</div>';
+
+  return '<div class="card">' +
+    '<div class="card-header"><span>' + escHtml(title) + '</span></div>' +
+    '<div class="card-body">' + body + '</div>' +
+  '</div>';
 }
 
 function formatUsageCompact(value) {
@@ -1718,106 +1805,130 @@ function renderCostPanel(projectPath) {
   }
 
   const modelIndex = getLiteLLMModelDetailsIndex();
-  const modelRows = Object.entries(usage.byModel || {})
-    .map(([model, stats]) => {
-      const detail = modelIndex[model] || modelIndex[String(model).split('/').pop() || ''] || null;
-      const estimatedSpend = estimateModelSpend(stats, detail);
-      return {
-        model,
-        stats,
-        detail,
-        estimatedSpend,
-      };
-    })
-    .sort((a, b) => (b.stats.totalTokens || 0) - (a.stats.totalTokens || 0));
-
-  const pricedModelCount = modelRows.filter((row) => row.estimatedSpend !== null).length;
-  const totalEstimatedSpend = modelRows.reduce((sum, row) => sum + (row.estimatedSpend || 0), 0);
-  const scopeRows = Object.entries(usage.byScope || {}).sort((a, b) => (b[1].totalTokens || 0) - (a[1].totalTokens || 0));
-
-  const scopeHtml = scopeRows.map(([scope, stats]) =>
-    '<div class="scope-item">' +
-      '<div class="scope-item-top">' +
-        '<div class="scope-item-name">' + escHtml(scope) + '</div>' +
-        '<div class="scope-item-value">' + formatCompactNumber(stats.callCount || 0) + ' ' + (currentLang === 'zh' ? '次' : 'calls') + '</div>' +
-      '</div>' +
-      '<div class="scope-item-sub">' + formatCompactNumber(stats.totalTokens || 0) + ' tokens</div>' +
-    '</div>'
-  ).join('');
+  const modelRows = buildCostRows(usage.byModel, modelIndex, { type: 'model' });
+  const scopeRows = buildCostRows(usage.byScope, modelIndex);
+  const skillRows = buildCostRows(usage.bySkill, modelIndex);
+  const pricedModelCount = modelRows.filter((row) => typeof row.estimatedSpend === 'number').length;
+  const totalEstimatedSpend = modelRows.reduce((sum, row) => sum + (typeof row.estimatedSpend === 'number' ? row.estimatedSpend : 0), 0);
+  const avgTokensPerCall = usage.callCount > 0 ? Math.round((usage.totalTokens || 0) / usage.callCount) : 0;
+  const hasModelMetadata = modelRows.some((row) => !!row.detail);
+  const hasReasoningSurcharge = modelRows.some(
+    (row) => row.detail && Number(row.detail.outputCostPerReasoningToken) > 0
+  );
 
   const modelHtml = modelRows.map((row) =>
     '<tr>' +
-      '<td><div>' + escHtml(row.model) + '</div><div class="mono-compact">' + escHtml(row.detail?.mode || '') + '</div></td>' +
-      '<td>' + formatCompactNumber(row.stats.callCount || 0) + '</td>' +
-      '<td>' + formatCompactNumber(row.stats.promptTokens || 0) + '</td>' +
-      '<td>' + formatCompactNumber(row.stats.completionTokens || 0) + '</td>' +
-      '<td>' + formatCompactNumber(row.stats.totalTokens || 0) + '</td>' +
-      '<td>' + (row.estimatedSpend === null ? '<span class="mono-compact">' + t('costUnknownPricing') + '</span>' : formatUsd(row.estimatedSpend)) + '</td>' +
-      '<td>' + (row.detail?.maxInputTokens ? formatCompactNumber(row.detail.maxInputTokens) : '—') + '</td>' +
-      '<td>' + (row.detail?.maxOutputTokens ? formatCompactNumber(row.detail.maxOutputTokens) : '—') + '</td>' +
+      '<td>' +
+        '<div class="cost-primary">' + escHtml(row.key) + '</div>' +
+        '<div class="cost-secondary">' + escHtml((row.detail && row.detail.mode) || 'chat') + ' · ' +
+          formatPlainNumber(row.bucket.callCount || 0) + ' ' + t('costTableCallsSuffix') + '</div>' +
+      '</td>' +
+      '<td>' +
+        '<div class="cost-primary">' + (typeof row.estimatedSpend === 'number' ? formatUsd(row.estimatedSpend) : '—') + '</div>' +
+        '<div class="cost-secondary">' + formatUsageCompact(row.bucket.totalTokens || 0) + ' ' + t('costTableTokensSuffix') + '</div>' +
+      '</td>' +
+      '<td>' +
+        '<div class="cost-primary">' + formatUsageCompact(row.bucket.promptTokens || 0) + ' / ' + formatUsageCompact(row.bucket.completionTokens || 0) + '</div>' +
+        '<div class="cost-secondary">' + t('costTableInOut') + '</div>' +
+      '</td>' +
+      '<td>' +
+        '<div class="cost-primary">' + formatDurationMs(row.bucket.avgDurationMs) + '</div>' +
+        '<div class="cost-secondary">' + t('costTableLastSeen') + ' ' + (row.bucket.lastCallAt ? timeAgo(row.bucket.lastCallAt) : '—') + '</div>' +
+      '</td>' +
+      '<td>' +
+        '<div class="cost-primary">' + formatContextWindow(row.detail) + '</div>' +
+        '<div class="cost-secondary">' + t('costTableInOut') + '</div>' +
+      '</td>' +
+      '<td>' +
+        '<div class="cost-primary">' +
+          (row.detail ? formatUsdPerMillion(row.detail.inputCostPerToken) + ' · ' + formatUsdPerMillion(row.detail.outputCostPerToken) : '—') +
+        '</div>' +
+        '<div class="cost-secondary">' +
+          (row.detail ? (Number(row.detail.outputCostPerReasoningToken) > 0 ? t('costPricingReasoningSurcharge') : t('costPricingSource')) : t('costUnknownPricing')) +
+        '</div>' +
+      '</td>' +
       '<td>' + renderCapabilityPills(row.detail) + '</td>' +
     '</tr>'
   ).join('');
 
   return '<div class="cost-stats-row">' +
-      '<div class="stat-card">' +
+      '<div class="stat-card cost-spotlight">' +
         '<div class="stat-label">' + t('costEstimated') + '</div>' +
-        '<div class="stat-value cost-accent">' + (pricedModelCount === 0 ? '—' : formatUsd(totalEstimatedSpend)) + '</div>' +
-        '<div class="stat-sub">' + (pricedModelCount === 0 ? t('costUnknownPricing') : t('costEstimatedSub')) + '</div>' +
+        '<div class="stat-value cost-accent">' + (pricedModelCount > 0 ? formatUsd(totalEstimatedSpend) : '—') + '</div>' +
+        '<div class="stat-sub">' + (pricedModelCount > 0 ? t('costEstimatedSub') : t('costUnknownPricing')) + '</div>' +
       '</div>' +
       '<div class="stat-card">' +
         '<div class="stat-label">' + t('costCalls') + '</div>' +
-        '<div class="stat-value">' + formatCompactNumber(usage.callCount) + '</div>' +
+        '<div class="stat-value">' + formatPlainNumber(usage.callCount) + '</div>' +
         '<div class="stat-sub">' + t('costCallsSub') + '</div>' +
       '</div>' +
       '<div class="stat-card">' +
         '<div class="stat-label">' + t('costInputTokens') + '</div>' +
-        '<div class="stat-value">' + formatCompactNumber(usage.promptTokens) + '</div>' +
+        '<div class="stat-value">' + formatUsageCompact(usage.promptTokens) + '</div>' +
         '<div class="stat-sub">' + t('costInputTokensSub') + '</div>' +
       '</div>' +
       '<div class="stat-card">' +
         '<div class="stat-label">' + t('costOutputTokens') + '</div>' +
-        '<div class="stat-value">' + formatCompactNumber(usage.completionTokens) + '</div>' +
+        '<div class="stat-value">' + formatUsageCompact(usage.completionTokens) + '</div>' +
         '<div class="stat-sub">' + t('costOutputTokensSub') + '</div>' +
       '</div>' +
+    '</div>' +
+    '<div class="cost-stats-row">' +
       '<div class="stat-card">' +
         '<div class="stat-label">' + t('costTotalTokens') + '</div>' +
-        '<div class="stat-value">' + formatCompactNumber(usage.totalTokens) + '</div>' +
+        '<div class="stat-value">' + formatUsageCompact(usage.totalTokens) + '</div>' +
         '<div class="stat-sub">' + t('costTotalTokensSub') + '</div>' +
+      '</div>' +
+      '<div class="stat-card">' +
+        '<div class="stat-label">' + t('costAvgLatency') + '</div>' +
+        '<div class="stat-value">' + formatDurationMs(usage.avgDurationMs) + '</div>' +
+        '<div class="stat-sub">' + t('costAvgLatencySub') + '</div>' +
+      '</div>' +
+      '<div class="stat-card">' +
+        '<div class="stat-label">' + t('costAvgTokensPerCall') + '</div>' +
+        '<div class="stat-value">' + formatUsageCompact(avgTokensPerCall) + '</div>' +
+        '<div class="stat-sub">' + t('costAvgTokensPerCallSub') + '</div>' +
+      '</div>' +
+      '<div class="stat-card">' +
+        '<div class="stat-label">' + t('costLastCall') + '</div>' +
+        '<div class="stat-value" style="font-size:15px">' + (usage.lastCallAt ? timeAgo(usage.lastCallAt) : '—') + '</div>' +
+        '<div class="stat-sub">' + t('costLastCallSub') + '</div>' +
       '</div>' +
     '</div>' +
     '<div class="cost-layout">' +
-      '<div class="card">' +
-        '<div class="card-body">' +
-          '<div class="cost-spotlight">' +
-            '<div class="cost-spotlight-title">' + t('costEstimated') + '</div>' +
-            '<div class="cost-spotlight-value">' + (pricedModelCount === 0 ? '—' : formatUsd(totalEstimatedSpend)) + '</div>' +
-            '<div class="cost-spotlight-sub">' + (pricedModelCount === 0 ? t('costUnknownPricing') : t('costEstimatedSub')) + '</div>' +
-          '</div>' +
-          '<div class="scope-list">' +
-            '<div class="mono-compact">' + t('costByScope') + '</div>' +
-            scopeHtml +
+      '<div class="cost-stack">' +
+        '<div class="card">' +
+          '<div class="card-header"><span>' + t('costModelSpend') + '</span><span style="color:var(--muted)">' + formatPlainNumber(modelRows.length) + ' ' + t('costModelCount') + '</span></div>' +
+          '<div class="card-body">' +
+            '<div class="cost-table-wrap">' +
+              '<table class="cost-table">' +
+                '<thead><tr>' +
+                  '<th>' + t('costTableModel') + '</th>' +
+                  '<th>' + t('costEstimatedSpend') + '</th>' +
+                  '<th>' + t('costTableUsage') + '</th>' +
+                  '<th>' + t('costTableLatency') + '</th>' +
+                  '<th>' + t('costTableContextWindow') + '</th>' +
+                  '<th>' + t('costTablePricing') + '</th>' +
+                  '<th>' + t('costTableCapabilities') + '</th>' +
+                '</tr></thead>' +
+                '<tbody>' + modelHtml + '</tbody>' +
+              '</table>' +
+            '</div>' +
           '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="card">' +
-        '<div class="card-header"><span>' + t('mainTabCost') + '</span><span style="color:var(--muted)">' + modelRows.length + '</span></div>' +
-        '<div class="card-body">' +
-          '<div class="cost-table-wrap">' +
-            '<table class="cost-table">' +
-              '<thead><tr>' +
-                '<th>' + t('costModel') + '</th>' +
-                '<th>' + t('costCalls') + '</th>' +
-                '<th>' + t('costInputTokens') + '</th>' +
-                '<th>' + t('costOutputTokens') + '</th>' +
-                '<th>' + t('costTotalTokens') + '</th>' +
-                '<th>' + t('costEstimatedSpend') + '</th>' +
-                '<th>' + t('costMaxInput') + '</th>' +
-                '<th>' + t('costMaxOutput') + '</th>' +
-                '<th>' + t('costCapabilities') + '</th>' +
-              '</tr></thead>' +
-              '<tbody>' + modelHtml + '</tbody>' +
-            '</table>' +
+      '<div class="cost-stack">' +
+        renderCostBreakdown(t('costScopeBreakdown'), scopeRows, t('costScopeEmpty'), (row) => formatUsageCompact(row.bucket.totalTokens || 0), t('costTableTokensSuffix')) +
+        renderCostBreakdown(t('costSkillBreakdown'), skillRows, t('costSkillEmpty'), (row) => formatUsageCompact(row.bucket.totalTokens || 0), t('costTableTokensSuffix')) +
+        '<div class="card">' +
+          '<div class="card-header"><span>' + t('costSignalsTitle') + '</span></div>' +
+          '<div class="card-body">' +
+            '<div class="cost-note"><strong>' + t('costSignalsSourceLabel') + '</strong> ' + t('costSignalsSourceBody') + '</div>' +
+            '<div class="cost-note" style="margin-top:8px"><strong>' + t('costSignalsVisibleLabel') + '</strong> ' + t('costSignalsVisibleBody') + '</div>' +
+            '<div class="cost-chip-row" style="margin-top:10px">' +
+              '<span class="cost-chip">' + (hasModelMetadata ? t('costSignalsContextReady') : t('costSignalsContextPending')) + '</span>' +
+              '<span class="cost-chip">' + (hasReasoningSurcharge ? t('costSignalsReasoningDetected') : t('costSignalsInputOutputOnly')) + '</span>' +
+            '</div>' +
           '</div>' +
         '</div>' +
       '</div>' +

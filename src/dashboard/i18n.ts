@@ -168,6 +168,39 @@ export interface I18nStrings {
   costEstimatedSpend: string;
   costUnknownPricing: string;
   costByScope: string;
+  costAvgLatency: string;
+  costAvgLatencySub: string;
+  costAvgTokensPerCall: string;
+  costAvgTokensPerCallSub: string;
+  costLastCall: string;
+  costLastCallSub: string;
+  costModelSpend: string;
+  costModelCount: string;
+  costScopeBreakdown: string;
+  costScopeEmpty: string;
+  costSkillBreakdown: string;
+  costSkillEmpty: string;
+  costSignalsTitle: string;
+  costSignalsSourceLabel: string;
+  costSignalsSourceBody: string;
+  costSignalsVisibleLabel: string;
+  costSignalsVisibleBody: string;
+  costSignalsContextReady: string;
+  costSignalsContextPending: string;
+  costSignalsReasoningDetected: string;
+  costSignalsInputOutputOnly: string;
+  costTableModel: string;
+  costTableUsage: string;
+  costTableLatency: string;
+  costTableContextWindow: string;
+  costTablePricing: string;
+  costTableCapabilities: string;
+  costTableCallsSuffix: string;
+  costTableTokensSuffix: string;
+  costTableInOut: string;
+  costTableLastSeen: string;
+  costPricingReasoningSurcharge: string;
+  costPricingSource: string;
   costCapabilityReasoning: string;
   costCapabilityFunctionCalling: string;
   costCapabilityPromptCaching: string;
@@ -353,7 +386,7 @@ const en: I18nStrings = {
 
   // Cost Panel
   costEmpty: 'No agent usage has been recorded yet.',
-  costEstimated: 'Estimated Spend',
+  costEstimated: 'Estimated Cost',
   costEstimatedSub: 'Calculated from LiteLLM pricing when available',
   costCalls: 'Agent Calls',
   costCallsSub: 'Cumulative analyzer / explainer invocations',
@@ -368,9 +401,42 @@ const en: I18nStrings = {
   costCapabilities: 'Capabilities',
   costMaxInput: 'Max Input',
   costMaxOutput: 'Max Output',
-  costEstimatedSpend: 'Estimated Spend',
+  costEstimatedSpend: 'Estimated Cost',
   costUnknownPricing: 'Pricing unavailable',
   costByScope: 'By Scope',
+  costAvgLatency: 'Average Latency',
+  costAvgLatencySub: 'Average time spent per invocation',
+  costAvgTokensPerCall: 'Average Tokens / Call',
+  costAvgTokensPerCallSub: 'Token density per invocation',
+  costLastCall: 'Latest Call',
+  costLastCallSub: 'Most recently recorded invocation',
+  costModelSpend: 'Model Cost Breakdown',
+  costModelCount: 'models',
+  costScopeBreakdown: 'Scope Breakdown',
+  costScopeEmpty: 'No scope usage rollups yet.',
+  costSkillBreakdown: 'Top Skills by Token Spend',
+  costSkillEmpty: 'No skill usage rollups yet.',
+  costSignalsTitle: 'LiteLLM Signals',
+  costSignalsSourceLabel: 'Visualization source:',
+  costSignalsSourceBody: 'Unit pricing, context windows, and capability tags come from the LiteLLM model registry.',
+  costSignalsVisibleLabel: 'Currently visible:',
+  costSignalsVisibleBody: 'Calls, input tokens, output tokens, total tokens, average latency, latest call, and rollups by model, scope, and skill.',
+  costSignalsContextReady: 'Context windows connected',
+  costSignalsContextPending: 'Context windows pending',
+  costSignalsReasoningDetected: 'Reasoning surcharge detected',
+  costSignalsInputOutputOnly: 'Estimate based on input / output tokens only',
+  costTableModel: 'Model',
+  costTableUsage: 'Usage',
+  costTableLatency: 'Latency',
+  costTableContextWindow: 'Context Window',
+  costTablePricing: 'Pricing',
+  costTableCapabilities: 'Capabilities',
+  costTableCallsSuffix: 'calls',
+  costTableTokensSuffix: 'tokens',
+  costTableInOut: 'input / output',
+  costTableLastSeen: 'Last seen',
+  costPricingReasoningSurcharge: 'Reasoning surcharge included',
+  costPricingSource: 'LiteLLM registry',
   costCapabilityReasoning: 'Reasoning',
   costCapabilityFunctionCalling: 'Function Calling',
   costCapabilityPromptCaching: 'Prompt Caching',
@@ -556,7 +622,7 @@ const zh: I18nStrings = {
 
   // Cost Panel
   costEmpty: '当前还没有记录到 agent 调用成本数据。',
-  costEstimated: '预估成本',
+  costEstimated: '估算成本',
   costEstimatedSub: '有 LiteLLM 定价数据时按模型自动估算',
   costCalls: 'Agent 调用',
   costCallsSub: '累计分析 / 解释调用次数',
@@ -571,9 +637,42 @@ const zh: I18nStrings = {
   costCapabilities: '能力',
   costMaxInput: '最大输入',
   costMaxOutput: '最大输出',
-  costEstimatedSpend: '预估成本',
+  costEstimatedSpend: '估算成本',
   costUnknownPricing: '暂无定价',
   costByScope: '按 Scope',
+  costAvgLatency: '平均时延',
+  costAvgLatencySub: '单次调用平均耗时',
+  costAvgTokensPerCall: '单次平均 Token',
+  costAvgTokensPerCallSub: '每次调用的 Token 密度',
+  costLastCall: '最近调用',
+  costLastCallSub: '最近一次记录',
+  costModelSpend: '模型成本拆分',
+  costModelCount: '个模型',
+  costScopeBreakdown: '按 Scope 拆分',
+  costScopeEmpty: '当前还没有 Scope 聚合数据。',
+  costSkillBreakdown: '技能 Token 消耗 Top 5',
+  costSkillEmpty: '当前还没有 Skill 聚合数据。',
+  costSignalsTitle: 'LiteLLM 信号',
+  costSignalsSourceLabel: '可视化来源：',
+  costSignalsSourceBody: '单价、上下文窗口和能力标签来自 LiteLLM model registry。',
+  costSignalsVisibleLabel: '当前可见：',
+  costSignalsVisibleBody: '调用次数、输入 Token、输出 Token、总 Token、平均时延、最近调用，以及按 model、scope、skill 的拆账。',
+  costSignalsContextReady: '上下文窗口已接入',
+  costSignalsContextPending: '上下文窗口待接入',
+  costSignalsReasoningDetected: '已检测到 reasoning 附加计费',
+  costSignalsInputOutputOnly: '当前估算仅基于输入 / 输出 Token',
+  costTableModel: '模型',
+  costTableUsage: '用量',
+  costTableLatency: '时延',
+  costTableContextWindow: '上下文窗口',
+  costTablePricing: 'LiteLLM 定价',
+  costTableCapabilities: '能力标签',
+  costTableCallsSuffix: '次调用',
+  costTableTokensSuffix: 'Token',
+  costTableInOut: '输入 / 输出',
+  costTableLastSeen: '最近',
+  costPricingReasoningSurcharge: '含 reasoning 附加计费',
+  costPricingSource: 'LiteLLM registry',
   costCapabilityReasoning: '推理',
   costCapabilityFunctionCalling: '函数调用',
   costCapabilityPromptCaching: 'Prompt 缓存',

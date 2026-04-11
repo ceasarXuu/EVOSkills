@@ -949,6 +949,11 @@ async function fetchJsonWithTimeout(url, timeoutMs = 8000, options = {}) {
       throw new Error('HTTP ' + response.status + ': ' + response.statusText);
     }
     return await response.json();
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out after ' + timeoutMs + 'ms');
+    }
+    throw error;
   } finally {
     clearTimeout(timer);
   }

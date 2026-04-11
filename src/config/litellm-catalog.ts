@@ -7,12 +7,14 @@
  */
 
 import { createChildLogger } from "../utils/logger.js";
+import { getAllProviders } from "./providers.js";
 
 const logger = createChildLogger("litellm-catalog");
 
 const LITELLM_MODEL_REGISTRY_URL =
   "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
 const CACHE_TTL_MS = 10 * 60 * 1000;
+const FETCH_TIMEOUT_MS = 8000;
 
 interface LiteLLMModelMeta {
   litellm_provider?: string;
@@ -107,31 +109,80 @@ function buildCatalogFromRegistry(
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
+function normalizeFallbackModelId(providerId: string, modelName: string): string {
+  return modelName.includes("/") ? modelName : `${providerId}/${modelName}`;
+}
+
+function buildFallbackCatalog(): CatalogEntry[] {
+  return getAllProviders()
+    .map((provider) => {
+      const models = provider.models.map((model) => normalizeFallbackModelId(provider.id, model));
+      return {
+        id: provider.id,
+        name: provider.name || provider.id,
+        models,
+        modelDetails: models.map((model) => ({
+          id: model,
+          mode: null,
+          maxInputTokens: null,
+          maxOutputTokens: null,
+          inputCostPerToken: null,
+          outputCostPerToken: null,
+          supportsReasoning: false,
+          supportsFunctionCalling: false,
+          supportsPromptCaching: false,
+          supportsStructuredOutput: false,
+          supportsVision: false,
+          supportsWebSearch: false,
+        })),
+        defaultModel: normalizeFallbackModelId(provider.id, provider.defaultModel),
+        apiKeyEnvVar: provider.apiKeyEnvVar || providerToEnvVar(provider.id),
+      };
+    })
+    .filter((entry) => entry.models.length > 0)
+    .sort((a, b) => a.id.localeCompare(b.id));
+}
+
 export async function getLiteLLMCatalog(forceRefresh = false): Promise<CatalogEntry[]> {
   const now = Date.now();
   if (!forceRefresh && cachedCatalog.length > 0 && now - cachedAt < CACHE_TTL_MS) {
     return cachedCatalog;
   }
 
-  const response = await fetch(LITELLM_MODEL_REGISTRY_URL, {
-    method: "GET",
-    headers: { Accept: "application/json" },
-  });
-  if (!response.ok) {
-    throw new Error(`LiteLLM catalog fetch failed: HTTP ${response.status}`);
-  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(LITELLM_MODEL_REGISTRY_URL, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`LiteLLM catalog fetch failed: HTTP ${response.status}`);
+    }
 
-  const body = (await response.json()) as Record<string, LiteLLMModelMeta>;
-  const catalog = buildCatalogFromRegistry(body);
-  if (catalog.length === 0) {
-    throw new Error("LiteLLM catalog parse failed: empty provider list");
-  }
+    const body = (await response.json()) as Record<string, LiteLLMModelMeta>;
+    const catalog = buildCatalogFromRegistry(body);
+    if (catalog.length === 0) {
+      throw new Error("LiteLLM catalog parse failed: empty provider list");
+    }
 
-  cachedCatalog = catalog;
-  cachedAt = now;
-  logger.info("LiteLLM catalog refreshed", {
-    providerCount: catalog.length,
-    modelCount: catalog.reduce((acc, item) => acc + item.models.length, 0),
-  });
-  return catalog;
+    cachedCatalog = catalog;
+    cachedAt = now;
+    logger.info("LiteLLM catalog refreshed", {
+      providerCount: catalog.length,
+      modelCount: catalog.reduce((acc, item) => acc + item.models.length, 0),
+    });
+    return catalog;
+  } catch (error) {
+    const fallbackCatalog = cachedCatalog.length > 0 ? cachedCatalog : buildFallbackCatalog();
+    logger.warn("LiteLLM catalog remote fetch unavailable, using fallback catalog", {
+      error: error instanceof Error ? error.message : String(error),
+      providerCount: fallbackCatalog.length,
+      source: cachedCatalog.length > 0 ? "cache" : "bundled",
+    });
+    return fallbackCatalog;
+  } finally {
+    clearTimeout(timer);
+  }
 }

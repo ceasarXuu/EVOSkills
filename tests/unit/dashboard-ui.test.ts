@@ -1007,4 +1007,47 @@ describe('dashboard ui recovery', () => {
     expect(html).toContain('保证不同宿主使用同一份优化结果');
     expect(html).not.toContain('保证不同 runtime 使用同一份优化结果');
   });
+
+  it('localizes daemon state activity summaries in both languages', () => {
+    const projectPath = '/tmp/ornn-project';
+    const zhHarness = loadDashboardTestHarness({}, { lang: 'zh' });
+    zhHarness.dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+        decisionEvents: [{
+          id: 'daemon-zh',
+          timestamp: '2026-04-10T05:23:00.000Z',
+          tag: 'daemon_state',
+          runtime: 'codex',
+          status: 'started',
+        }],
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+      },
+    };
+    const zhRows = zhHarness.dashboard.buildActivityRows(projectPath);
+    expect(zhRows[0]?.detail).toContain('守护进程已启动');
+
+    const enHarness = loadDashboardTestHarness({}, { lang: 'en' });
+    enHarness.dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+        decisionEvents: [{
+          id: 'daemon-en',
+          timestamp: '2026-04-10T05:23:00.000Z',
+          tag: 'daemon_state',
+          runtime: 'codex',
+          status: 'stopped',
+        }],
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+      },
+    };
+    const enRows = enHarness.dashboard.buildActivityRows(projectPath);
+    expect(enRows[0]?.detail).toContain('Daemon stopped');
+  });
 });

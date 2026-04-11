@@ -1250,9 +1250,9 @@ function formatBusinessEvent(e) {
     case 'skill_version_iterated':
       return t('activitySummarySkillVersion') + (e.skillId ? ': ' + e.skillId : '');
     case 'daemon_state':
-      return currentLang === 'zh'
-        ? ('守护进程' + (e.status === 'started' ? '已启动' : '已停止'))
-        : ('Daemon ' + (e.status === 'started' ? 'started' : 'stopped'));
+      return e.status === 'started'
+        ? t('activitySummaryDaemonStarted')
+        : t('activitySummaryDaemonStopped');
     case 'optimization_state':
       return t('activitySummaryOptimizationChanged') + ': ' + (e.status || 'idle');
     case 'evaluation_result':

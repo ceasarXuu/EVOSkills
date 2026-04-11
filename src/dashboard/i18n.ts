@@ -186,6 +186,8 @@ export interface I18nStrings {
   activitySummarySkillEdited: string;
   activitySummarySkillVersion: string;
   activitySummarySkillMapped: string;
+  activitySummaryDaemonStarted: string;
+  activitySummaryDaemonStopped: string;
   activitySummaryOptimizationChanged: string;
   activitySummaryEvaluationResult: string;
   activitySummarySkillFeedback: string;
@@ -486,6 +488,8 @@ const en: I18nStrings = {
   activitySummarySkillEdited: 'Skill edited',
   activitySummarySkillVersion: 'Skill version iterated',
   activitySummarySkillMapped: 'Skill mapped',
+  activitySummaryDaemonStarted: 'Daemon started',
+  activitySummaryDaemonStopped: 'Daemon stopped',
   activitySummaryOptimizationChanged: 'Optimization state changed',
   activitySummaryEvaluationResult: 'Evaluation result',
   activitySummarySkillFeedback: 'Skill feedback',
@@ -786,6 +790,8 @@ const zh: I18nStrings = {
   activitySummarySkillEdited: '技能被编辑',
   activitySummarySkillVersion: '技能版本迭代',
   activitySummarySkillMapped: '技能映射成功',
+  activitySummaryDaemonStarted: '守护进程已启动',
+  activitySummaryDaemonStopped: '守护进程已停止',
   activitySummaryOptimizationChanged: '优化状态变化',
   activitySummaryEvaluationResult: '评估结果',
   activitySummarySkillFeedback: '技能反馈',

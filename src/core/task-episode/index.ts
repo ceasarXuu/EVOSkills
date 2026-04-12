@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { RuntimeType, Trace } from '../../types/index.js';
+import type { RuntimeType, Trace, WindowAnalysisHint } from '../../types/index.js';
 import { createChildLogger } from '../../utils/logger.js';
 
 const logger = createChildLogger('task-episode');
@@ -267,6 +267,42 @@ export class TaskEpisodeStore {
     return episode;
   }
 
+  recordContextTrace(trace: Trace): TaskEpisode[] {
+    const snapshot = this.readSnapshot();
+    const affected = snapshot.episodes.filter((episode) =>
+      episode.runtime === trace.runtime &&
+      episode.sessionIds.includes(trace.session_id) &&
+      isEpisodeOpen(episode)
+    );
+
+    if (affected.length === 0) {
+      return [];
+    }
+
+    for (const episode of affected) {
+      pushUnique(episode.traceRefs, trace.trace_id);
+      pushUnique(episode.turnIds, trace.turn_id);
+      episode.lastActivityAt = trace.timestamp;
+
+      for (const segment of episode.skillSegments) {
+        pushUnique(segment.relatedTraceIds, trace.trace_id);
+        segment.lastRelatedTraceId = trace.trace_id;
+        segment.lastActivityAt = trace.timestamp;
+      }
+
+      this.recalculateStats(episode);
+    }
+
+    logger.debug('Task episode context trace attached', {
+      projectPath: this.projectRoot,
+      sessionId: trace.session_id,
+      traceId: trace.trace_id,
+      affectedEpisodeCount: affected.length,
+    });
+    this.writeSnapshot(snapshot);
+    return affected;
+  }
+
   shouldTriggerProbe(episode: TaskEpisode, trace: Trace): ProbeTriggerDecision {
     if (episode.analysisStatus === 'running' || episode.state === 'analyzing') {
       return { shouldProbe: false, reason: null, mode: episode.probeState.mode };
@@ -337,6 +373,26 @@ export class TaskEpisodeStore {
     this.recalculateStats(episode);
     this.writeSnapshot(snapshot);
     return episode;
+  }
+
+  applyNeedMoreContextHint(episodeId: string, hint: WindowAnalysisHint): TaskEpisode | null {
+    return this.applyProbeResult(episodeId, {
+      decision: 'continue_collecting',
+      reason: 'Need more context before optimization.',
+      observedOutcomes: [],
+      missingEvidence: [],
+      nextProbeHint: {
+        suggestedTraceDelta: hint.suggestedTraceDelta,
+        suggestedTurnDelta: hint.suggestedTurnDelta,
+        waitForEventTypes: hint.waitForEventTypes,
+        mode: hint.mode,
+      },
+      episodeAction: {
+        closeCurrent: false,
+        openNew: false,
+      },
+      skillFocus: [],
+    });
   }
 
   markAnalysisState(

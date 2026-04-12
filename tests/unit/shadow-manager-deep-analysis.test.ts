@@ -3,40 +3,24 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createShadowManager } from '../../src/core/shadow-manager/index.js';
-import type { EvaluationResult, Trace } from '../../src/types/index.js';
+import type { Trace } from '../../src/types/index.js';
 import type { DecisionEventRecord } from '../../src/core/decision-events/index.js';
 import type { TaskEpisodeSnapshot } from '../../src/core/task-episode/index.js';
 
 const {
-  evaluatorMock,
   patchGeneratorMock,
-  probeEpisodeMock,
   analyzeWindowMock,
   decisionExplanationMock,
 } = vi.hoisted(() => ({
-  evaluatorMock: {
-    evaluate: vi.fn<[Trace[]], EvaluationResult | null>(),
-  },
   patchGeneratorMock: {
     generate: vi.fn(),
   },
-  probeEpisodeMock: vi.fn(),
   analyzeWindowMock: vi.fn(),
   decisionExplanationMock: vi.fn(),
 }));
 
-vi.mock('../../src/core/evaluator/index.js', () => ({
-  evaluator: evaluatorMock,
-}));
-
 vi.mock('../../src/core/patch-generator/index.js', () => ({
   patchGenerator: patchGeneratorMock,
-}));
-
-vi.mock('../../src/core/readiness-probe/index.js', () => ({
-  createReadinessProbeAnalyzer: () => ({
-    probeEpisode: probeEpisodeMock,
-  }),
 }));
 
 vi.mock('../../src/core/skill-call-analyzer/index.js', () => ({
@@ -115,30 +99,9 @@ describe('ShadowManager deep analysis recovery chain', () => {
       'utf-8'
     );
 
-    evaluatorMock.evaluate.mockReset();
     patchGeneratorMock.generate.mockReset();
-    probeEpisodeMock.mockReset();
     analyzeWindowMock.mockReset();
     decisionExplanationMock.mockReset();
-
-    evaluatorMock.evaluate.mockReturnValue(null);
-    probeEpisodeMock.mockResolvedValue({
-      decision: 'ready_for_analysis',
-      reason: 'Trace evidence is now sufficient',
-      observedOutcomes: ['analysis-ready'],
-      missingEvidence: [],
-      nextProbeHint: {
-        suggestedTraceDelta: 12,
-        suggestedTurnDelta: 3,
-        waitForEventTypes: [],
-        mode: 'count_driven',
-      },
-      episodeAction: {
-        closeCurrent: false,
-        openNew: false,
-      },
-      skillFocus: ['test-skill'],
-    });
     decisionExplanationMock.mockResolvedValue({
       summary: '这次调用不建议修改 skill。',
       evidenceReadout: ['时间线覆盖完整'],
@@ -164,6 +127,8 @@ describe('ShadowManager deep analysis recovery chain', () => {
     analyzeWindowMock.mockResolvedValue({
       success: true,
       model: 'deepseek/deepseek-chat',
+      decision: 'no_optimization',
+      userMessage: '当前窗口显示 skill 使用正确，无需优化。',
       evaluation: {
         should_patch: false,
         reason: '调用窗口显示当前 skill 使用正确',
@@ -184,22 +149,20 @@ describe('ShadowManager deep analysis recovery chain', () => {
 
     const scopedEvents = readDecisionEvents(testProjectPath).filter((event) => event.traceId === 'trace-10');
     expect(scopedEvents.map((event) => event.tag)).toEqual([
-      'episode_probe_requested',
-      'episode_probe_result',
       'analysis_requested',
       'evaluation_result',
       'skill_feedback',
     ]);
-    expect(scopedEvents[2]).toMatchObject({
+    expect(scopedEvents[0]).toMatchObject({
       tag: 'analysis_requested',
-      status: 'episode_ready',
+      status: 'window_ready',
     });
-    expect(scopedEvents[3]).toMatchObject({
+    expect(scopedEvents[1]).toMatchObject({
       tag: 'evaluation_result',
       status: 'no_patch_needed',
       reason: '调用窗口显示当前 skill 使用正确',
     });
-    expect(scopedEvents[4]).toMatchObject({
+    expect(scopedEvents[2]).toMatchObject({
       tag: 'skill_feedback',
       status: 'no_patch_needed',
       detail: '这次调用不建议修改 skill。',
@@ -223,6 +186,8 @@ describe('ShadowManager deep analysis recovery chain', () => {
     analyzeWindowMock.mockResolvedValue({
       success: true,
       model: 'deepseek/deepseek-chat',
+      decision: 'apply_optimization',
+      userMessage: '当前窗口显示存在稳定噪音，需要执行优化。',
       evaluation: {
         should_patch: true,
         change_type: 'prune_noise',
@@ -251,14 +216,12 @@ describe('ShadowManager deep analysis recovery chain', () => {
 
     const scopedEvents = readDecisionEvents(testProjectPath).filter((event) => event.traceId === 'trace-10');
     expect(scopedEvents.map((event) => event.tag)).toEqual([
-      'episode_probe_requested',
-      'episode_probe_result',
       'analysis_requested',
       'skill_feedback',
       'patch_applied',
     ]);
     expect(scopedEvents.filter((event) => event.tag === 'analysis_requested')).toHaveLength(1);
-    expect(scopedEvents[4]).toMatchObject({
+    expect(scopedEvents[2]).toMatchObject({
       tag: 'patch_applied',
       status: 'success',
       changeType: 'prune_noise',
@@ -293,12 +256,10 @@ describe('ShadowManager deep analysis recovery chain', () => {
 
     const scopedEvents = readDecisionEvents(testProjectPath).filter((event) => event.traceId === 'trace-10');
     expect(scopedEvents.map((event) => event.tag)).toEqual([
-      'episode_probe_requested',
-      'episode_probe_result',
       'analysis_requested',
       'analysis_failed',
     ]);
-    expect(scopedEvents[3]).toMatchObject({
+    expect(scopedEvents[1]).toMatchObject({
       tag: 'analysis_failed',
       detail: '模型返回了内容，但格式不符合系统要求，所以这轮分析结果无法解析。',
       reason: 'invalid_analysis_json',

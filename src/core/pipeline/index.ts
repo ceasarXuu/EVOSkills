@@ -2,10 +2,11 @@ import { createChildLogger } from '../../utils/logger.js';
 import { withTimeout } from '../../utils/timeout.js';
 import { createTraceManager } from '../observer/trace-manager.js';
 import { createTraceSkillMapper } from '../trace-skill-mapper/index.js';
-import { evaluator } from '../evaluator/index.js';
+import { createSkillCallAnalyzer } from '../skill-call-analyzer/index.js';
 import { createShadowRegistry } from '../shadow-registry/index.js';
 import type { Trace, EvaluationResult, SkillTracesGroup } from '../../types/index.js';
 import { runtimeFromShadowId } from '../../utils/parse.js';
+import type { SkillCallWindow } from '../skill-call-window/index.js';
 
 const logger = createChildLogger('pipeline');
 
@@ -53,13 +54,14 @@ const DEFAULT_TIMEOUT_MS = 30000; // 30秒
  * OptimizationPipeline
  * 自动优化闭环的核心编排模块
  *
- * 流程: Trace采集 -> Trace-Skill映射 -> 评估 -> 生成优化任务
+ * 流程: Trace采集 -> Trace-Skill映射 -> 窗口分析 -> 生成优化任务
  */
 export class OptimizationPipeline {
   private config: PipelineConfig;
   private traceManager;
   private traceSkillMapper;
   private shadowRegistry;
+  private skillCallAnalyzer;
   private state: PipelineState;
   private runningPromise: Promise<OptimizationTask[]> | null = null;
   private backgroundTimer: ReturnType<typeof setInterval> | null = null;
@@ -69,6 +71,7 @@ export class OptimizationPipeline {
     this.traceManager = createTraceManager(config.projectRoot);
     this.traceSkillMapper = createTraceSkillMapper(config.projectRoot);
     this.shadowRegistry = createShadowRegistry(config.projectRoot);
+    this.skillCallAnalyzer = createSkillCallAnalyzer();
     this.state = {
       isRunning: false,
       lastRunAt: null,
@@ -131,7 +134,7 @@ export class OptimizationPipeline {
       const skillGroups = this.traceSkillMapper.mapAndGroupTraces(recentTraces);
       logger.info('Traces mapped to skills', { groups: skillGroups.length });
 
-      // Step 3: 对每个 skill 分组进行评估（带超时控制）
+      // Step 3: 对每个 skill 分组进行窗口分析（带超时控制）
       for (const group of skillGroups) {
         try {
           const task = await this.evaluateSkillGroup(group);
@@ -139,7 +142,7 @@ export class OptimizationPipeline {
             tasks.push(task);
           }
         } catch (error) {
-          const errorMsg = `Failed to evaluate skill ${group.skill_id}: ${String(error)}`;
+          const errorMsg = `Failed to analyze skill window ${group.skill_id}: ${String(error)}`;
           logger.error(errorMsg);
           this.addError(errorMsg);
         }
@@ -174,8 +177,25 @@ export class OptimizationPipeline {
     this.state.errors.push(errorMsg);
   }
 
+  private buildAnalysisWindow(group: SkillTracesGroup): SkillCallWindow {
+    const orderedTraces = [...group.traces].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    const sessionIds = [...new Set(orderedTraces.map((trace) => trace.session_id).filter(Boolean))];
+    const runtime = runtimeFromShadowId(group.shadow_id) ?? 'codex';
+
+    return {
+      windowId: `pipeline::${runtime}::${group.skill_id}`,
+      skillId: group.skill_id,
+      runtime,
+      sessionId: sessionIds[0] ?? 'pipeline',
+      closeReason: 'window_threshold_reached',
+      startedAt: orderedTraces[0]?.timestamp ?? new Date().toISOString(),
+      lastTraceAt: orderedTraces[orderedTraces.length - 1]?.timestamp ?? new Date().toISOString(),
+      traces: orderedTraces,
+    };
+  }
+
   /**
-   * 评估单个 skill 分组（带超时控制）
+   * 分析单个 skill 分组（带超时控制）
    */
   private async evaluateSkillGroup(group: SkillTracesGroup): Promise<OptimizationTask | null> {
     const { skill_id, shadow_id, traces } = group;
@@ -194,16 +214,41 @@ export class OptimizationPipeline {
       return null;
     }
 
-    // 使用 evaluator 评估 traces（带超时控制）
-    const evaluation = await this.evaluateWithTimeout(traces, 10000);
-    if (!evaluation || !evaluation.should_patch) {
-      logger.debug('No optimization needed for skill', { skill_id });
+    const currentContent = this.shadowRegistry.readContent(skill_id, runtime);
+    if (!currentContent?.trim()) {
+      logger.debug('Shadow skill content is empty, skipping pipeline analysis', { skill_id, runtime });
       return null;
     }
 
-    // 检查置信度
+    const analysis = await this.evaluateWithTimeout(this.buildAnalysisWindow(group), currentContent, 10000);
+    if (!analysis.success || !analysis.decision) {
+      logger.warn('Pipeline window analysis failed', {
+        skill_id,
+        runtime,
+        error: analysis.error ?? analysis.errorCode ?? analysis.technicalDetail ?? analysis.userMessage,
+      });
+      return null;
+    }
+
+    const evaluation = analysis.evaluation ?? {
+      should_patch: analysis.decision === 'apply_optimization',
+      reason: analysis.userMessage ?? 'Pipeline window analysis returned no concrete conclusion.',
+      source_sessions: [...new Set(traces.map((trace) => trace.session_id).filter(Boolean))],
+      confidence: 0,
+      rule_name: 'llm_window_analysis',
+    };
+
+    if (analysis.decision !== 'apply_optimization' || !evaluation.should_patch) {
+      logger.debug('Pipeline window does not require optimization yet', {
+        skill_id,
+        runtime,
+        decision: analysis.decision,
+      });
+      return null;
+    }
+
     if (evaluation.confidence < this.config.minConfidence) {
-      logger.debug('Confidence too low, skipping', {
+      logger.debug('Pipeline window analysis confidence too low, skipping', {
         skill_id,
         confidence: evaluation.confidence,
         minConfidence: this.config.minConfidence,
@@ -211,7 +256,7 @@ export class OptimizationPipeline {
       return null;
     }
 
-    logger.info('Optimization task generated', {
+    logger.info('Optimization task generated from window analysis', {
       skill_id,
       change_type: evaluation.change_type,
       confidence: evaluation.confidence,
@@ -226,22 +271,25 @@ export class OptimizationPipeline {
   }
 
   /**
-   * 带超时控制的评估。
-   * 超时或评估异常时抛出，调用方可在 evaluateSkillGroup 中统一捕获并记录错误。
+   * 带超时控制的窗口分析。
+   * 超时或分析异常时抛出，调用方可在 evaluateSkillGroup 中统一捕获并记录错误。
    */
   private async evaluateWithTimeout(
-    traces: Trace[],
+    window: SkillCallWindow,
+    skillContent: string,
     timeoutMs: number
-  ): Promise<EvaluationResult | null> {
-    const evaluatePromise = new Promise<EvaluationResult | null>((resolve, reject) => {
+  ) {
+    const evaluatePromise = new Promise<Awaited<ReturnType<typeof this.skillCallAnalyzer.analyzeWindow>>>(
+      (resolve, reject) => {
       try {
-        resolve(evaluator.evaluate(traces));
+        resolve(this.skillCallAnalyzer.analyzeWindow(this.config.projectRoot, window, skillContent));
       } catch (error) {
         reject(error instanceof Error ? error : new Error(String(error)));
       }
-    });
+    }
+    );
 
-    return withTimeout(evaluatePromise, timeoutMs, 'Evaluation');
+    return withTimeout(evaluatePromise, timeoutMs, 'Pipeline window analysis');
   }
 
   /**

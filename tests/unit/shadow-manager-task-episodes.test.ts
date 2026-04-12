@@ -3,21 +3,21 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createShadowManager } from '../../src/core/shadow-manager/index.js';
-import type { EvaluationResult, Trace } from '../../src/types/index.js';
+import type { Trace } from '../../src/types/index.js';
 import type { DecisionEventRecord } from '../../src/core/decision-events/index.js';
 import type { TaskEpisodeSnapshot } from '../../src/core/task-episode/index.js';
 
-const { evaluatorMock, patchGeneratorMock } = vi.hoisted(() => ({
-  evaluatorMock: {
-    evaluate: vi.fn<[Trace[]], EvaluationResult | null>(),
-  },
+const { analyzeWindowMock, patchGeneratorMock } = vi.hoisted(() => ({
+  analyzeWindowMock: vi.fn(),
   patchGeneratorMock: {
     generate: vi.fn(),
   },
 }));
 
-vi.mock('../../src/core/evaluator/index.js', () => ({
-  evaluator: evaluatorMock,
+vi.mock('../../src/core/skill-call-analyzer/index.js', () => ({
+  createSkillCallAnalyzer: () => ({
+    analyzeWindow: analyzeWindowMock,
+  }),
 }));
 
 vi.mock('../../src/core/patch-generator/index.js', () => ({
@@ -84,7 +84,7 @@ describe('ShadowManager task episodes', () => {
       'utf-8'
     );
 
-    evaluatorMock.evaluate.mockReset();
+    analyzeWindowMock.mockReset();
     patchGeneratorMock.generate.mockReset();
   });
 
@@ -93,7 +93,23 @@ describe('ShadowManager task episodes', () => {
   });
 
   it('persists task episodes and emits probe events once a window reaches the initial threshold', async () => {
-    evaluatorMock.evaluate.mockReturnValue(null);
+    analyzeWindowMock.mockResolvedValue({
+      success: true,
+      model: 'deepseek/deepseek-chat',
+      decision: 'need_more_context',
+      userMessage: '当前窗口证据仍不足，继续等待更多上下文。',
+      nextWindowHint: {
+        suggestedTraceDelta: 12,
+        suggestedTurnDelta: 2,
+        waitForEventTypes: ['tool_result'],
+        mode: 'event_driven',
+      },
+      tokenUsage: {
+        promptTokens: 90,
+        completionTokens: 40,
+        totalTokens: 130,
+      },
+    });
 
     const manager = createShadowManager(testProjectPath);
     await manager.init();
@@ -122,15 +138,18 @@ describe('ShadowManager task episodes', () => {
         probeCount: 1,
         lastProbeTraceIndex: 10,
         lastProbeTurnIndex: 10,
+        nextProbeTraceDelta: 12,
+        nextProbeTurnDelta: 2,
+        waitForEventTypes: ['tool_result'],
+        mode: 'event_driven',
       }),
     });
 
     const events = readDecisionEvents(testProjectPath);
-    expect(events.some((event) => event.tag === 'episode_probe_requested')).toBe(true);
-    expect(events.some((event) => event.tag === 'episode_probe_result')).toBe(true);
+    expect(events.map((event) => event.tag)).toEqual(['analysis_requested', 'evaluation_result']);
 
-    const probeResult = events.find((event) => event.tag === 'episode_probe_result');
-    expect(probeResult).toMatchObject({
+    const evaluationEvent = events.find((event) => event.tag === 'evaluation_result');
+    expect(evaluationEvent).toMatchObject({
       skillId: 'test-skill',
       runtime: 'codex',
       windowId: 'sess-1::test-skill',
@@ -141,14 +160,25 @@ describe('ShadowManager task episodes', () => {
   });
 
   it('marks the current episode as completed after a successful patch', async () => {
-    evaluatorMock.evaluate.mockReturnValue({
-      should_patch: true,
-      change_type: 'prune_noise',
-      target_section: 'TODO',
-      reason: 'Tool step was skipped repeatedly',
-      source_sessions: ['sess-1'],
-      confidence: 0.93,
-      rule_name: 'repeated-drift',
+    analyzeWindowMock.mockResolvedValue({
+      success: true,
+      model: 'deepseek/deepseek-chat',
+      decision: 'apply_optimization',
+      userMessage: '需要删掉多余的回显说明。',
+      evaluation: {
+        should_patch: true,
+        change_type: 'prune_noise',
+        target_section: 'TODO',
+        reason: 'Tool step was skipped repeatedly',
+        source_sessions: ['sess-1'],
+        confidence: 0.93,
+        rule_name: 'llm_window_analysis',
+      },
+      tokenUsage: {
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+      },
     });
     patchGeneratorMock.generate.mockResolvedValue({
       success: true,
@@ -160,7 +190,9 @@ describe('ShadowManager task episodes', () => {
     const manager = createShadowManager(testProjectPath);
     await manager.init();
 
-    await manager.processTrace(makeTrace(1, testProjectPath));
+    for (let index = 1; index <= 10; index += 1) {
+      await manager.processTrace(makeTrace(index, testProjectPath));
+    }
 
     const snapshot = readTaskEpisodes(testProjectPath);
     expect(snapshot.episodes).toHaveLength(1);
@@ -170,12 +202,28 @@ describe('ShadowManager task episodes', () => {
     });
     expect(snapshot.episodes[0].skillSegments[0]).toMatchObject({
       status: 'closed',
-      lastRelatedTraceId: 'trace-1',
+      lastRelatedTraceId: 'trace-10',
     });
   });
 
   it('triggers the first probe once the surrounding session window reaches the threshold even if only some traces map to the skill', async () => {
-    evaluatorMock.evaluate.mockReturnValue(null);
+    analyzeWindowMock.mockResolvedValue({
+      success: true,
+      model: 'deepseek/deepseek-chat',
+      decision: 'need_more_context',
+      userMessage: '当前窗口证据仍不足，继续等待更多上下文。',
+      nextWindowHint: {
+        suggestedTraceDelta: 8,
+        suggestedTurnDelta: 2,
+        waitForEventTypes: [],
+        mode: 'count_driven',
+      },
+      tokenUsage: {
+        promptTokens: 90,
+        completionTokens: 40,
+        totalTokens: 130,
+      },
+    });
 
     const manager = createShadowManager(testProjectPath);
     await manager.init();
@@ -206,7 +254,7 @@ describe('ShadowManager task episodes', () => {
     });
 
     const events = readDecisionEvents(testProjectPath).filter((event) => event.sessionId === 'sess-mixed');
-    expect(events.some((event) => event.tag === 'episode_probe_requested')).toBe(true);
-    expect(events.some((event) => event.tag === 'episode_probe_result')).toBe(true);
+    expect(events.some((event) => event.tag === 'analysis_requested')).toBe(true);
+    expect(events.some((event) => event.tag === 'evaluation_result')).toBe(true);
   });
 });

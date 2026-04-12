@@ -4,29 +4,38 @@ import { readDashboardConfig } from '../../config/manager.js';
 import { recordAgentUsage } from '../agent-usage/index.js';
 import { readProjectLanguage } from '../../dashboard/language-state.js';
 import type { Language } from '../../dashboard/i18n.js';
-import type { ChangeType, EvaluationResult, Trace } from '../../types/index.js';
+import type {
+  ChangeType,
+  EvaluationResult,
+  Trace,
+  WindowAnalysisDecision,
+  WindowAnalysisHint,
+} from '../../types/index.js';
 import type { SkillCallWindow } from '../skill-call-window/index.js';
 
 const logger = createChildLogger('skill-call-analyzer');
 
 interface AnalyzerResponsePayload {
-  should_patch?: unknown;
-  change_type?: unknown;
-  target_section?: unknown;
+  decision?: unknown;
   reason?: unknown;
   confidence?: unknown;
+  next_window_hint?: unknown;
+  change_type?: unknown;
+  target_section?: unknown;
   pattern?: unknown;
   evidence?: unknown;
 }
 
 export interface SkillCallAnalysisResult {
   success: boolean;
+  decision?: WindowAnalysisDecision;
   evaluation?: EvaluationResult;
   model: string;
   error?: string;
   errorCode?: string;
   userMessage?: string;
   technicalDetail?: string;
+  nextWindowHint?: WindowAnalysisHint;
   tokenUsage: {
     promptTokens: number;
     completionTokens: number;
@@ -74,6 +83,16 @@ function summarizeTrace(trace: Trace, lang: Language): string {
   return isZh ? `${trace.event_type}: 状态=${trace.status}` : `${trace.event_type}: status=${trace.status}`;
 }
 
+function buildFallbackHint(window: SkillCallWindow): WindowAnalysisHint {
+  const traceCount = Math.max(window.traces.length, 1);
+  return {
+    suggestedTraceDelta: Math.max(6, Math.ceil(traceCount * 0.4)),
+    suggestedTurnDelta: 2,
+    waitForEventTypes: [],
+    mode: 'count_driven',
+  };
+}
+
 function buildPrompt(
   window: SkillCallWindow,
   skillContent: string,
@@ -82,36 +101,45 @@ function buildPrompt(
   const isZh = lang === 'zh';
   const systemPrompt = isZh
     ? [
-        '你是 Ornn 的 skill 调用分析器。',
-        '你的任务是分析一个已经结束的 skill 调用窗口，并判断 skill 本身是否需要被修改。',
-        '你必须基于完整调用窗口推理，不能只看重复关键词。',
-        '除非证据非常明确，否则不要把运行时故障、工具故障误判成 skill 设计问题。',
-        '如果证据不足，返回 should_patch=false。',
-        '只返回 JSON，字段固定为 should_patch, change_type, target_section, reason, confidence, pattern, evidence。',
-        `允许的 change_type 只有: ${ALLOWED_CHANGE_TYPES.join(', ')}，或者 null。`,
+        '你是 Ornn 的技能调用窗口分析器。',
+        '你的任务是基于当前窗口的完整上下文，返回唯一一个三元决策。',
+        '允许的 decision 只有: no_optimization, apply_optimization, need_more_context。',
+        'no_optimization 表示当前窗口已经足够判断“无需优化”，并应结束本轮窗口。',
+        'apply_optimization 表示当前窗口已经足够判断“应执行优化”，并且必须给出可执行的 change_type / target_section / reason。',
+        'need_more_context 表示当前窗口还不能下结论，必须返回 next_window_hint 来指导后续扩窗。',
+        '不要用基于关键词的机械判断，必须结合完整时间线语义。',
+        '除非证据非常明确，否则不要把宿主故障、工具故障误判成 skill 设计问题。',
+        '只返回 JSON，字段固定为 decision, reason, confidence, next_window_hint, change_type, target_section, pattern, evidence。',
+        `当 decision=apply_optimization 时，change_type 只能是: ${ALLOWED_CHANGE_TYPES.join(', ')}。`,
+        '当 decision!=apply_optimization 时，change_type 和 target_section 必须为 null。',
         'confidence 必须是 0 到 1 之间的数字。',
-        'pattern 应该是可供 patch 生成器锚定的短语；如果没有就返回 null。',
         'evidence 必须是从时间线摘出的简短事实要点，自然语言内容必须使用简体中文。',
       ].join('\n')
     : [
-        'You are Ornn\'s skill-call analyzer.',
-        'Your job is to analyze one finalized skill call window and decide whether the skill itself should be patched.',
-        'You must reason over the whole call window, not just repeated keywords.',
-        'Do not confuse runtime/tool failures with skill design issues unless the evidence clearly supports that conclusion.',
-        'If evidence is insufficient, return should_patch=false.',
-        'Return only JSON with keys: should_patch, change_type, target_section, reason, confidence, pattern, evidence.',
-        `Allowed change_type values: ${ALLOWED_CHANGE_TYPES.join(', ')}, or null.`,
+        'You are Ornn\'s skill-call window analyzer.',
+        'Your task is to inspect the full call window and return exactly one triage decision.',
+        'Allowed decision values are: no_optimization, apply_optimization, need_more_context.',
+        'no_optimization means the current window is sufficient to conclude that no optimization is needed and the window should end.',
+        'apply_optimization means the current window is sufficient to conclude that optimization should be applied, and you must provide executable change_type / target_section / reason fields.',
+        'need_more_context means the current window is still inconclusive, and you must provide next_window_hint so Ornn knows how to expand the window.',
+        'Do not rely on shallow keyword matching; reason over the full timeline semantics.',
+        'Do not confuse host failures or tool failures with skill design issues unless the evidence clearly supports that conclusion.',
+        'Return only JSON with keys: decision, reason, confidence, next_window_hint, change_type, target_section, pattern, evidence.',
+        `When decision=apply_optimization, change_type must be one of: ${ALLOWED_CHANGE_TYPES.join(', ')}.`,
+        'When decision!=apply_optimization, change_type and target_section must be null.',
         'confidence must be a number between 0 and 1.',
-        'pattern should be a short phrase that patch generation can anchor on when applicable; otherwise null.',
-        'evidence must be an array of short factual bullets quoted from the window timeline.',
+        'evidence must be an array of short factual bullets grounded in the timeline.',
       ].join('\n');
+
+  const timeline = window.traces.slice(-60).map((trace: Trace, index: number) => {
+    return `${index + 1}. [${trace.timestamp}] ${summarizeTrace(trace, lang)}`;
+  });
 
   const userPrompt = isZh
     ? [
         `Skill ID: ${window.skillId}`,
-        `运行时: ${window.runtime}`,
+        `宿主: ${window.runtime}`,
         `窗口 ID: ${window.windowId}`,
-        `关闭原因: ${window.closeReason}`,
         `开始时间: ${window.startedAt}`,
         `最后一条 Trace 时间: ${window.lastTraceAt}`,
         `Trace 数量: ${window.traces.length}`,
@@ -121,20 +149,15 @@ function buildPrompt(
         skillContent,
         '```',
         '',
-        '时间线:',
-        ...window.traces.map((trace: Trace, index: number) => `${index + 1}. [${trace.timestamp}] ${summarizeTrace(trace, lang)}`),
+        '窗口时间线:',
+        ...timeline,
         '',
-        '分析请求:',
-        '- 判断这个 skill 调用窗口是否说明当前 skill 需要修改。',
-        '- 如果需要修改，请在 reason 中说明具体缺失的指引或噪音段落。',
-        '- 只有在确实应该修改时才选择最合适的 change_type。',
-        '- 如果问题不能明确归因于 skill，请返回 should_patch=false。',
+        '请输出唯一一个三元决策：无需优化、执行优化、或等待更多上下文。',
       ].join('\n')
     : [
         `Skill ID: ${window.skillId}`,
-        `Runtime: ${window.runtime}`,
+        `Host: ${window.runtime}`,
         `Window ID: ${window.windowId}`,
-        `Close Reason: ${window.closeReason}`,
         `Started At: ${window.startedAt}`,
         `Last Trace At: ${window.lastTraceAt}`,
         `Trace Count: ${window.traces.length}`,
@@ -145,13 +168,9 @@ function buildPrompt(
         '```',
         '',
         'Window Timeline:',
-        ...window.traces.map((trace: Trace, index: number) => `${index + 1}. [${trace.timestamp}] ${summarizeTrace(trace, lang)}`),
+        ...timeline,
         '',
-        'Decision request:',
-        '- Determine whether the skill should be patched for this call window.',
-        '- Explain the concrete missing instruction or noisy section in reason.',
-        '- Choose the best change_type only if patching is justified.',
-        '- If the issue is not clearly caused by the skill, set should_patch=false.',
+        'Return exactly one triage decision: no optimization, apply optimization, or wait for more context.',
       ].join('\n');
 
   return { systemPrompt, userPrompt };
@@ -166,6 +185,16 @@ function extractJsonObject(raw: string): string | null {
   return null;
 }
 
+function normalizeDecision(value: unknown): WindowAnalysisDecision {
+  switch (value) {
+    case 'no_optimization':
+    case 'apply_optimization':
+      return value;
+    default:
+      return 'need_more_context';
+  }
+}
+
 function normalizeChangeType(value: unknown): ChangeType | undefined {
   if (typeof value !== 'string') return undefined;
   return ALLOWED_CHANGE_TYPES.includes(value as ChangeType) ? (value as ChangeType) : undefined;
@@ -177,6 +206,58 @@ function normalizeConfidence(value: unknown): number {
 
 function normalizeEvidence(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => String(item)) : [];
+}
+
+function normalizeHint(value: unknown, fallback: WindowAnalysisHint): WindowAnalysisHint {
+  const source = (value && typeof value === 'object') ? value as Record<string, unknown> : {};
+  return {
+    suggestedTraceDelta:
+      typeof source.suggested_trace_delta === 'number'
+        ? Math.max(1, Math.floor(source.suggested_trace_delta))
+        : fallback.suggestedTraceDelta,
+    suggestedTurnDelta:
+      typeof source.suggested_turn_delta === 'number'
+        ? Math.max(1, Math.floor(source.suggested_turn_delta))
+        : fallback.suggestedTurnDelta,
+    waitForEventTypes: Array.isArray(source.wait_for_event_types)
+      ? source.wait_for_event_types.map((item) => String(item))
+      : fallback.waitForEventTypes,
+    mode: source.mode === 'event_driven' || source.mode === 'count_driven'
+      ? source.mode
+      : fallback.mode,
+  };
+}
+
+function buildEvaluation(
+  payload: AnalyzerResponsePayload,
+  window: SkillCallWindow,
+  lang: Language
+): EvaluationResult {
+  const targetSection = typeof payload.target_section === 'string' && payload.target_section.trim()
+    ? payload.target_section.trim()
+    : undefined;
+  const reason = typeof payload.reason === 'string' && payload.reason.trim()
+    ? payload.reason.trim()
+    : (lang === 'zh' ? 'Agent 分析没有返回明确理由。' : 'Agent analysis did not provide a reason.');
+  const pattern = typeof payload.pattern === 'string' && payload.pattern.trim()
+    ? payload.pattern.trim()
+    : undefined;
+  const evidence = normalizeEvidence(payload.evidence);
+
+  return {
+    should_patch: true,
+    change_type: normalizeChangeType(payload.change_type),
+    reason,
+    source_sessions: [window.sessionId],
+    confidence: normalizeConfidence(payload.confidence),
+    target_section: targetSection,
+    rule_name: 'llm_window_analysis',
+    patch_context: {
+      pattern,
+      reason: evidence.length > 0 ? evidence.join(' | ') : reason,
+      section: targetSection,
+    },
+  };
 }
 
 function describeAnalysisFailure(
@@ -245,41 +326,6 @@ function describeAnalysisFailure(
   };
 }
 
-function parseEvaluationPayload(
-  payload: AnalyzerResponsePayload,
-  window: SkillCallWindow,
-  lang: Language
-): EvaluationResult {
-  const shouldPatch = Boolean(payload.should_patch);
-  const changeType = normalizeChangeType(payload.change_type);
-  const targetSection = typeof payload.target_section === 'string' && payload.target_section.trim()
-    ? payload.target_section.trim()
-    : undefined;
-  const reason = typeof payload.reason === 'string' && payload.reason.trim()
-    ? payload.reason.trim()
-    : (lang === 'zh' ? 'Agent 分析没有返回明确理由。' : 'Agent analysis did not provide a reason.');
-  const confidence = normalizeConfidence(payload.confidence);
-  const pattern = typeof payload.pattern === 'string' && payload.pattern.trim()
-    ? payload.pattern.trim()
-    : undefined;
-  const evidence = normalizeEvidence(payload.evidence);
-
-  return {
-    should_patch: shouldPatch,
-    change_type: shouldPatch ? changeType : undefined,
-    reason,
-    source_sessions: [window.sessionId],
-    confidence,
-    target_section: targetSection,
-    rule_name: 'agent_call_window_analysis',
-    patch_context: {
-      pattern,
-      reason: evidence.length > 0 ? evidence.join(' | ') : reason,
-      section: targetSection,
-    },
-  };
-}
-
 export class SkillCallAnalyzer {
   async analyzeWindow(
     projectPath: string,
@@ -289,8 +335,9 @@ export class SkillCallAnalyzer {
     const lang = await readProjectLanguage(projectPath, 'en');
     const config = await readDashboardConfig(projectPath);
     const activeProvider = config.providers[0];
+    const fallbackHint = buildFallbackHint(window);
 
-      if (!activeProvider || !activeProvider.apiKey) {
+    if (!activeProvider || !activeProvider.apiKey) {
       const failure = describeAnalysisFailure('provider_not_configured', lang);
       logger.warn('Skill call analysis blocked: provider not configured', {
         projectPath,
@@ -316,7 +363,7 @@ export class SkillCallAnalyzer {
       provider: activeProvider.provider,
       modelName: activeProvider.modelName,
       apiKey: activeProvider.apiKey,
-      maxTokens: 1400,
+      maxTokens: 1600,
     });
     const prompt = buildPrompt(window, skillContent, lang);
     const model = `${activeProvider.provider}/${activeProvider.modelName}`;
@@ -327,7 +374,7 @@ export class SkillCallAnalyzer {
         prompt: prompt.userPrompt,
         systemPrompt: prompt.systemPrompt,
         temperature: 0.1,
-        maxTokens: 1400,
+        maxTokens: 1600,
         timeout: 45000,
         responseFormat: 'json_object',
       });
@@ -363,21 +410,40 @@ export class SkillCallAnalyzer {
       }
 
       const payload = JSON.parse(jsonText) as AnalyzerResponsePayload;
-      const evaluation = parseEvaluationPayload(payload, window, lang);
-      logger.info('Skill call analysis completed', {
+      const decision = normalizeDecision(payload.decision);
+      const hint = normalizeHint(payload.next_window_hint, fallbackHint);
+      const reason = typeof payload.reason === 'string' && payload.reason.trim()
+        ? payload.reason.trim()
+        : (lang === 'zh' ? '当前窗口还没有足够的稳定证据。' : 'The current window is still inconclusive.');
+
+      const evaluation = decision === 'apply_optimization'
+        ? buildEvaluation(payload, window, lang)
+        : {
+            should_patch: false,
+            reason,
+            source_sessions: [window.sessionId],
+            confidence: normalizeConfidence(payload.confidence),
+            rule_name: 'llm_window_analysis',
+          };
+
+      logger.info('Skill call window analysis completed', {
         projectPath,
         windowId: window.windowId,
         skillId: window.skillId,
         model,
-        shouldPatch: evaluation.should_patch,
+        decision,
         changeType: evaluation.change_type ?? null,
         confidence: evaluation.confidence,
         totalTokens: usage.totalTokens,
       });
+
       return {
         success: true,
+        decision,
         evaluation,
         model,
+        userMessage: reason,
+        nextWindowHint: hint,
         tokenUsage: usage,
       };
     } catch (error) {

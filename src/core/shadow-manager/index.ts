@@ -4,17 +4,14 @@ import { createShadowRegistry } from '../shadow-registry/index.js';
 import { createJournalManager } from '../journal/index.js';
 import { createTraceManager } from '../observer/trace-manager.js';
 import { createTraceSkillMapper } from '../trace-skill-mapper/index.js';
-import { evaluator } from '../evaluator/index.js';
 import { patchGenerator } from '../patch-generator/index.js';
 import { createSkillVersionManager } from '../skill-version/index.js';
 import { createDecisionEventRecorder } from '../decision-events/index.js';
 import {
   createTaskEpisodeStore,
   type ProbeTriggerDecision,
-  type ReadinessProbeResult,
   type TaskEpisode,
 } from '../task-episode/index.js';
-import { createReadinessProbeAnalyzer } from '../readiness-probe/index.js';
 import { createSkillCallAnalyzer } from '../skill-call-analyzer/index.js';
 import { generateDecisionExplanation } from '../decision-explainer/index.js';
 import { hashString } from '../../utils/hash.js';
@@ -49,7 +46,6 @@ export class ShadowManager {
   private policy: AutoOptimizePolicy;
   private decisionEvents;
   private taskEpisodes;
-  private readinessProbe;
   private skillCallAnalyzer;
   private lastPatchTime: Map<string, number> = new Map();
   private patchCountToday: Map<string, number> = new Map();
@@ -62,7 +58,6 @@ export class ShadowManager {
     this.traceSkillMapper = createTraceSkillMapper(projectRoot);
     this.decisionEvents = createDecisionEventRecorder(projectRoot);
     this.taskEpisodes = createTaskEpisodeStore(projectRoot);
-    this.readinessProbe = createReadinessProbeAnalyzer();
     this.skillCallAnalyzer = createSkillCallAnalyzer();
     this.dbPath = join(projectRoot, '.ornn', 'state', 'sessions.db');
 
@@ -298,10 +293,12 @@ export class ShadowManager {
   async processTrace(trace: Trace): Promise<void> {
     // 记录 trace
     this.traceManager.recordTrace(trace);
+    const recentTraces = await this.traceManager.getSessionTraces(trace.session_id);
 
     // 检查是否需要触发评估
     const shadowId = this.findShadowForTrace(trace);
     if (!shadowId) {
+      this.taskEpisodes.recordContextTrace(trace);
       return;
     }
 
@@ -312,72 +309,18 @@ export class ShadowManager {
       this.shadowRegistry.incrementTraceCount(skillId, (runtime ?? trace.runtime) as RuntimeType);
     }
 
-    // 获取最近的 traces
-    const recentTraces = await this.traceManager.getSessionTraces(trace.session_id);
     const eventContext = this.buildDecisionEventContext(shadowId, trace, recentTraces);
     const episode = this.taskEpisodes.recordTrace(trace, {
       skillId: eventContext.skillId,
       shadowId,
       runtime: eventContext.runtime,
     }, recentTraces);
-
-    // 评估是否需要优化
-    const evaluation = evaluator.evaluate(recentTraces);
-
-    if (!evaluation) {
-      const probeOutcome = await this.maybeRunEpisodeProbe(episode, shadowId, trace, recentTraces, eventContext);
-      if (probeOutcome.handledDeepAnalysis) {
-        return;
-      }
-      this.recordEvaluationResult(
-        shadowId,
-        eventContext,
-        'continue_collecting',
-        '当前证据不足，继续观察。',
-        null
-      );
+    const trigger = this.taskEpisodes.shouldTriggerProbe(episode, trace);
+    if (!trigger.shouldProbe) {
       return;
     }
 
-    if (!evaluation.should_patch) {
-      const probeOutcome = await this.maybeRunEpisodeProbe(episode, shadowId, trace, recentTraces, eventContext);
-      if (probeOutcome.handledDeepAnalysis) {
-        return;
-      }
-      this.recordEvaluationResult(
-        shadowId,
-        eventContext,
-        'no_patch_needed',
-        evaluation.reason ? `当前暂无修改必要：${evaluation.reason}` : '当前暂无修改必要。',
-        evaluation
-      );
-      return;
-    }
-
-    const patchContextIssue = this.getPatchContextIssue(evaluation);
-    if (patchContextIssue) {
-      logger.warn('Skipping heuristic patch recommendation because patch context is incomplete', {
-        shadowId,
-        skillId: eventContext.skillId,
-        changeType: evaluation.change_type,
-        ruleName: evaluation.rule_name,
-        issue: patchContextIssue,
-      });
-      const probeOutcome = await this.maybeRunEpisodeProbe(episode, shadowId, trace, recentTraces, eventContext);
-      if (probeOutcome.handledDeepAnalysis) {
-        return;
-      }
-      this.recordEvaluationResult(
-        shadowId,
-        eventContext,
-        'continue_collecting',
-        `当前规则识别到了优化信号，但还不能安全落到具体修改位置：${patchContextIssue}`,
-        evaluation
-      );
-      return;
-    }
-
-    await this.handleEvaluation(shadowId, evaluation, recentTraces, eventContext);
+    await this.runWindowAnalysis(episode, shadowId, recentTraces, eventContext, trigger);
   }
 
   private buildDecisionEventContext(
@@ -532,26 +475,6 @@ export class ShadowManager {
     }
   }
 
-  private describeProbeResult(result: ReadinessProbeResult): string {
-    const prefix = (() => {
-      switch (result.decision) {
-        case 'ready_for_analysis':
-          return '系统判断当前窗口已具备深度分析条件。';
-        case 'pause_waiting':
-          return '系统判断当前窗口暂时缺少关键事件，建议继续等待。';
-        case 'close_no_action':
-          return '系统判断当前窗口已经没有继续分析价值。';
-        case 'split_episode':
-          return '系统判断当前窗口包含多个阶段，建议后续拆分观察。';
-        case 'continue_collecting':
-        default:
-          return '系统判断当前证据还不够，需要继续积累更多 trace。';
-      }
-    })();
-
-    return result.reason ? `${prefix} 原因：${result.reason}` : prefix;
-  }
-
   private writeOptimizationCheckpoint(
     state: 'idle' | 'analyzing' | 'optimizing' | 'error',
     skillId: string | null,
@@ -608,7 +531,7 @@ export class ShadowManager {
       skillId: context.skillId,
       runtime: context.runtime,
       sessionId: context.sessionId,
-      closeReason: 'probe_ready_for_analysis',
+      closeReason: 'window_threshold_reached',
       startedAt: episode.startedAt,
       lastTraceAt: traces[traces.length - 1]?.timestamp ?? episode.lastActivityAt,
       traces,
@@ -658,42 +581,55 @@ export class ShadowManager {
     });
   }
 
-  private async runDeepAnalysisFromEpisode(
+  private buildEpisodeWindowTraces(episode: TaskEpisode, sessionTraces: Trace[]): Trace[] {
+    const traceRefSet = new Set(episode.traceRefs);
+    return sessionTraces.filter((trace) => traceRefSet.has(trace.trace_id));
+  }
+
+  private async runWindowAnalysis(
     episode: TaskEpisode,
     shadowId: string,
-    traces: Trace[],
-    context: ReturnType<ShadowManager['buildDecisionEventContext']>
-  ): Promise<boolean> {
+    sessionTraces: Trace[],
+    context: ReturnType<ShadowManager['buildDecisionEventContext']>,
+    trigger: ProbeTriggerDecision
+  ): Promise<void> {
     const currentContent = this.shadowRegistry.readContent(context.skillId, context.runtime);
     if (!currentContent) {
       this.recordAnalysisFailure(
         context,
-        '当前技能内容为空，无法启动深度分析。',
+        '当前技能内容为空，无法启动窗口分析。',
         null,
         'missing_skill_content'
       );
-      return true;
+      return;
     }
 
-    this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'running');
+    const windowTraces = this.buildEpisodeWindowTraces(episode, sessionTraces);
+    const fallbackHint = {
+      suggestedTraceDelta: Math.max(6, Math.ceil(Math.max(windowTraces.length, 1) * 0.4)),
+      suggestedTurnDelta: 2,
+      waitForEventTypes: [],
+      mode: 'count_driven' as const,
+    };
+
     this.writeOptimizationCheckpoint('analyzing', context.skillId, null);
     this.recordAnalysisRequested(
       context,
       null,
-      '时机探测已通过，开始深度分析本次调用窗口。',
-      'episode_ready'
+      this.describeProbeRequest(trigger).replace('时机探测', '窗口分析'),
+      'window_ready'
     );
 
     const analysis = await this.skillCallAnalyzer.analyzeWindow(
       this.projectRoot,
-      this.buildSkillCallWindow(episode, traces, context),
+      this.buildSkillCallWindow(episode, windowTraces, context),
       currentContent
     );
 
-    if (!analysis.success || !analysis.evaluation) {
+    if (!analysis.success || !analysis.decision) {
       this.recordAnalysisFailure(
         context,
-        analysis.userMessage ?? '深度分析没有返回可用结果。',
+        analysis.userMessage ?? '窗口分析没有返回可用结果。',
         null,
         analysis.technicalDetail ?? analysis.errorCode ?? analysis.error ?? null,
         analysis.technicalDetail
@@ -702,103 +638,70 @@ export class ShadowManager {
             }
           : null
       );
-      return true;
+      return;
     }
 
-    const evaluation = analysis.evaluation;
-    if (!evaluation.should_patch) {
+    const evaluation = analysis.evaluation ?? {
+      should_patch: analysis.decision === 'apply_optimization',
+      reason: analysis.userMessage ?? '当前窗口尚无明确结论。',
+      source_sessions: [context.sessionId],
+      confidence: 0,
+      rule_name: 'llm_window_analysis',
+    };
+    const nextHint = analysis.nextWindowHint ?? fallbackHint;
+
+    if (analysis.decision === 'need_more_context') {
+      this.taskEpisodes.applyNeedMoreContextHint(episode.episodeId, nextHint);
+      this.recordEvaluationResult(
+        shadowId,
+        context,
+        'continue_collecting',
+        analysis.userMessage ?? evaluation.reason ?? '当前窗口证据不足，继续扩展上下文。',
+        evaluation
+      );
+      this.writeOptimizationCheckpoint('idle', null, null);
+      return;
+    }
+
+    if (analysis.decision === 'no_optimization') {
       this.recordEvaluationResult(
         shadowId,
         context,
         'no_patch_needed',
-        evaluation.reason ? `深度分析结论：${evaluation.reason}` : '深度分析认为当前无需修改。',
+        evaluation.reason ? `窗口分析结论：${evaluation.reason}` : '窗口分析认为当前无需修改。',
         evaluation
       );
-      await this.recordSkillFeedback(context, evaluation, traces);
+      await this.recordSkillFeedback(context, evaluation, windowTraces);
       this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
       this.writeOptimizationCheckpoint('idle', null, null);
-      return true;
+      return;
     }
 
     const patchContextIssue = this.getPatchContextIssue(evaluation);
     if (patchContextIssue) {
-      logger.warn('Deep analysis returned an incomplete patch recommendation; skipping auto patch', {
+      logger.warn('Window analysis returned an incomplete patch recommendation; waiting for more context', {
         shadowId,
         skillId: context.skillId,
         changeType: evaluation.change_type,
         issue: patchContextIssue,
       });
+      this.taskEpisodes.applyNeedMoreContextHint(episode.episodeId, nextHint);
       this.recordEvaluationResult(
         shadowId,
         context,
-        'analysis_incomplete',
-        `深度分析建议了修改，但缺少可执行的定位信息：${patchContextIssue}`,
+        'continue_collecting',
+        `当前分析建议了优化，但还缺少可执行定位：${patchContextIssue}`,
         evaluation
       );
-      this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
       this.writeOptimizationCheckpoint('idle', null, null);
-      return true;
+      return;
     }
 
-    await this.recordSkillFeedback(context, evaluation, traces);
-    await this.handleEvaluation(shadowId, evaluation, traces, context, { skipAnalysisRequested: true });
-    return true;
-  }
-
-  private async maybeRunEpisodeProbe(
-    episode: TaskEpisode,
-    shadowId: string,
-    trace: Trace,
-    traces: Trace[],
-    context: ReturnType<ShadowManager['buildDecisionEventContext']>
-  ): Promise<{ handledDeepAnalysis: boolean }> {
-    const trigger = this.taskEpisodes.shouldTriggerProbe(episode, trace);
-    if (!trigger.shouldProbe) {
-      return { handledDeepAnalysis: false };
-    }
-
-    this.decisionEvents.record({
-      tag: 'episode_probe_requested',
-      skillId: context.skillId,
-      runtime: context.runtime,
-      windowId: context.windowId,
-      traceId: context.traceId,
-      sessionId: context.sessionId,
-      status: trigger.mode,
-      detail: this.describeProbeRequest(trigger),
-      traceCount: context.traceCount,
-      sessionCount: context.sessionCount,
+    await this.recordSkillFeedback(context, evaluation, windowTraces);
+    await this.handleEvaluation(shadowId, evaluation, windowTraces, context, {
+      skipAnalysisRequested: true,
+      closeOnSkip: true,
     });
-
-    const result = await this.readinessProbe.probeEpisode(this.projectRoot, episode, traces);
-    this.taskEpisodes.applyProbeResult(episode.episodeId, result);
-
-    this.decisionEvents.record({
-      tag: 'episode_probe_result',
-      skillId: context.skillId,
-      runtime: context.runtime,
-      windowId: context.windowId,
-      traceId: context.traceId,
-      sessionId: context.sessionId,
-      status: result.decision,
-      detail: this.describeProbeResult(result),
-      traceCount: context.traceCount,
-      sessionCount: context.sessionCount,
-      evidence: {
-        directEvidence: [
-          `episode=${episode.episodeId}`,
-          `probe_count=${episode.probeState.probeCount + 1}`,
-        ],
-      },
-    });
-
-    if (result.decision === 'ready_for_analysis') {
-      return {
-        handledDeepAnalysis: await this.runDeepAnalysisFromEpisode(episode, shadowId, traces, context),
-      };
-    }
-
-    return { handledDeepAnalysis: false };
   }
 
   /**
@@ -847,7 +750,7 @@ export class ShadowManager {
     evaluation: EvaluationResult,
     _traces: Trace[],
     context: ReturnType<ShadowManager['buildDecisionEventContext']>,
-    options: { skipAnalysisRequested?: boolean } = {}
+    options: { skipAnalysisRequested?: boolean; closeOnSkip?: boolean } = {}
   ): Promise<void> {
     // 检查是否在冷却期
     if (this.isInCooldown(shadowId)) {
@@ -859,6 +762,10 @@ export class ShadowManager {
         '当前技能仍在冷却期，暂不重复优化。',
         evaluation
       );
+      if (options.closeOnSkip) {
+        this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
+        this.writeOptimizationCheckpoint('idle', null, null);
+      }
       return;
     }
 
@@ -872,6 +779,10 @@ export class ShadowManager {
         '当前技能今天的自动优化次数已达上限。',
         evaluation
       );
+      if (options.closeOnSkip) {
+        this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
+        this.writeOptimizationCheckpoint('idle', null, null);
+      }
       return;
     }
 
@@ -888,6 +799,10 @@ export class ShadowManager {
         '当前技能已被冻结，暂不执行自动优化。',
         evaluation
       );
+      if (options.closeOnSkip) {
+        this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
+        this.writeOptimizationCheckpoint('idle', null, null);
+      }
       return;
     }
 
@@ -901,6 +816,10 @@ export class ShadowManager {
         '当前信号可信度不足，继续观察更多调用。',
         evaluation
       );
+      if (options.closeOnSkip) {
+        this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
+        this.writeOptimizationCheckpoint('idle', null, null);
+      }
       return;
     }
 
@@ -1078,6 +997,7 @@ export class ShadowManager {
     // 获取最近的 traces
     const traces = await this.traceManager.getRecentTraces(100);
     const runtime = (runtimeFromShadowId(shadowId) ?? 'codex') as RuntimeType;
+    const skillId = skillIdFromShadowId(shadowId) ?? shadowId.split('@')[0];
     const fallbackTrace: Trace = traces[traces.length - 1] ?? {
       trace_id: `manual-optimize:${Date.now()}`,
       session_id: `manual-optimize:${Date.now()}`,
@@ -1086,37 +1006,77 @@ export class ShadowManager {
       event_type: 'status',
       status: 'success',
       timestamp: new Date().toISOString(),
-      metadata: { skill_id: skillIdFromShadowId(shadowId) ?? shadowId.split('@')[0] },
+      metadata: { skill_id: skillId },
     };
     const eventContext = this.buildDecisionEventContext(shadowId, fallbackTrace, traces);
+    const currentContent = this.shadowRegistry.readContent(skillId, runtime);
+    if (!currentContent) {
+      this.recordAnalysisFailure(
+        eventContext,
+        '当前技能内容为空，无法启动手动窗口分析。',
+        null,
+        'missing_skill_content'
+      );
+      return null;
+    }
 
-    // 评估
-    const evaluation = evaluator.evaluate(traces);
+    this.recordAnalysisRequested(eventContext, null, '手动触发窗口分析。', 'manual');
+    const analysis = await this.skillCallAnalyzer.analyzeWindow(
+      this.projectRoot,
+      {
+        windowId: `manual::${eventContext.windowId}`,
+        skillId,
+        runtime,
+        sessionId: fallbackTrace.session_id,
+        closeReason: 'manual_trigger',
+        startedAt: traces[0]?.timestamp ?? fallbackTrace.timestamp,
+        lastTraceAt: traces[traces.length - 1]?.timestamp ?? fallbackTrace.timestamp,
+        traces,
+      },
+      currentContent
+    );
 
-    if (!evaluation) {
+    if (!analysis.success || !analysis.decision) {
+      this.recordAnalysisFailure(
+        eventContext,
+        analysis.userMessage ?? '手动窗口分析没有返回可用结果。',
+        null,
+        analysis.technicalDetail ?? analysis.errorCode ?? analysis.error ?? null
+      );
+      return null;
+    }
+
+    const evaluation = analysis.evaluation ?? {
+      should_patch: analysis.decision === 'apply_optimization',
+      reason: analysis.userMessage ?? '当前窗口尚无明确结论。',
+      source_sessions: [eventContext.sessionId],
+      confidence: 0,
+      rule_name: 'llm_window_analysis',
+    };
+
+    if (analysis.decision === 'need_more_context') {
       this.recordEvaluationResult(
         shadowId,
         eventContext,
         'continue_collecting',
-        '当前证据不足，继续观察。',
-        null
-      );
-      return evaluation;
-    }
-
-    if (!evaluation.should_patch) {
-      this.recordEvaluationResult(
-        shadowId,
-        eventContext,
-        'no_patch_needed',
-        evaluation.reason ? `当前暂无修改必要：${evaluation.reason}` : '当前暂无修改必要。',
+        analysis.userMessage ?? evaluation.reason ?? '当前窗口证据不足，继续观察。',
         evaluation
       );
       return evaluation;
     }
 
-    void this.handleEvaluation(shadowId, evaluation, traces, eventContext);
+    if (analysis.decision === 'no_optimization') {
+      this.recordEvaluationResult(
+        shadowId,
+        eventContext,
+        'no_patch_needed',
+        evaluation.reason ? `窗口分析结论：${evaluation.reason}` : '窗口分析认为当前无需修改。',
+        evaluation
+      );
+      return evaluation;
+    }
 
+    void this.handleEvaluation(shadowId, evaluation, traces, eventContext, { skipAnalysisRequested: true });
     return evaluation;
   }
 

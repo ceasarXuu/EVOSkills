@@ -156,6 +156,17 @@ export interface EvaluationResult {
   };
 }
 
+export type WindowAnalysisDecision = 'no_optimization' | 'apply_optimization' | 'need_more_context';
+
+export type WindowHintMode = 'count_driven' | 'event_driven';
+
+export interface WindowAnalysisHint {
+  suggestedTraceDelta: number;
+  suggestedTurnDelta: number;
+  waitForEventTypes: string[];
+  mode: WindowHintMode;
+}
+
 export type AgentUsageScope = 'decision_explainer' | 'skill_call_analyzer' | 'readiness_probe';
 
 export interface AgentUsageRecord {

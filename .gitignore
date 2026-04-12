@@ -51,6 +51,7 @@ blog-*
 # OrnnSkills runtime files
 .ornn/config/settings.toml
 .ornn/daemon.pid
+.ornn/snapshots/
 .ornn/state/
 .ornn/sessions.db
 .ornn/shadows/index.json

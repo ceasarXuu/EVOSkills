@@ -39,6 +39,22 @@ function makeTrace(index: number, projectRoot: string): Trace {
   };
 }
 
+function makeMixedTrace(index: number, projectRoot: string, mapped: boolean): Trace {
+  return {
+    trace_id: `mixed-trace-${index}`,
+    session_id: 'sess-mixed',
+    turn_id: `mixed-turn-${index}`,
+    runtime: 'codex',
+    event_type: mapped ? 'tool_call' : 'assistant_output',
+    tool_name: mapped ? 'exec_command' : undefined,
+    tool_args: mapped ? { cmd: `cat ${projectRoot}/.agents/skills/test-skill/SKILL.md` } : undefined,
+    assistant_output: mapped ? undefined : `Intermediate output ${index}`,
+    status: 'success',
+    timestamp: new Date(Date.UTC(2026, 3, 11, 9, 0, index)).toISOString(),
+    metadata: mapped ? { skill_id: 'test-skill' } : undefined,
+  };
+}
+
 function readTaskEpisodes(projectRoot: string): TaskEpisodeSnapshot {
   return JSON.parse(
     readFileSync(join(projectRoot, '.ornn', 'state', 'task-episodes.json'), 'utf-8')
@@ -156,5 +172,41 @@ describe('ShadowManager task episodes', () => {
       status: 'closed',
       lastRelatedTraceId: 'trace-1',
     });
+  });
+
+  it('triggers the first probe once the surrounding session window reaches the threshold even if only some traces map to the skill', async () => {
+    evaluatorMock.evaluate.mockReturnValue(null);
+
+    const manager = createShadowManager(testProjectPath);
+    await manager.init();
+
+    for (let index = 1; index <= 10; index += 1) {
+      const mapped = index === 1 || index === 10;
+      await manager.processTrace(makeMixedTrace(index, testProjectPath, mapped));
+    }
+
+    const snapshot = readTaskEpisodes(testProjectPath);
+    expect(snapshot.episodes).toHaveLength(1);
+    expect(snapshot.episodes[0]).toMatchObject({
+      sessionIds: ['sess-mixed'],
+      traceRefs: expect.arrayContaining(['mixed-trace-1', 'mixed-trace-10', 'mixed-trace-5']),
+      turnIds: expect.arrayContaining(['mixed-turn-1', 'mixed-turn-10', 'mixed-turn-5']),
+      stats: {
+        totalTraceCount: 10,
+        totalTurnCount: 10,
+        mappedTraceCount: 2,
+        tracesSinceLastProbe: 0,
+        turnsSinceLastProbe: 0,
+      },
+      probeState: expect.objectContaining({
+        probeCount: 1,
+        lastProbeTraceIndex: 10,
+        lastProbeTurnIndex: 10,
+      }),
+    });
+
+    const events = readDecisionEvents(testProjectPath).filter((event) => event.sessionId === 'sess-mixed');
+    expect(events.some((event) => event.tag === 'episode_probe_requested')).toBe(true);
+    expect(events.some((event) => event.tag === 'episode_probe_result')).toBe(true);
   });
 });

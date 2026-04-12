@@ -319,7 +319,7 @@ export class ShadowManager {
       skillId: eventContext.skillId,
       shadowId,
       runtime: eventContext.runtime,
-    });
+    }, recentTraces);
 
     // 评估是否需要优化
     const evaluation = evaluator.evaluate(recentTraces);

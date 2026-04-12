@@ -254,6 +254,13 @@
 
 ## 更新日志
 
+### 2026-04-12
+- ✅ 修复成本看板长期无数据的 episode 统计口径问题：probe 现在按 session 窗口累计 trace，而不是只看映射命中的少量 trace
+- ✅ 新增 `shadow-manager-task-episodes` 回归测试，覆盖“session 已达阈值但仅部分 trace 映射到 skill”时仍应触发 probe
+- 📝 补充调试经验：当成本看板为空时，先核对 `.ornn/state/agent-usage.ndjson` 是否存在，再对照 `task-episodes.json` 的 `totalTraceCount` 与 `mappedTraceCount` 是否失衡
+
+---
+
 ### 2026-03-21
 - ✅ 完成 Phase 1 所有任务
 - ✅ 项目基础框架搭建完成
@@ -264,5 +271,5 @@
 
 ---
 
-*最后更新：2026-03-21*
+*最后更新：2026-04-12*
 *更新人：OrnnSkills Team*

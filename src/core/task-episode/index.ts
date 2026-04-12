@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { RuntimeType, Trace } from '../../types/index.js';
+import { createChildLogger } from '../../utils/logger.js';
+
+const logger = createChildLogger('task-episode');
 
 export interface TaskEpisodeSkillSegment {
   segmentId: string;
@@ -173,7 +176,7 @@ export class TaskEpisodeStore {
     episode.stats.turnsSinceLastProbe = Math.max(0, episode.turnIds.length - episode.probeState.lastProbeTurnIndex);
   }
 
-  recordTrace(trace: Trace, context: TaskEpisodeTraceContext): TaskEpisode {
+  recordTrace(trace: Trace, context: TaskEpisodeTraceContext, sessionTraces: Trace[] = [trace]): TaskEpisode {
     const snapshot = this.readSnapshot();
     const existing = this.findActiveEpisode(snapshot.episodes, trace.session_id, context.skillId, context.runtime);
 
@@ -227,15 +230,20 @@ export class TaskEpisodeStore {
       snapshot.episodes.push(episode);
     }
 
-    pushUnique(episode.sessionIds, trace.session_id);
-    pushUnique(episode.traceRefs, trace.trace_id);
-    pushUnique(episode.turnIds, trace.turn_id);
+    const normalizedSessionTraces = sessionTraces.length > 0 ? sessionTraces : [trace];
+    for (const sessionTrace of normalizedSessionTraces) {
+      pushUnique(episode.sessionIds, sessionTrace.session_id);
+      pushUnique(episode.traceRefs, sessionTrace.trace_id);
+      pushUnique(episode.turnIds, sessionTrace.turn_id);
+    }
     episode.lastActivityAt = trace.timestamp;
 
     const segment = episode.skillSegments.find((item) => item.skillId === context.skillId) ?? episode.skillSegments[0];
     pushUnique(segment.mappedTraceIds, trace.trace_id);
-    pushUnique(segment.relatedTraceIds, trace.trace_id);
-    segment.lastRelatedTraceId = trace.trace_id;
+    for (const sessionTrace of normalizedSessionTraces) {
+      pushUnique(segment.relatedTraceIds, sessionTrace.trace_id);
+    }
+    segment.lastRelatedTraceId = normalizedSessionTraces[normalizedSessionTraces.length - 1]?.trace_id ?? trace.trace_id;
     segment.lastActivityAt = trace.timestamp;
     segment.status = episode.analysisStatus === 'running' ? 'analyzing' : 'active';
 
@@ -245,6 +253,16 @@ export class TaskEpisodeStore {
     }
 
     this.recalculateStats(episode);
+    logger.debug('Task episode window synchronized', {
+      projectPath: this.projectRoot,
+      episodeId: episode.episodeId,
+      sessionId: trace.session_id,
+      skillId: context.skillId,
+      totalTraceCount: episode.stats.totalTraceCount,
+      mappedTraceCount: episode.stats.mappedTraceCount,
+      tracesSinceLastProbe: episode.stats.tracesSinceLastProbe,
+      probeCount: episode.probeState.probeCount,
+    });
     this.writeSnapshot(snapshot);
     return episode;
   }

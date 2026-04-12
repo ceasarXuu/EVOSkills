@@ -10,6 +10,11 @@ export interface DecisionEventRecord {
   id: string;
   timestamp: string;
   tag: string;
+  businessCategory?: string | null;
+  businessTag?: string | null;
+  inputSummary?: string | null;
+  judgment?: string | null;
+  nextAction?: string | null;
   skillId?: string | null;
   runtime?: string | null;
   windowId?: string | null;
@@ -44,6 +49,11 @@ export class DecisionEventRecorder {
       id: event.id ?? randomUUID(),
       timestamp: event.timestamp ?? new Date().toISOString(),
       tag: event.tag,
+      businessCategory: event.businessCategory ?? null,
+      businessTag: event.businessTag ?? null,
+      inputSummary: event.inputSummary ?? null,
+      judgment: event.judgment ?? null,
+      nextAction: event.nextAction ?? null,
       skillId: event.skillId ?? null,
       runtime: event.runtime ?? null,
       windowId: event.windowId ?? null,

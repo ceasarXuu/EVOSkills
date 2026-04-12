@@ -1476,6 +1476,7 @@ function formatBusinessEvent(e) {
 }
 
 function normalizeDecisionTag(event) {
+  if (event?.businessTag) return event.businessTag;
   const tag = event?.tag;
   const status = event?.status;
   if (!tag) return null;
@@ -1743,12 +1744,14 @@ function buildActivityDetail(row) {
     return lines.join('\\n');
   }
   const inputParts = [];
+  if (row.inputSummary) inputParts.push(row.inputSummary);
   if (row.sourceLabel) inputParts.push(t('activitySourceLabel') + ': ' + row.sourceLabel);
   if (row.traceId) inputParts.push(t('traceId') + ': ' + row.traceId);
   if (row.sessionId) inputParts.push(t('activitySessionIdLabel') + ': ' + row.sessionId);
   if (row.scopeId) inputParts.push(t('traceScope') + ': ' + row.scopeId);
-  let nextStep = '';
-  switch (row.tag) {
+  let nextStep = row.nextAction || '';
+  if (!nextStep) {
+    switch (row.tag) {
     case 'skill_observed':
       nextStep = currentLang === 'zh'
         ? '继续在同一观察窗口内积累上下文，直到系统决定发起分析。'
@@ -1780,6 +1783,7 @@ function buildActivityDetail(row) {
         ? '继续观察同一技能后续窗口中的变化。'
         : 'Continue observing how this skill behaves in later windows.';
       break;
+    }
   }
   const lines = [
     t('traceTime') + ': ' + (row.timestamp || '—'),
@@ -1874,7 +1878,7 @@ function buildActivityRows(projectPath) {
     if (scopeId && event.traceId) scopeByTraceId.set(event.traceId, scopeId);
     if (scopeId && event.sessionId && event.skillId) scopeBySessionSkill.set(event.sessionId + '::' + event.skillId, scopeId);
 
-    if (event.tag !== 'skill_feedback') continue;
+    if (event.businessCategory !== 'supporting_detail' && event.tag !== 'skill_feedback') continue;
     for (const key of getActivityRelationKeys(event)) {
       if (!feedbackByKey.has(key)) feedbackByKey.set(key, []);
       feedbackByKey.get(key).push(event);
@@ -1886,7 +1890,7 @@ function buildActivityRows(projectPath) {
     const tag = normalizeDecisionTag(event);
     if (!tag) continue;
     const scopeId = getActivityScopeId(event);
-    const feedbackDetails = tag === 'analysis_failed'
+    const feedbackDetails = (event.businessCategory || businessCategoryForTag(tag)) === 'stability_feedback'
       ? []
       : collectUniqueText(
         getActivityRelationKeys({
@@ -1894,21 +1898,23 @@ function buildActivityRows(projectPath) {
           traceId: event.traceId,
           sessionId: event.sessionId,
           skillId: event.skillId,
-        }).flatMap((key) => (feedbackByKey.get(key) || []).map((item) => item.detail))
+        }).flatMap((key) => (feedbackByKey.get(key) || []).map((item) => item.judgment || item.detail))
       );
     decisionRows.push({
       id: 'decision:' + event.id,
       timestamp: event.timestamp || '',
       tag,
-      category: businessCategoryForTag(tag),
+      category: event.businessCategory || businessCategoryForTag(tag),
       runtime: event.runtime || (event.traceId ? runtimeByTraceId.get(event.traceId) : null) || t('activityHostFallback'),
       skillId: event.skillId || null,
       status: event.status || (tag === 'analysis_failed' ? 'failed' : t('activityStatusFallback')),
       scopeId: scopeId || null,
       detail: mergeBusinessDetail(
-        event.detail || event.reason || formatBusinessEvent({ ...event, tag }),
+        event.judgment || event.detail || event.reason || formatBusinessEvent({ ...event, tag }),
         feedbackDetails
       ),
+      inputSummary: event.inputSummary || null,
+      nextAction: event.nextAction || null,
       rawDetail: event.detail || null,
       rawReason: event.reason || null,
       evidence: event.evidence || null,

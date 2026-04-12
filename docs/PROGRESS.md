@@ -2,6 +2,13 @@
 
 ## 📊 总体进度：Phase 1 ✅ 完成
 
+### 2026-04-13
+- ✅ 收紧实时追踪的业务事件契约：`DecisionEventRecord` 现在由后端直接写出 `businessCategory / businessTag / inputSummary / judgment / nextAction` 等 canonical 业务语义字段，dashboard 不再需要仅靠原始 tag 和状态去猜测“这是不是核心流程节点”
+- ✅ 重构分析链路的业务产出：`ShadowManager` 在 `analysis_requested / evaluation_result / skill_feedback / patch_applied / analysis_failed` 各生产点统一写出业务层语义，明确区分 `core_flow / supporting_detail / stability_feedback`，并把“下一步动作”一并沉淀到事件里
+- ✅ 收紧实时追踪消费层：活动表现在优先消费后端给出的 canonical 字段，只保留旧 tag 归一作为兼容兜底；同 scope 的 supporting detail 会并入主结论行，避免 UI 再重复维护一套独立的业务判断规则
+- 📝 记录恢复经验：业务可观测性不能建立在 dashboard 的二次推断上；只要“业务语义定义”和“展示逻辑”分散在后端与前端两边，时间一长就一定出现看板漂移。正确做法是让生产侧直接产出 canonical 业务事件，前端只做展示和轻量兼容
+- 📝 记录工程经验：给 dashboard 这种用户核心界面做重构时，测试不能只盯 HTML 片段；还要在生产侧断言事件 schema 自身的业务语义字段，否则很容易出现“界面暂时对了，但持久化链路里根本没有稳定事实来源”的假修复
+
 ### 2026-04-12
 - ✅ 补齐实时追踪技能跳转：活动表的技能列现在支持直接点击打开现有技能编辑弹窗，优先按事件宿主匹配 skill，匹配不到时回退到同名 skill，避免排查活动后还得手动切回技能列表再搜索
 - 📝 记录恢复经验：dashboard 的“横向跳转”不该只存在于主列表页面；像实时追踪这种排障高频入口，如果技能名只是纯文本，用户会在“看到问题 -> 定位技能 -> 打开编辑”之间多做一次上下文切换，排查效率会明显下降

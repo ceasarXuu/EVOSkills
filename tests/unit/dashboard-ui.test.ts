@@ -1074,6 +1074,42 @@ describe('dashboard ui recovery', () => {
     expect(stabilityHtml).toContain('分析链路异常');
   });
 
+  it('prefers canonical business fields from backend instead of inferring from raw event tags', () => {
+    const { dashboard } = loadDashboardTestHarness({}, { lang: 'zh' });
+    const projectPath = '/tmp/ornn-project';
+
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [{ skillId: 'test-driven-development', runtime: 'codex' }],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+        decisionEvents: [{
+          id: 'evt-canonical-1',
+          timestamp: '2026-04-10T05:23:00.000Z',
+          tag: 'opaque_internal_event',
+          runtime: 'codex',
+          skillId: 'test-driven-development',
+          status: 'completed',
+          windowId: 'scope-canonical-1',
+          detail: 'raw detail should not drive UI semantics',
+          judgment: '后端已经直接给出业务结论。',
+          nextAction: '继续观察后续调用窗口。',
+          businessCategory: 'core_flow',
+          businessTag: 'analysis_concluded',
+        }],
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+      },
+    };
+
+    const rows = dashboard.buildActivityRows(projectPath);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.tag).toBe('analysis_concluded');
+    expect(rows[0]?.category).toBe('core_flow');
+    expect(rows[0]?.detail).toContain('后端已经直接给出业务结论');
+    expect(rows[0]?.nextAction).toContain('继续观察后续调用窗口');
+  });
+
   it('uses persisted activity column widths when rendering the table', () => {
     const { dashboard, getElement } = loadDashboardTestHarness({
       'ornn-dashboard-activity-columns': JSON.stringify({ detail: 640 }),

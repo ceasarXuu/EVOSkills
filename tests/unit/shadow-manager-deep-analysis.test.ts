@@ -156,16 +156,22 @@ describe('ShadowManager deep analysis recovery chain', () => {
     expect(scopedEvents[0]).toMatchObject({
       tag: 'analysis_requested',
       status: 'window_ready',
+      businessCategory: 'core_flow',
+      businessTag: 'analysis_started',
     });
     expect(scopedEvents[1]).toMatchObject({
       tag: 'evaluation_result',
       status: 'no_patch_needed',
       reason: '调用窗口显示当前 skill 使用正确',
+      businessCategory: 'core_flow',
+      businessTag: 'analysis_concluded',
     });
     expect(scopedEvents[2]).toMatchObject({
       tag: 'skill_feedback',
       status: 'no_patch_needed',
       detail: '这次调用不建议修改 skill。',
+      businessCategory: 'supporting_detail',
+      businessTag: 'analysis_support',
     });
 
     const snapshot = readTaskEpisodes(testProjectPath);
@@ -225,6 +231,8 @@ describe('ShadowManager deep analysis recovery chain', () => {
       tag: 'patch_applied',
       status: 'success',
       changeType: 'prune_noise',
+      businessCategory: 'core_flow',
+      businessTag: 'optimization_applied',
     });
 
     const checkpoint = readCheckpoint(testProjectPath);
@@ -263,6 +271,8 @@ describe('ShadowManager deep analysis recovery chain', () => {
       tag: 'analysis_failed',
       detail: '模型返回了内容，但格式不符合系统要求，所以这轮分析结果无法解析。',
       reason: 'invalid_analysis_json',
+      businessCategory: 'stability_feedback',
+      businessTag: 'analysis_failed',
     });
 
     const snapshot = readTaskEpisodes(testProjectPath);

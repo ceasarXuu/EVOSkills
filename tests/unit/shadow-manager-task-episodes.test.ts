@@ -172,6 +172,8 @@ describe('ShadowManager task episodes', () => {
       sessionId: 'sess-1',
       traceId: 'trace-10',
       status: 'continue_collecting',
+      businessCategory: 'core_flow',
+      businessTag: 'analysis_waiting_more_context',
     });
   });
 

@@ -363,6 +363,45 @@ export class ShadowManager {
     };
   }
 
+  private buildWindowInputSummary(
+    context: ReturnType<ShadowManager['buildDecisionEventContext']>
+  ): string {
+    return `本次观察窗口覆盖 ${context.traceCount} 条 trace，涉及 ${context.sessionCount} 个 session。`;
+  }
+
+  private buildEvaluationBusinessMeta(status: string): {
+    businessCategory: string;
+    businessTag: string;
+    nextAction: string;
+  } {
+    if (status === 'continue_collecting') {
+      return {
+        businessCategory: 'core_flow',
+        businessTag: 'analysis_waiting_more_context',
+        nextAction: '当前不会直接修改技能，系统会继续扩大窗口并等待更多上下文后再次分析。',
+      };
+    }
+
+    if (
+      status === 'cooldown' ||
+      status === 'daily_limit_reached' ||
+      status === 'frozen' ||
+      status === 'confidence_too_low'
+    ) {
+      return {
+        businessCategory: 'core_flow',
+        businessTag: 'optimization_skipped',
+        nextAction: '当前保持技能不变，只有出现新的强信号时才会重新进入下一轮分析。',
+      };
+    }
+
+    return {
+      businessCategory: 'core_flow',
+      businessTag: 'analysis_concluded',
+      nextAction: '当前保持技能不变，并继续观察后续调用窗口。',
+    };
+  }
+
   private getPatchContextIssue(evaluation: EvaluationResult): string | null {
     if (!evaluation.should_patch || !evaluation.change_type) {
       return null;
@@ -385,8 +424,14 @@ export class ShadowManager {
     detail: string,
     evaluation: EvaluationResult | null
   ): void {
+    const businessMeta = this.buildEvaluationBusinessMeta(status);
     this.decisionEvents.record({
       tag: 'evaluation_result',
+      businessCategory: businessMeta.businessCategory,
+      businessTag: businessMeta.businessTag,
+      inputSummary: this.buildWindowInputSummary(context),
+      judgment: detail,
+      nextAction: businessMeta.nextAction,
       skillId: context.skillId,
       runtime: context.runtime,
       windowId: context.windowId,
@@ -414,6 +459,11 @@ export class ShadowManager {
   ): void {
     this.decisionEvents.record({
       tag: 'analysis_requested',
+      businessCategory: 'core_flow',
+      businessTag: 'analysis_started',
+      inputSummary: this.buildWindowInputSummary(context),
+      judgment: detail,
+      nextAction: '等待本轮分析返回结果，再决定是继续观察、保持现状还是执行优化。',
       skillId: context.skillId,
       runtime: context.runtime,
       windowId: context.windowId,
@@ -441,6 +491,11 @@ export class ShadowManager {
     this.writeOptimizationCheckpoint('error', context.skillId, detail);
     this.decisionEvents.record({
       tag: 'analysis_failed',
+      businessCategory: 'stability_feedback',
+      businessTag: 'analysis_failed',
+      inputSummary: this.buildWindowInputSummary(context),
+      judgment: detail,
+      nextAction: '优先排查分析链路、模型服务或协议问题，而不是直接修改技能内容。',
       skillId: context.skillId,
       runtime: context.runtime,
       windowId: context.windowId,
@@ -568,6 +623,11 @@ export class ShadowManager {
 
     this.decisionEvents.record({
       tag: 'skill_feedback',
+      businessCategory: 'supporting_detail',
+      businessTag: 'analysis_support',
+      inputSummary: this.buildWindowInputSummary(context),
+      judgment: explanation.summary,
+      nextAction: explanation.recommendedAction,
       skillId: context.skillId,
       runtime: context.runtime,
       windowId: context.windowId,
@@ -852,6 +912,11 @@ export class ShadowManager {
 
     this.decisionEvents.record({
       tag: 'patch_applied',
+      businessCategory: 'core_flow',
+      businessTag: 'optimization_applied',
+      inputSummary: this.buildWindowInputSummary(context),
+      judgment: `已完成本轮优化并写回 shadow skill。revision=${patchResult.revision ?? 0}`,
+      nextAction: '后续调用会继续验证这次优化是否有效，并在必要时开启下一轮观察。',
       skillId: context.skillId,
       runtime: context.runtime,
       windowId: context.windowId,

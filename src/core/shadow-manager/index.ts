@@ -15,6 +15,11 @@ import {
 import { createSkillCallAnalyzer } from '../skill-call-analyzer/index.js';
 import { generateDecisionExplanation } from '../decision-explainer/index.js';
 import { executeWindowAnalysis } from '../window-analysis-coordinator/index.js';
+import {
+  getWindowPatchContextIssue,
+  type PatchContextIssueCode,
+  resolveWindowAnalysisOutcome,
+} from '../window-analysis-outcome/index.js';
 import { hashString } from '../../utils/hash.js';
 import { buildShadowId, runtimeFromShadowId, skillIdFromShadowId } from '../../utils/parse.js';
 import { createSQLiteStorage } from '../../storage/sqlite.js';
@@ -403,19 +408,13 @@ export class ShadowManager {
     };
   }
 
-  private getPatchContextIssue(evaluation: EvaluationResult): string | null {
-    if (!evaluation.should_patch || !evaluation.change_type) {
-      return null;
+  private describePatchContextIssue(issue: PatchContextIssueCode): string {
+    switch (issue) {
+      case 'missing_target_section':
+        return '缺少 target_section，无法定位需要修改的技能段落。';
+      default:
+        return '缺少可执行的 patch 上下文。';
     }
-
-    if (
-      (evaluation.change_type === 'prune_noise' || evaluation.change_type === 'rewrite_section') &&
-      !evaluation.target_section?.trim()
-    ) {
-      return '缺少 target_section，无法定位需要修改的技能段落。';
-    }
-
-    return null;
   }
 
   private recordEvaluationResult(
@@ -691,100 +690,76 @@ export class ShadowManager {
       skillContent: currentContent,
     });
 
-    if (!analysis.success || !analysis.decision) {
+    const outcome = resolveWindowAnalysisOutcome({
+      analysis,
+      getPatchContextIssue: getWindowPatchContextIssue,
+    });
+
+    if (outcome.kind === 'analysis_failed') {
       this.recordAnalysisFailure(
         context,
-        analysis.userMessage ?? '窗口分析没有返回可用结果。',
-        null,
-        analysis.technicalDetail ?? analysis.errorCode ?? analysis.error ?? null,
-        analysis.technicalDetail
+        outcome.userMessage,
+        outcome.evaluation ?? null,
+        outcome.reasonCode,
+        outcome.technicalDetail
           ? {
-              rawEvidence: analysis.technicalDetail,
+              rawEvidence: outcome.technicalDetail,
             }
           : null
       );
       return;
     }
 
-    const evaluation = analysis.evaluation;
-    if (!evaluation) {
-      this.recordAnalysisFailure(
-        context,
-        '窗口分析没有返回可归一化的评估结果。',
-        null,
-        'missing_normalized_evaluation'
-      );
-      return;
-    }
-    const nextHint = analysis.nextWindowHint;
-
-    if (analysis.decision === 'need_more_context') {
-      if (!nextHint) {
-        this.recordAnalysisFailure(
-          context,
-          '窗口分析要求继续观察，但没有返回下一轮窗口提示。',
-          evaluation,
-          'missing_next_window_hint'
-        );
-        return;
-      }
-      this.taskEpisodes.applyNeedMoreContextHint(episode.episodeId, nextHint);
+    if (outcome.kind === 'need_more_context') {
+      this.taskEpisodes.applyNeedMoreContextHint(episode.episodeId, outcome.nextWindowHint);
       this.recordEvaluationResult(
         shadowId,
         context,
         'continue_collecting',
-        analysis.userMessage ?? evaluation.reason ?? '当前窗口证据不足，继续扩展上下文。',
-        evaluation
+        analysis.userMessage ?? outcome.evaluation.reason ?? '当前窗口证据不足，继续扩展上下文。',
+        outcome.evaluation
       );
       this.writeOptimizationCheckpoint('idle', null, null);
       return;
     }
 
-    if (analysis.decision === 'no_optimization') {
+    if (outcome.kind === 'no_optimization') {
       this.recordEvaluationResult(
         shadowId,
         context,
         'no_patch_needed',
-        evaluation.reason ? `窗口分析结论：${evaluation.reason}` : '窗口分析认为当前无需修改。',
-        evaluation
+        outcome.evaluation.reason
+          ? `窗口分析结论：${outcome.evaluation.reason}`
+          : '窗口分析认为当前无需修改。',
+        outcome.evaluation
       );
-      await this.recordSkillFeedback(context, evaluation, windowTraces);
+      await this.recordSkillFeedback(context, outcome.evaluation, windowTraces);
       this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
       this.writeOptimizationCheckpoint('idle', null, null);
       return;
     }
 
-    const patchContextIssue = this.getPatchContextIssue(evaluation);
-    if (patchContextIssue) {
+    if (outcome.kind === 'incomplete_patch_context') {
       logger.warn('Window analysis returned an incomplete patch recommendation; waiting for more context', {
         shadowId,
         skillId: context.skillId,
-        changeType: evaluation.change_type,
-        issue: patchContextIssue,
+        changeType: outcome.evaluation.change_type,
+        issue: outcome.issue,
       });
-      if (!nextHint) {
-        this.recordAnalysisFailure(
-          context,
-          '窗口分析建议继续扩窗，但没有返回下一轮窗口提示。',
-          evaluation,
-          'missing_next_window_hint'
-        );
-        return;
-      }
-      this.taskEpisodes.applyNeedMoreContextHint(episode.episodeId, nextHint);
+      this.taskEpisodes.applyNeedMoreContextHint(episode.episodeId, outcome.nextWindowHint);
       this.recordEvaluationResult(
         shadowId,
         context,
         'continue_collecting',
-        `当前分析建议了优化，但还缺少可执行定位：${patchContextIssue}`,
-        evaluation
+        `当前分析建议了优化，但还缺少可执行定位：${this.describePatchContextIssue(outcome.issue)}`,
+        outcome.evaluation
       );
       this.writeOptimizationCheckpoint('idle', null, null);
       return;
     }
 
-    await this.recordSkillFeedback(context, evaluation, windowTraces);
-    await this.handleEvaluation(shadowId, evaluation, windowTraces, context, {
+    await this.recordSkillFeedback(context, outcome.evaluation, windowTraces);
+    await this.handleEvaluation(shadowId, outcome.evaluation, windowTraces, context, {
       skipAnalysisRequested: true,
       closeOnSkip: true,
     });
@@ -1128,51 +1103,56 @@ export class ShadowManager {
       skillContent: currentContent,
     });
 
-    if (!analysis.success || !analysis.decision) {
+    const outcome = resolveWindowAnalysisOutcome({
+      analysis,
+      getPatchContextIssue: getWindowPatchContextIssue,
+    });
+
+    if (outcome.kind === 'analysis_failed') {
       this.recordAnalysisFailure(
         eventContext,
-        analysis.userMessage ?? '手动窗口分析没有返回可用结果。',
-        null,
-        analysis.technicalDetail ?? analysis.errorCode ?? analysis.error ?? null
+        outcome.userMessage,
+        outcome.evaluation ?? null,
+        outcome.reasonCode,
+        outcome.technicalDetail
+          ? {
+              rawEvidence: outcome.technicalDetail,
+            }
+          : null
       );
       return null;
     }
 
-    const evaluation = analysis.evaluation;
-    if (!evaluation) {
-      this.recordAnalysisFailure(
-        eventContext,
-        '手动窗口分析没有返回可归一化的评估结果。',
-        null,
-        'missing_normalized_evaluation'
-      );
-      return null;
-    }
-
-    if (analysis.decision === 'need_more_context') {
+    if (outcome.kind === 'need_more_context' || outcome.kind === 'incomplete_patch_context') {
       this.recordEvaluationResult(
         shadowId,
         eventContext,
         'continue_collecting',
-        analysis.userMessage ?? evaluation.reason ?? '当前窗口证据不足，继续观察。',
-        evaluation
+        outcome.kind === 'incomplete_patch_context'
+          ? `当前分析建议了优化，但还缺少可执行定位：${this.describePatchContextIssue(outcome.issue)}`
+          : (analysis.userMessage ?? outcome.evaluation.reason ?? '当前窗口证据不足，继续观察。'),
+        outcome.evaluation
       );
-      return evaluation;
+      return outcome.evaluation;
     }
 
-    if (analysis.decision === 'no_optimization') {
+    if (outcome.kind === 'no_optimization') {
       this.recordEvaluationResult(
         shadowId,
         eventContext,
         'no_patch_needed',
-        evaluation.reason ? `窗口分析结论：${evaluation.reason}` : '窗口分析认为当前无需修改。',
-        evaluation
+        outcome.evaluation.reason
+          ? `窗口分析结论：${outcome.evaluation.reason}`
+          : '窗口分析认为当前无需修改。',
+        outcome.evaluation
       );
-      return evaluation;
+      return outcome.evaluation;
     }
 
-    void this.handleEvaluation(shadowId, evaluation, traces, eventContext, { skipAnalysisRequested: true });
-    return evaluation;
+    void this.handleEvaluation(shadowId, outcome.evaluation, traces, eventContext, {
+      skipAnalysisRequested: true,
+    });
+    return outcome.evaluation;
   }
 
   /**

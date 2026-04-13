@@ -265,4 +265,49 @@ describe('OptimizationPipeline', () => {
     expect(analyzeWindowMock).toHaveBeenCalledTimes(2);
     expect(tasks).toEqual([]);
   });
+
+  it('skips task generation when optimization lacks executable patch context', async () => {
+    const traces = [makeTrace('trace-1')];
+    getRecentTracesMock.mockResolvedValue(traces);
+    getSessionTracesMock.mockResolvedValue(traces);
+    mapTraceMock.mockReturnValue({
+      trace_id: 'trace-1',
+      skill_id: 'test-skill',
+      shadow_id: 'test-skill@/tmp/project#codex',
+      confidence: 0.9,
+      reason: 'metadata',
+    });
+    shadowGetMock.mockReturnValue({ status: 'active' });
+    shadowReadContentMock.mockReturnValue('# Test Skill');
+    analyzeWindowMock.mockResolvedValue({
+      success: true,
+      decision: 'apply_optimization',
+      userMessage: 'Repeated noise should be pruned.',
+      evaluation: {
+        should_patch: true,
+        change_type: 'prune_noise',
+        reason: 'Repeated noise should be pruned.',
+        source_sessions: ['sess-1'],
+        confidence: 0.92,
+        rule_name: 'llm_window_analysis',
+      },
+      nextWindowHint: {
+        suggestedTraceDelta: 6,
+        suggestedTurnDelta: 2,
+        waitForEventTypes: ['tool_result'],
+        mode: 'event_driven',
+      },
+    });
+
+    const pipeline = createOptimizationPipeline({
+      projectRoot: '/tmp/project',
+      autoOptimize: true,
+      minConfidence: 0.5,
+    });
+    await pipeline.init();
+
+    const tasks = await pipeline.runOnce();
+
+    expect(tasks).toEqual([]);
+  });
 });

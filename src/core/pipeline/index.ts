@@ -12,6 +12,7 @@ import {
   type SessionWindowCandidate,
 } from '../session-window-candidates/index.js';
 import { executeWindowAnalysis } from '../window-analysis-coordinator/index.js';
+import { resolveWindowAnalysisOutcome } from '../window-analysis-outcome/index.js';
 
 const logger = createChildLogger('pipeline');
 
@@ -182,21 +183,6 @@ export class OptimizationPipeline {
     this.state.errors.push(errorMsg);
   }
 
-  private getPatchContextIssue(evaluation: EvaluationResult): string | null {
-    if (!evaluation.should_patch || !evaluation.change_type) {
-      return null;
-    }
-
-    if (
-      (evaluation.change_type === 'prune_noise' || evaluation.change_type === 'rewrite_section') &&
-      !evaluation.target_section?.trim()
-    ) {
-      return 'missing_target_section';
-    }
-
-    return null;
-  }
-
   private buildAnalysisWindow(candidate: SessionWindowCandidate): SkillCallWindow {
     const shadowId = candidate.shadow_id;
     const skillId = candidate.skill_id;
@@ -274,45 +260,52 @@ export class OptimizationPipeline {
       skillContent: currentContent,
       timeoutMs: 10000,
     });
-    if (!analysis.success || !analysis.decision) {
+
+    const outcome = resolveWindowAnalysisOutcome({ analysis });
+    if (outcome.kind === 'analysis_failed') {
       logger.warn('Pipeline window analysis failed', {
         skill_id,
         runtime,
         sessionId,
-        error: analysis.error ?? analysis.errorCode ?? analysis.technicalDetail ?? analysis.userMessage,
+        reasonCode: outcome.reasonCode,
+        error: outcome.technicalDetail ?? outcome.userMessage,
       });
       return tasks;
     }
 
-    const evaluation = analysis.evaluation;
-    if (!evaluation) {
-      logger.warn('Pipeline window analysis returned no normalized evaluation', {
+    if (outcome.kind === 'need_more_context') {
+      logger.debug('Pipeline window needs more context before optimization', {
         skill_id,
         runtime,
         sessionId,
+        suggestedTraceDelta: outcome.nextWindowHint.suggestedTraceDelta,
+        suggestedTurnDelta: outcome.nextWindowHint.suggestedTurnDelta,
       });
       return tasks;
     }
 
-    if (analysis.decision !== 'apply_optimization' || !evaluation.should_patch) {
-      logger.debug('Pipeline window does not require optimization yet', {
+    if (outcome.kind === 'no_optimization') {
+      logger.debug('Pipeline window does not require optimization', {
         skill_id,
         runtime,
         sessionId,
-        decision: analysis.decision,
+        confidence: outcome.evaluation.confidence,
       });
       return tasks;
     }
 
-    if (this.getPatchContextIssue(evaluation)) {
+    if (outcome.kind === 'incomplete_patch_context') {
       logger.debug('Pipeline window suggested a patch without executable context, skipping', {
         skill_id,
         runtime,
         sessionId,
-        changeType: evaluation.change_type,
+        issue: outcome.issue,
+        changeType: outcome.evaluation.change_type,
       });
       return tasks;
     }
+
+    const evaluation = outcome.evaluation;
 
     if (evaluation.confidence < this.config.minConfidence) {
       logger.debug('Pipeline window analysis confidence too low, skipping', {

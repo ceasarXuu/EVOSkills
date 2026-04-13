@@ -273,6 +273,10 @@
 - 📝 补充调试经验：当成本看板为空时，先核对 `.ornn/state/agent-usage.ndjson` 是否存在，再对照 `task-episodes.json` 的 `totalTraceCount` 与 `mappedTraceCount` 是否失衡
 - ✅ 重做成本页布局：改成 `hero + summary grid + main table + side rail` 的层次结构，弱化“堆表格”观感
 - 📝 记录前端经验：成本页这类信息密度高的看板，优先把“主结论”放到 hero，再把拆解放到侧栏，避免所有卡片权重一致
+- ✅ 抽出共享的窗口分析结果分类层：`window-analysis-outcome` 统一归一化 `analysis_failed / need_more_context / no_optimization / incomplete_patch_context / apply_optimization`
+- ✅ `OptimizationPipeline` 与 `ShadowManager` 统一改为消费共享 outcome，避免两条链路各自解释 analyzer 返回值
+- ✅ 抽出共享的 patch 上下文缺失判定，锁定“缺少 target_section 不能生成可执行 patch”的一致语义
+- ✅ 补充回归测试：覆盖 outcome 分类与 pipeline 在不可执行 patch 场景下不得生成优化任务
 
 ---
 
@@ -286,5 +290,5 @@
 
 ---
 
-*最后更新：2026-04-12*
+*最后更新：2026-04-13*
 *更新人：OrnnSkills Team*

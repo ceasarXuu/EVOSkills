@@ -17,9 +17,19 @@ import { generateDecisionExplanation } from '../decision-explainer/index.js';
 import { executeWindowAnalysis } from '../window-analysis-coordinator/index.js';
 import {
   getWindowPatchContextIssue,
-  type PatchContextIssueCode,
   resolveWindowAnalysisOutcome,
 } from '../window-analysis-outcome/index.js';
+import {
+  buildActivityEventContext,
+  buildAnalysisFailedEvent,
+  buildAnalysisRequestedEvent,
+  buildEvaluationResultEvent,
+  buildPatchAppliedEvent,
+  buildSkillFeedbackEvent,
+  describePatchContextIssue,
+} from '../activity-event-builder/index.js';
+import type { ActivityEventContext } from '../activity-event-builder/index.js';
+import { createDaemonStatusStore } from '../daemon-status-store/index.js';
 import { hashString } from '../../utils/hash.js';
 import { buildShadowId, runtimeFromShadowId, skillIdFromShadowId } from '../../utils/parse.js';
 import { createSQLiteStorage } from '../../storage/sqlite.js';
@@ -53,6 +63,7 @@ export class ShadowManager {
   private decisionEvents;
   private taskEpisodes;
   private skillCallAnalyzer;
+  private daemonStatus;
   private lastPatchTime: Map<string, number> = new Map();
   private patchCountToday: Map<string, number> = new Map();
 
@@ -65,6 +76,7 @@ export class ShadowManager {
     this.decisionEvents = createDecisionEventRecorder(projectRoot);
     this.taskEpisodes = createTaskEpisodeStore(projectRoot);
     this.skillCallAnalyzer = createSkillCallAnalyzer();
+    this.daemonStatus = createDaemonStatusStore(projectRoot);
     this.dbPath = join(projectRoot, '.ornn', 'state', 'sessions.db');
 
     const patchConfig = configManager.getPatchConfig();
@@ -315,7 +327,7 @@ export class ShadowManager {
       this.shadowRegistry.incrementTraceCount(skillId, (runtime ?? trace.runtime) as RuntimeType);
     }
 
-    const eventContext = this.buildDecisionEventContext(shadowId, trace, recentTraces);
+    const eventContext = buildActivityEventContext({ shadowId, trace, traces: recentTraces });
     const episode = this.taskEpisodes.recordTrace(trace, {
       skillId: eventContext.skillId,
       shadowId,
@@ -336,181 +348,6 @@ export class ShadowManager {
     }
 
     await this.runWindowAnalysis(episode, shadowId, recentTraces, eventContext, trigger);
-  }
-
-  private buildDecisionEventContext(
-    shadowId: string,
-    trace: Trace,
-    traces: Trace[]
-  ): {
-    skillId: string;
-    runtime: RuntimeType;
-    windowId: string;
-    traceId: string;
-    sessionId: string;
-    traceCount: number;
-    sessionCount: number;
-  } {
-    const skillId = skillIdFromShadowId(shadowId) ?? trace.metadata?.skill_id?.toString() ?? shadowId.split('@')[0];
-    const runtime = (runtimeFromShadowId(shadowId) ?? trace.runtime ?? 'codex') as RuntimeType;
-    const sessionIds = [...new Set(traces.map((item) => item.session_id).filter(Boolean))];
-    const sessionId = trace.session_id || sessionIds[0] || 'unknown-session';
-    const traceCount = traces.length;
-    const sessionCount = sessionIds.length || 1;
-
-    return {
-      skillId,
-      runtime,
-      windowId: `${sessionId}::${skillId}`,
-      traceId: trace.trace_id,
-      sessionId,
-      traceCount,
-      sessionCount,
-    };
-  }
-
-  private buildWindowInputSummary(
-    context: ReturnType<ShadowManager['buildDecisionEventContext']>
-  ): string {
-    return `本次观察窗口覆盖 ${context.traceCount} 条 trace，涉及 ${context.sessionCount} 个 session。`;
-  }
-
-  private buildEvaluationBusinessMeta(status: string): {
-    businessCategory: string;
-    businessTag: string;
-    nextAction: string;
-  } {
-    if (status === 'continue_collecting') {
-      return {
-        businessCategory: 'core_flow',
-        businessTag: 'analysis_waiting_more_context',
-        nextAction: '当前不会直接修改技能，系统会继续扩大窗口并等待更多上下文后再次分析。',
-      };
-    }
-
-    if (
-      status === 'cooldown' ||
-      status === 'daily_limit_reached' ||
-      status === 'frozen' ||
-      status === 'confidence_too_low'
-    ) {
-      return {
-        businessCategory: 'core_flow',
-        businessTag: 'optimization_skipped',
-        nextAction: '当前保持技能不变，只有出现新的强信号时才会重新进入下一轮分析。',
-      };
-    }
-
-    return {
-      businessCategory: 'core_flow',
-      businessTag: 'analysis_concluded',
-      nextAction: '当前保持技能不变，并继续观察后续调用窗口。',
-    };
-  }
-
-  private describePatchContextIssue(issue: PatchContextIssueCode): string {
-    switch (issue) {
-      case 'missing_target_section':
-        return '缺少 target_section，无法定位需要修改的技能段落。';
-      default:
-        return '缺少可执行的 patch 上下文。';
-    }
-  }
-
-  private recordEvaluationResult(
-    shadowId: string,
-    context: ReturnType<ShadowManager['buildDecisionEventContext']>,
-    status: string,
-    detail: string,
-    evaluation: EvaluationResult | null
-  ): void {
-    const businessMeta = this.buildEvaluationBusinessMeta(status);
-    this.decisionEvents.record({
-      tag: 'evaluation_result',
-      businessCategory: businessMeta.businessCategory,
-      businessTag: businessMeta.businessTag,
-      inputSummary: this.buildWindowInputSummary(context),
-      judgment: detail,
-      nextAction: businessMeta.nextAction,
-      skillId: context.skillId,
-      runtime: context.runtime,
-      windowId: context.windowId,
-      traceId: context.traceId,
-      sessionId: context.sessionId,
-      status,
-      detail,
-      confidence: evaluation?.confidence ?? null,
-      changeType: evaluation?.change_type ?? null,
-      reason: evaluation?.reason ?? null,
-      traceCount: context.traceCount,
-      sessionCount: context.sessionCount,
-      ruleName: evaluation?.rule_name ?? null,
-      evidence: {
-        directEvidence: [`shadow=${shadowId}`],
-      },
-    });
-  }
-
-  private recordAnalysisRequested(
-    context: ReturnType<ShadowManager['buildDecisionEventContext']>,
-    evaluation: EvaluationResult | null,
-    detail = '已满足优化条件，开始生成改进方案。',
-    status = 'ready'
-  ): void {
-    this.decisionEvents.record({
-      tag: 'analysis_requested',
-      businessCategory: 'core_flow',
-      businessTag: 'analysis_started',
-      inputSummary: this.buildWindowInputSummary(context),
-      judgment: detail,
-      nextAction: '等待本轮分析返回结果，再决定是继续观察、保持现状还是执行优化。',
-      skillId: context.skillId,
-      runtime: context.runtime,
-      windowId: context.windowId,
-      traceId: context.traceId,
-      sessionId: context.sessionId,
-      status,
-      detail,
-      confidence: evaluation?.confidence ?? null,
-      changeType: evaluation?.change_type ?? null,
-      reason: evaluation?.reason ?? null,
-      traceCount: context.traceCount,
-      sessionCount: context.sessionCount,
-      ruleName: evaluation?.rule_name ?? null,
-    });
-  }
-
-  private recordAnalysisFailure(
-    context: ReturnType<ShadowManager['buildDecisionEventContext']>,
-    detail: string,
-    evaluation: EvaluationResult | null = null,
-    reason: string | null = null,
-    evidence: Record<string, unknown> | null = null
-  ): void {
-    this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'failed');
-    this.writeOptimizationCheckpoint('error', context.skillId, detail);
-    this.decisionEvents.record({
-      tag: 'analysis_failed',
-      businessCategory: 'stability_feedback',
-      businessTag: 'analysis_failed',
-      inputSummary: this.buildWindowInputSummary(context),
-      judgment: detail,
-      nextAction: '优先排查分析链路、模型服务或协议问题，而不是直接修改技能内容。',
-      skillId: context.skillId,
-      runtime: context.runtime,
-      windowId: context.windowId,
-      traceId: context.traceId,
-      sessionId: context.sessionId,
-      status: 'failed',
-      detail,
-      confidence: evaluation?.confidence ?? null,
-      changeType: evaluation?.change_type ?? null,
-      reason: reason ?? evaluation?.reason ?? null,
-      traceCount: context.traceCount,
-      sessionCount: context.sessionCount,
-      ruleName: evaluation?.rule_name ?? null,
-      evidence: evidence as never,
-    });
   }
 
   private countPatchLines(patch: string): { linesAdded: number; linesRemoved: number } {
@@ -539,56 +376,10 @@ export class ShadowManager {
     }
   }
 
-  private writeOptimizationCheckpoint(
-    state: 'idle' | 'analyzing' | 'optimizing' | 'error',
-    skillId: string | null,
-    error: string | null = null
-  ): void {
-    const checkpointPath = join(this.projectRoot, '.ornn', 'state', 'daemon-checkpoint.json');
-    let checkpoint: Record<string, unknown> = {
-      isRunning: true,
-      startedAt: new Date().toISOString(),
-      processedTraces: 0,
-      lastCheckpointAt: null,
-      retryQueueSize: 0,
-      optimizationStatus: {
-        currentState: 'idle',
-        currentSkillId: null,
-        lastOptimizationAt: null,
-        lastError: null,
-        queueSize: 0,
-      },
-    };
-
-    if (existsSync(checkpointPath)) {
-      try {
-        checkpoint = JSON.parse(readFileSync(checkpointPath, 'utf-8')) as Record<string, unknown>;
-      } catch {
-        // fall back to defaults
-      }
-    }
-
-    const previous = (checkpoint.optimizationStatus && typeof checkpoint.optimizationStatus === 'object')
-      ? checkpoint.optimizationStatus as Record<string, unknown>
-      : {};
-
-    checkpoint.lastCheckpointAt = new Date().toISOString();
-    checkpoint.optimizationStatus = {
-      currentState: state,
-      currentSkillId: state === 'idle' ? null : skillId,
-      lastOptimizationAt: state === 'idle' ? new Date().toISOString() : previous.lastOptimizationAt ?? null,
-      lastError: state === 'error' ? error : null,
-      queueSize: state === 'idle' || state === 'error' ? 0 : 1,
-    };
-
-    mkdirSync(join(this.projectRoot, '.ornn', 'state'), { recursive: true });
-    writeFileSync(checkpointPath, JSON.stringify(checkpoint, null, 2), 'utf-8');
-  }
-
   private buildSkillCallWindow(
     episode: TaskEpisode,
     traces: Trace[],
-    context: ReturnType<ShadowManager['buildDecisionEventContext']>
+    context: ActivityEventContext
   ): SkillCallWindow {
     return createSkillCallWindow({
       windowId: context.windowId,
@@ -603,7 +394,7 @@ export class ShadowManager {
   }
 
   private async recordSkillFeedback(
-    context: ReturnType<ShadowManager['buildDecisionEventContext']>,
+    context: ActivityEventContext,
     evaluation: EvaluationResult,
     traces: Trace[]
   ): Promise<void> {
@@ -615,39 +406,7 @@ export class ShadowManager {
       null
     );
 
-    const rawEvidenceParts = [
-      explanation.decisionRationale,
-      ...explanation.uncertainties.map((item) => `uncertainty: ${item}`),
-      ...explanation.contradictions.map((item) => `contradiction: ${item}`),
-    ].filter(Boolean);
-
-    this.decisionEvents.record({
-      tag: 'skill_feedback',
-      businessCategory: 'supporting_detail',
-      businessTag: 'analysis_support',
-      inputSummary: this.buildWindowInputSummary(context),
-      judgment: explanation.summary,
-      nextAction: explanation.recommendedAction,
-      skillId: context.skillId,
-      runtime: context.runtime,
-      windowId: context.windowId,
-      traceId: context.traceId,
-      sessionId: context.sessionId,
-      status: evaluation.should_patch ? 'patch_recommended' : 'no_patch_needed',
-      detail: explanation.summary,
-      confidence: evaluation.confidence,
-      changeType: evaluation.change_type ?? null,
-      reason: evaluation.reason ?? null,
-      traceCount: context.traceCount,
-      sessionCount: context.sessionCount,
-      ruleName: evaluation.rule_name ?? null,
-      evidence: {
-        directEvidence: explanation.evidenceReadout,
-        causalJudgment: explanation.causalChain,
-        action: explanation.recommendedAction,
-        rawEvidence: rawEvidenceParts.join('\n'),
-      },
-    });
+    this.decisionEvents.record(buildSkillFeedbackEvent({ context, evaluation, explanation }));
   }
 
   private buildEpisodeWindowTraces(episode: TaskEpisode, sessionTraces: Trace[]): Trace[] {
@@ -659,29 +418,31 @@ export class ShadowManager {
     episode: TaskEpisode,
     shadowId: string,
     sessionTraces: Trace[],
-    context: ReturnType<ShadowManager['buildDecisionEventContext']>,
+    context: ActivityEventContext,
     trigger: ProbeTriggerDecision
   ): Promise<void> {
     const currentContent = this.shadowRegistry.readContent(context.skillId, context.runtime);
     if (!currentContent) {
-      this.recordAnalysisFailure(
+      this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'failed');
+      this.daemonStatus.setError(context.skillId, '当前技能内容为空，无法启动窗口分析。');
+      this.decisionEvents.record(buildAnalysisFailedEvent({
         context,
-        '当前技能内容为空，无法启动窗口分析。',
-        null,
-        'missing_skill_content'
-      );
+        detail: '当前技能内容为空，无法启动窗口分析。',
+        evaluation: null,
+        reason: 'missing_skill_content',
+      }));
       return;
     }
 
     const windowTraces = this.buildEpisodeWindowTraces(episode, sessionTraces);
     this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'running');
-    this.writeOptimizationCheckpoint('analyzing', context.skillId, null);
-    this.recordAnalysisRequested(
+    this.daemonStatus.setAnalyzing(context.skillId);
+    this.decisionEvents.record(buildAnalysisRequestedEvent({
       context,
-      null,
-      this.describeProbeRequest(trigger).replace('时机探测', '窗口分析'),
-      'window_ready'
-    );
+      evaluation: null,
+      detail: this.describeProbeRequest(trigger).replace('时机探测', '窗口分析'),
+      status: 'window_ready',
+    }));
 
     const analysis = await executeWindowAnalysis({
       analyzeWindow: this.skillCallAnalyzer.analyzeWindow.bind(this.skillCallAnalyzer),
@@ -696,46 +457,48 @@ export class ShadowManager {
     });
 
     if (outcome.kind === 'analysis_failed') {
-      this.recordAnalysisFailure(
+      this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'failed');
+      this.daemonStatus.setError(context.skillId, outcome.userMessage);
+      this.decisionEvents.record(buildAnalysisFailedEvent({
         context,
-        outcome.userMessage,
-        outcome.evaluation ?? null,
-        outcome.reasonCode,
-        outcome.technicalDetail
+        detail: outcome.userMessage,
+        evaluation: outcome.evaluation ?? null,
+        reason: outcome.reasonCode,
+        evidence: outcome.technicalDetail
           ? {
               rawEvidence: outcome.technicalDetail,
             }
-          : null
-      );
+          : null,
+      }));
       return;
     }
 
     if (outcome.kind === 'need_more_context') {
       this.taskEpisodes.applyNeedMoreContextHint(episode.episodeId, outcome.nextWindowHint);
-      this.recordEvaluationResult(
+      this.decisionEvents.record(buildEvaluationResultEvent({
         shadowId,
         context,
-        'continue_collecting',
-        analysis.userMessage ?? outcome.evaluation.reason ?? '当前窗口证据不足，继续扩展上下文。',
-        outcome.evaluation
-      );
-      this.writeOptimizationCheckpoint('idle', null, null);
+        status: 'continue_collecting',
+        detail: analysis.userMessage ?? outcome.evaluation.reason ?? '当前窗口证据不足，继续扩展上下文。',
+        evaluation: outcome.evaluation,
+      }));
+      this.daemonStatus.setIdle();
       return;
     }
 
     if (outcome.kind === 'no_optimization') {
-      this.recordEvaluationResult(
+      this.decisionEvents.record(buildEvaluationResultEvent({
         shadowId,
         context,
-        'no_patch_needed',
-        outcome.evaluation.reason
+        status: 'no_patch_needed',
+        detail: outcome.evaluation.reason
           ? `窗口分析结论：${outcome.evaluation.reason}`
           : '窗口分析认为当前无需修改。',
-        outcome.evaluation
-      );
+        evaluation: outcome.evaluation,
+      }));
       await this.recordSkillFeedback(context, outcome.evaluation, windowTraces);
       this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
-      this.writeOptimizationCheckpoint('idle', null, null);
+      this.daemonStatus.setIdle();
       return;
     }
 
@@ -747,14 +510,14 @@ export class ShadowManager {
         issue: outcome.issue,
       });
       this.taskEpisodes.applyNeedMoreContextHint(episode.episodeId, outcome.nextWindowHint);
-      this.recordEvaluationResult(
+      this.decisionEvents.record(buildEvaluationResultEvent({
         shadowId,
         context,
-        'continue_collecting',
-        `当前分析建议了优化，但还缺少可执行定位：${this.describePatchContextIssue(outcome.issue)}`,
-        outcome.evaluation
-      );
-      this.writeOptimizationCheckpoint('idle', null, null);
+        status: 'continue_collecting',
+        detail: `当前分析建议了优化，但还缺少可执行定位：${describePatchContextIssue(outcome.issue)}`,
+        evaluation: outcome.evaluation,
+      }));
+      this.daemonStatus.setIdle();
       return;
     }
 
@@ -810,22 +573,22 @@ export class ShadowManager {
     shadowId: string,
     evaluation: EvaluationResult,
     _traces: Trace[],
-    context: ReturnType<ShadowManager['buildDecisionEventContext']>,
+    context: ActivityEventContext,
     options: { skipAnalysisRequested?: boolean; closeOnSkip?: boolean } = {}
   ): Promise<void> {
     // 检查是否在冷却期
     if (this.isInCooldown(shadowId)) {
       logger.debug(`Shadow ${shadowId} is in cooldown, skipping patch`);
-      this.recordEvaluationResult(
+      this.decisionEvents.record(buildEvaluationResultEvent({
         shadowId,
         context,
-        'cooldown',
-        '当前技能仍在冷却期，暂不重复优化。',
-        evaluation
-      );
+        status: 'cooldown',
+        detail: '当前技能仍在冷却期，暂不重复优化。',
+        evaluation,
+      }));
       if (options.closeOnSkip) {
         this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
-        this.writeOptimizationCheckpoint('idle', null, null);
+        this.daemonStatus.setIdle();
       }
       return;
     }
@@ -833,16 +596,16 @@ export class ShadowManager {
     // 检查是否超过每日限制
     if (this.exceedsDailyLimit(shadowId)) {
       logger.debug(`Shadow ${shadowId} exceeds daily patch limit, skipping`);
-      this.recordEvaluationResult(
+      this.decisionEvents.record(buildEvaluationResultEvent({
         shadowId,
         context,
-        'daily_limit_reached',
-        '当前技能今天的自动优化次数已达上限。',
-        evaluation
-      );
+        status: 'daily_limit_reached',
+        detail: '当前技能今天的自动优化次数已达上限。',
+        evaluation,
+      }));
       if (options.closeOnSkip) {
         this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
-        this.writeOptimizationCheckpoint('idle', null, null);
+        this.daemonStatus.setIdle();
       }
       return;
     }
@@ -853,16 +616,16 @@ export class ShadowManager {
     const shadow = this.shadowRegistry.get(skillId, runtime);
     if (shadow?.status === 'frozen') {
       logger.debug(`Shadow ${shadowId} is frozen, skipping patch`);
-      this.recordEvaluationResult(
+      this.decisionEvents.record(buildEvaluationResultEvent({
         shadowId,
         context,
-        'frozen',
-        '当前技能已被冻结，暂不执行自动优化。',
-        evaluation
-      );
+        status: 'frozen',
+        detail: '当前技能已被冻结，暂不执行自动优化。',
+        evaluation,
+      }));
       if (options.closeOnSkip) {
         this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
-        this.writeOptimizationCheckpoint('idle', null, null);
+        this.daemonStatus.setIdle();
       }
       return;
     }
@@ -870,62 +633,51 @@ export class ShadowManager {
     // 检查置信度
     if (evaluation.confidence < this.policy.min_confidence) {
       logger.debug(`Confidence ${evaluation.confidence} below threshold, skipping patch`);
-      this.recordEvaluationResult(
+      this.decisionEvents.record(buildEvaluationResultEvent({
         shadowId,
         context,
-        'confidence_too_low',
-        '当前信号可信度不足，继续观察更多调用。',
-        evaluation
-      );
+        status: 'confidence_too_low',
+        detail: '当前信号可信度不足，继续观察更多调用。',
+        evaluation,
+      }));
       if (options.closeOnSkip) {
         this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
-        this.writeOptimizationCheckpoint('idle', null, null);
+        this.daemonStatus.setIdle();
       }
       return;
     }
 
     this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'running');
-    this.writeOptimizationCheckpoint('analyzing', context.skillId, null);
+    this.daemonStatus.setAnalyzing(context.skillId);
     if (!options.skipAnalysisRequested) {
-      this.recordAnalysisRequested(context, evaluation);
+      this.decisionEvents.record(buildAnalysisRequestedEvent({ context, evaluation }));
     }
 
     // 执行 patch
     const patchResult = await this.executePatch(shadowId, evaluation);
     if (!patchResult.ok) {
-      this.recordAnalysisFailure(
-        context,
-        patchResult.error ?? '本轮优化未完成，但系统没有返回更具体的原因。',
-        evaluation
+      this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'failed');
+      this.daemonStatus.setError(
+        context.skillId,
+        patchResult.error ?? '本轮优化未完成，但系统没有返回更具体的原因。'
       );
+      this.decisionEvents.record(buildAnalysisFailedEvent({
+        context,
+        detail: patchResult.error ?? '本轮优化未完成，但系统没有返回更具体的原因。',
+        evaluation,
+      }));
       return;
     }
 
-    this.decisionEvents.record({
-      tag: 'patch_applied',
-      businessCategory: 'core_flow',
-      businessTag: 'optimization_applied',
-      inputSummary: this.buildWindowInputSummary(context),
-      judgment: `已完成本轮优化并写回 shadow skill。revision=${patchResult.revision ?? 0}`,
-      nextAction: '后续调用会继续验证这次优化是否有效，并在必要时开启下一轮观察。',
-      skillId: context.skillId,
-      runtime: context.runtime,
-      windowId: context.windowId,
-      traceId: context.traceId,
-      sessionId: context.sessionId,
-      status: 'success',
-      detail: `已完成本轮优化并写回 shadow skill。revision=${patchResult.revision ?? 0}`,
-      confidence: evaluation.confidence,
-      changeType: evaluation.change_type ?? null,
-      reason: evaluation.reason ?? null,
-      traceCount: context.traceCount,
-      sessionCount: context.sessionCount,
-      ruleName: evaluation.rule_name ?? null,
+    this.decisionEvents.record(buildPatchAppliedEvent({
+      context,
+      evaluation,
+      revision: patchResult.revision ?? 0,
       linesAdded: patchResult.linesAdded ?? null,
       linesRemoved: patchResult.linesRemoved ?? null,
-    });
+    }));
     this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
-    this.writeOptimizationCheckpoint('idle', null, null);
+    this.daemonStatus.setIdle();
   }
 
   /**
@@ -1074,19 +826,25 @@ export class ShadowManager {
       timestamp: new Date().toISOString(),
       metadata: { skill_id: skillId },
     };
-    const eventContext = this.buildDecisionEventContext(shadowId, fallbackTrace, traces);
+    const eventContext = buildActivityEventContext({ shadowId, trace: fallbackTrace, traces });
     const currentContent = this.shadowRegistry.readContent(skillId, runtime);
     if (!currentContent) {
-      this.recordAnalysisFailure(
-        eventContext,
-        '当前技能内容为空，无法启动手动窗口分析。',
-        null,
-        'missing_skill_content'
-      );
+      this.daemonStatus.setError(skillId, '当前技能内容为空，无法启动手动窗口分析。');
+      this.decisionEvents.record(buildAnalysisFailedEvent({
+        context: eventContext,
+        detail: '当前技能内容为空，无法启动手动窗口分析。',
+        evaluation: null,
+        reason: 'missing_skill_content',
+      }));
       return null;
     }
 
-    this.recordAnalysisRequested(eventContext, null, '手动触发窗口分析。', 'manual');
+    this.decisionEvents.record(buildAnalysisRequestedEvent({
+      context: eventContext,
+      evaluation: null,
+      detail: '手动触发窗口分析。',
+      status: 'manual',
+    }));
     const analysis = await executeWindowAnalysis({
       analyzeWindow: this.skillCallAnalyzer.analyzeWindow.bind(this.skillCallAnalyzer),
       projectPath: this.projectRoot,
@@ -1109,43 +867,44 @@ export class ShadowManager {
     });
 
     if (outcome.kind === 'analysis_failed') {
-      this.recordAnalysisFailure(
-        eventContext,
-        outcome.userMessage,
-        outcome.evaluation ?? null,
-        outcome.reasonCode,
-        outcome.technicalDetail
+      this.daemonStatus.setError(skillId, outcome.userMessage);
+      this.decisionEvents.record(buildAnalysisFailedEvent({
+        context: eventContext,
+        detail: outcome.userMessage,
+        evaluation: outcome.evaluation ?? null,
+        reason: outcome.reasonCode,
+        evidence: outcome.technicalDetail
           ? {
               rawEvidence: outcome.technicalDetail,
             }
-          : null
-      );
+          : null,
+      }));
       return null;
     }
 
     if (outcome.kind === 'need_more_context' || outcome.kind === 'incomplete_patch_context') {
-      this.recordEvaluationResult(
+      this.decisionEvents.record(buildEvaluationResultEvent({
         shadowId,
-        eventContext,
-        'continue_collecting',
-        outcome.kind === 'incomplete_patch_context'
-          ? `当前分析建议了优化，但还缺少可执行定位：${this.describePatchContextIssue(outcome.issue)}`
+        context: eventContext,
+        status: 'continue_collecting',
+        detail: outcome.kind === 'incomplete_patch_context'
+          ? `当前分析建议了优化，但还缺少可执行定位：${describePatchContextIssue(outcome.issue)}`
           : (analysis.userMessage ?? outcome.evaluation.reason ?? '当前窗口证据不足，继续观察。'),
-        outcome.evaluation
-      );
+        evaluation: outcome.evaluation,
+      }));
       return outcome.evaluation;
     }
 
     if (outcome.kind === 'no_optimization') {
-      this.recordEvaluationResult(
+      this.decisionEvents.record(buildEvaluationResultEvent({
         shadowId,
-        eventContext,
-        'no_patch_needed',
-        outcome.evaluation.reason
+        context: eventContext,
+        status: 'no_patch_needed',
+        detail: outcome.evaluation.reason
           ? `窗口分析结论：${outcome.evaluation.reason}`
           : '窗口分析认为当前无需修改。',
-        outcome.evaluation
-      );
+        evaluation: outcome.evaluation,
+      }));
       return outcome.evaluation;
     }
 

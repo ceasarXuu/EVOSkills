@@ -277,6 +277,10 @@
 - ✅ `OptimizationPipeline` 与 `ShadowManager` 统一改为消费共享 outcome，避免两条链路各自解释 analyzer 返回值
 - ✅ 抽出共享的 patch 上下文缺失判定，锁定“缺少 target_section 不能生成可执行 patch”的一致语义
 - ✅ 补充回归测试：覆盖 outcome 分类与 pipeline 在不可执行 patch 场景下不得生成优化任务
+- ✅ 抽出 `activity-event-builder`：把实时看板业务事件的上下文拼装、业务标签映射与 `skill_feedback` 事件构建从 `ShadowManager` 中移出
+- ✅ 抽出 `daemon-status-store`：把 `.ornn/state/daemon-checkpoint.json` 的运行状态写入从 `ShadowManager` 中移出
+- ✅ `ShadowManager` 改为消费 builder/store，删除大段事件文案与 checkpoint IO 逻辑，为后续拆 `AnalyzeSkillWindowUseCase` 做准备
+- ✅ 新增模块级单测：覆盖 activity event builder 与 daemon status store 的稳定输出契约
 
 ---
 

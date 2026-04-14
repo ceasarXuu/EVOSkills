@@ -3,6 +3,8 @@
 ## 📊 总体进度：Phase 1 ✅ 完成
 
 ### 2026-04-15
+- ✅ 修复 daemon/dashboard 启动 OOM：`CodexObserver` 不再在 bootstrap 和 change 事件中整文件重读 session JSONL，而是改成“启动时 priming 文件末尾偏移 + 最近 1 个 session 的 10 行安全尾部回放 + 后续按字节偏移增量读取”；同时跳过 `compacted / event_msg / turn_context` 这类 transport 或维护型事件，并对结构化 payload 做轻量摘要，避免长会话把 observer/daemon 直接压爆
+- 📝 记录运行经验：Codex 的真实 session 日志里会出现多 MB 级的 `compacted` 行和几十万字符的历史消息包。只要 observer 继续“整文件 read + split + 全 payload 保留”，daemon 重启时就会在 bootstrap 阶段稳定 OOM；正确做法必须是“按偏移增量读取 + 只保留进入业务链路的最小语义片段”
 - ✅ 收紧 dashboard 首屏启动负载：初始化阶段不再预取配置页专属依赖，`provider catalog / provider health / project config` 改为进入配置 tab 后按需加载；避免总览首屏还没打开配置，就先拉取近 1MB 的模型目录和连通性数据
 - ✅ 重构 dashboard SSE 首次握手协议：`/events` 初始连接不再给每个客户端推全量 `projectData`，并把“已见快照版本”从服务端全局状态改成按客户端维护；新客户端不会再触发一次全量快照解析，也不会污染其他客户端的增量版本基线
 - 📝 记录性能经验：dashboard 首屏的事实来源应该是“最小可见面板需要的数据”，不是“所有 tab 未来可能用到的数据”；像配置 catalog、provider health、全量 project snapshot 这种重对象，必须延迟到对应交互时再拉

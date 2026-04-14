@@ -1,5 +1,5 @@
 import { watch, type FSWatcher } from 'chokidar';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { closeSync, existsSync, openSync, readFileSync, readSync, readdirSync, statSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { BaseObserver } from './base-observer.js';
 import { createChildLogger } from '../../utils/logger.js';
@@ -13,7 +13,7 @@ const logger = createChildLogger('codex-observer');
  */
 interface CodexRawEvent {
   timestamp: string;
-  type: 'session_meta' | 'event_msg' | 'response_item' | 'turn_context';
+  type: 'session_meta' | 'event_msg' | 'response_item' | 'turn_context' | 'compacted';
   payload: Record<string, unknown>;
 }
 
@@ -36,9 +36,14 @@ export class CodexObserver extends BaseObserver {
   private currentSessionId: string | null = null;
   private turnCounter: number = 0;
   private processedFiles: Set<string> = new Set();
-  private processedLineCount: Map<string, number> = new Map();
-  private readonly bootstrapFileLimit = 3;
-  private readonly bootstrapTailLineLimit = 400;
+  private processedByteOffset: Map<string, number> = new Map();
+  // 启动恢复只保留极小窗口，避免把历史长会话一次性灌回优化链路。
+  private readonly bootstrapFileLimit = 1;
+  private readonly bootstrapTailLineLimit = 10;
+  private readonly readChunkSize = 65536;
+  private readonly maxMessageChars = 8000;
+  private readonly maxStructuredPreviewChars = 4000;
+  private readonly maxSkillReferenceScanChars = 16000;
 
   constructor(sessionsDir?: string) {
     super('codex');
@@ -91,6 +96,7 @@ export class CodexObserver extends BaseObserver {
 
     this.watcher.on('add', (path) => this.handleFileAdd(path));
     this.watcher.on('change', (path) => this.handleFileChange(path));
+    this.primeSessionOffsets();
     this.bootstrapRecentSessionFiles(this.bootstrapFileLimit);
 
     logger.debug('Codex observer started', { watchPattern });
@@ -112,7 +118,7 @@ export class CodexObserver extends BaseObserver {
     }
 
     this.processedFiles.clear();
-    this.processedLineCount.clear();
+    this.processedByteOffset.clear();
     logger.info('Codex observer stopped');
   }
 
@@ -170,6 +176,21 @@ export class CodexObserver extends BaseObserver {
     }
   }
 
+  private primeSessionOffsets(): void {
+    const sessionFiles = this.collectSessionFiles(this.sessionsDir);
+    for (const path of sessionFiles) {
+      if (this.processedByteOffset.has(path)) continue;
+      try {
+        this.processedByteOffset.set(path, statSync(path).size);
+      } catch {
+        // ignore files that disappear during startup scan
+      }
+    }
+    logger.debug('Primed session offsets for Codex observer', {
+      sessionFileCount: sessionFiles.length,
+    });
+  }
+
   private listRecentSessionFiles(limit: number): string[] {
     const files = this.collectSessionFiles(this.sessionsDir)
       .map((path) => {
@@ -212,17 +233,18 @@ export class CodexObserver extends BaseObserver {
     const traces: PreprocessedTrace[] = [];
 
     try {
-      const content = readFileSync(path, 'utf-8');
-      const lines = content.split('\n').filter((line) => line.trim());
-      const prevProcessed = this.processedLineCount.get(path) ?? 0;
       const bootstrapTailLines = options?.bootstrapTailLines ?? 0;
-      const startIndex =
+      const previousOffset = this.processedByteOffset.get(path) ?? 0;
+      const { lines: newLines, nextOffset } =
         bootstrapTailLines > 0
-          ? Math.max(lines.length - bootstrapTailLines, 0)
-          : (lines.length < prevProcessed ? 0 : prevProcessed);
-      const newLines = lines.slice(startIndex);
+          ? this.readSessionTailLines(path, bootstrapTailLines)
+          : this.readSessionLinesSinceOffset(path);
 
       for (const line of newLines) {
+        const rawType = this.peekRawEventType(line);
+        if (rawType === 'compacted' || rawType === 'event_msg' || rawType === 'turn_context') {
+          continue;
+        }
         try {
           const event = JSON.parse(line) as CodexRawEvent;
           const preprocessed = this.preprocessEvent(sessionId, event);
@@ -239,14 +261,82 @@ export class CodexObserver extends BaseObserver {
         this.emitPreprocessedTraces(sessionId, traces);
       }
 
-      this.processedLineCount.set(path, lines.length);
+      this.processedByteOffset.set(path, nextOffset);
 
       logger.debug(`Processed ${traces.length} incremental traces from session ${sessionId}`, {
-        totalLines: lines.length,
+        nextOffset,
+        previousOffset,
+        bytesRead: Math.max(nextOffset - previousOffset, 0),
         newLines: newLines.length,
+        bootstrapTailLines,
+        readMode: bootstrapTailLines > 0 ? 'bootstrap_tail' : 'incremental_offset',
       });
     } catch (error) {
       logger.warn(`Failed to read session file: ${path}`, { error });
+    }
+  }
+
+  private readSessionLinesSinceOffset(path: string): { lines: string[]; nextOffset: number } {
+    const fileSize = statSync(path).size;
+    const previousOffset = this.processedByteOffset.get(path) ?? 0;
+    const startOffset = fileSize < previousOffset ? 0 : previousOffset;
+    if (fileSize <= startOffset) {
+      return { lines: [], nextOffset: fileSize };
+    }
+
+    const fd = openSync(path, 'r');
+    try {
+      const readSize = fileSize - startOffset;
+      const buffer = Buffer.alloc(readSize);
+      readSync(fd, buffer, 0, readSize, startOffset);
+      const content = buffer.toString('utf-8');
+      return {
+        lines: content.split('\n').filter((line) => line.trim()),
+        nextOffset: fileSize,
+      };
+    } finally {
+      closeSync(fd);
+    }
+  }
+
+  private readSessionTailLines(path: string, maxLines: number): { lines: string[]; nextOffset: number } {
+    const fileSize = statSync(path).size;
+    if (fileSize === 0 || maxLines <= 0) {
+      return { lines: [], nextOffset: fileSize };
+    }
+
+    const fd = openSync(path, 'r');
+    try {
+      let position = fileSize;
+      let remainder = '';
+      const lines: string[] = [];
+
+      while (position > 0 && lines.length < maxLines) {
+        const readSize = Math.min(this.readChunkSize, position);
+        position -= readSize;
+        const buffer = Buffer.alloc(readSize);
+        readSync(fd, buffer, 0, readSize, position);
+        const chunk = buffer.toString('utf-8') + remainder;
+        const parts = chunk.split('\n');
+        remainder = parts[0] ?? '';
+        for (let index = parts.length - 1; index >= 1 && lines.length < maxLines; index -= 1) {
+          const line = parts[index];
+          if (line.trim()) {
+            lines.push(line);
+          }
+        }
+      }
+
+      if (remainder.trim() && lines.length < maxLines) {
+        lines.push(remainder);
+      }
+
+      return {
+        lines: lines.reverse(),
+        nextOffset: fileSize,
+      };
+    } finally {
+      closeSync(fd);
     }
   }
 
@@ -268,7 +358,9 @@ export class CodexObserver extends BaseObserver {
           typeof baseInstructionsRaw === 'string'
             ? baseInstructionsRaw
             : (baseInstructionsRaw as { text?: string })?.text || '';
-        const activatedSkills = this.extractSkillReferences(baseInstructions);
+        const activatedSkills = this.extractSkillReferences(
+          baseInstructions.slice(0, this.maxSkillReferenceScanChars)
+        );
 
         return {
           sessionId,
@@ -276,16 +368,12 @@ export class CodexObserver extends BaseObserver {
           timestamp: event.timestamp,
           eventType: 'status',
           content: {
-            // 保留完整的 payload，不只是部分字段
-            ...event.payload,
             activatedSkills,
           },
           skillRefs: activatedSkills,
           metadata: {
             originator: event.payload.originator,
             source: event.payload.source,
-            // 保留完整的 baseInstructions，不截断
-            baseInstructions,
           },
         };
       }
@@ -294,46 +382,12 @@ export class CodexObserver extends BaseObserver {
         return this.preprocessResponseItem(sessionId, turnId, event);
 
       case 'event_msg':
-        // 保留 event_msg，可能包含语义信息
-        return {
-          sessionId,
-          turnId,
-          timestamp: event.timestamp,
-          eventType: 'status',
-          content:
-            typeof event.payload === 'string' ? event.payload : JSON.stringify(event.payload),
-          metadata: {
-            originalType: 'event_msg',
-          },
-        };
-
       case 'turn_context':
-        // 回合上下文，保留完整信息
-        return {
-          sessionId,
-          turnId,
-          timestamp: event.timestamp,
-          eventType: 'status',
-          content:
-            typeof event.payload === 'string' ? event.payload : JSON.stringify(event.payload),
-          metadata: {
-            originalType: 'turn_context',
-          },
-        };
+      case 'compacted':
+        return null;
 
       default:
-        // 保留未知类型的事件，可能包含语义信息
-        return {
-          sessionId,
-          turnId,
-          timestamp: event.timestamp,
-          eventType: 'status',
-          content: event.payload,
-          metadata: {
-            originalType: event.type,
-            rawEvent: event,
-          },
-        };
+        return null;
     }
   }
 
@@ -351,8 +405,14 @@ export class CodexObserver extends BaseObserver {
     switch (itemType) {
       case 'message': {
         const role = payload.role as string;
-        const content = this.extractMessageContent(payload.content);
-        const skillRefs = this.extractSkillReferences(content);
+        if (role !== 'user' && role !== 'assistant') {
+          return null;
+        }
+        const fullContent = this.extractMessageContent(payload.content, this.maxMessageChars * 2);
+        const skillRefs = this.extractSkillReferences(
+          fullContent.slice(0, this.maxSkillReferenceScanChars)
+        );
+        const content = this.truncateText(fullContent, this.maxMessageChars);
 
         if (role === 'user') {
           return {
@@ -411,7 +471,7 @@ export class CodexObserver extends BaseObserver {
           skillRefs,
           content: {
             tool: toolName,
-            args,
+            args: this.compactStructuredValue(args),
           },
           metadata: {
             callId: payload.call_id,
@@ -427,7 +487,7 @@ export class CodexObserver extends BaseObserver {
           eventType: 'tool_result',
           content: {
             callId: payload.call_id,
-            output: payload.output,
+            output: this.compactStructuredValue(payload.output),
           },
         };
       }
@@ -440,30 +500,112 @@ export class CodexObserver extends BaseObserver {
   /**
    * 提取消息内容
    */
-  private extractMessageContent(content: unknown): string {
+  private extractMessageContent(content: unknown, maxChars = Number.POSITIVE_INFINITY): string {
     if (typeof content === 'string') {
-      return content;
+      return this.truncateText(content, maxChars);
     }
 
     if (Array.isArray(content)) {
       // 处理多模态内容数组
       const textParts: string[] = [];
+      let totalLength = 0;
       for (const part of content as Array<string | { type?: string; text?: unknown }>) {
         if (typeof part === 'string') {
-          textParts.push(part);
+          const next = this.truncateText(part, Math.max(maxChars - totalLength, 0));
+          textParts.push(next);
+          totalLength += next.length;
         } else if (
           (part?.type === 'input_text' || part?.type === 'output_text') &&
           typeof part.text === 'string'
         ) {
-          textParts.push(part.text);
+          const next = this.truncateText(part.text, Math.max(maxChars - totalLength, 0));
+          textParts.push(next);
+          totalLength += next.length;
         } else if (part?.type === 'text' && typeof part.text === 'string') {
-          textParts.push(part.text);
+          const next = this.truncateText(part.text, Math.max(maxChars - totalLength, 0));
+          textParts.push(next);
+          totalLength += next.length;
+        }
+        if (totalLength >= maxChars) {
+          break;
         }
       }
       return textParts.join('\n');
     }
 
-    return JSON.stringify(content);
+    return this.truncateText(JSON.stringify(content), maxChars);
+  }
+
+  private truncateText(text: string, maxChars: number): string {
+    if (text.length <= maxChars) {
+      return text;
+    }
+    return text.slice(0, maxChars) + '…';
+  }
+
+  private compactStructuredValue(value: unknown): Record<string, unknown> {
+    if (typeof value === 'string') {
+      const preview = this.truncateText(value, this.maxStructuredPreviewChars);
+      return preview
+        ? { preview, truncated: value.length > this.maxStructuredPreviewChars }
+        : {};
+    }
+    if (!value || typeof value !== 'object') {
+      return { value };
+    }
+
+    if (Array.isArray(value)) {
+      return {
+        kind: 'array',
+        itemCount: value.length,
+        preview: value
+          .slice(0, 3)
+          .map((item) => this.compactPrimitive(item)),
+        truncated: value.length > 3,
+      };
+    }
+
+    const objectValue = value as Record<string, unknown>;
+    const entries = Object.entries(objectValue);
+    const previewEntries = entries.slice(0, 8).map(([key, item]) => [key, this.compactPrimitive(item)]);
+    const previewObject = Object.fromEntries(previewEntries);
+    const base = {
+      kind: 'object',
+      keyCount: entries.length,
+      preview: previewObject,
+      truncated: entries.length > previewEntries.length,
+    };
+
+    try {
+      const previewJson = JSON.stringify(base);
+      if (previewJson.length <= this.maxStructuredPreviewChars) {
+        return base;
+      }
+      return { ...base, preview: this.truncateText(previewJson, this.maxStructuredPreviewChars) };
+    } catch {
+      return base;
+    }
+  }
+
+  private compactPrimitive(value: unknown): unknown {
+    if (typeof value === 'string') {
+      return this.truncateText(value, 240);
+    }
+    if (typeof value === 'number' || typeof value === 'boolean' || value === null) {
+      return value;
+    }
+    if (Array.isArray(value)) {
+      return `[array:${value.length}]`;
+    }
+    if (value && typeof value === 'object') {
+      return `[object:${Object.keys(value as Record<string, unknown>).slice(0, 5).join(',')}]`;
+    }
+    return String(value);
+  }
+
+  private peekRawEventType(line: string): string | null {
+    const match = line.slice(0, 256).match(/"type":"([^"]+)"/);
+    return match ? match[1] : null;
   }
 
   /**

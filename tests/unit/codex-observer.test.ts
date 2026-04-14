@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, it, expect } from 'vitest';
-import { existsSync, mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, statSync, utimesSync, writeFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { CodexObserver } from '../../src/core/observer/codex-observer.js';
@@ -38,6 +38,35 @@ describe('CodexObserver', () => {
     });
   });
 
+  it('skips compacted maintenance events', () => {
+    const observer = new CodexObserver('/tmp/codex-sessions');
+
+    const preprocessed = (observer as any).preprocessEvent('session-1', {
+      timestamp: '2026-04-08T10:00:00.000Z',
+      type: 'compacted',
+      payload: {
+        message: 'compacted history blob',
+      },
+    });
+
+    expect(preprocessed).toBeNull();
+  });
+
+  it('skips event_msg records that do not produce stable business traces', () => {
+    const observer = new CodexObserver('/tmp/codex-sessions');
+
+    const preprocessed = (observer as any).preprocessEvent('session-1', {
+      timestamp: '2026-04-08T10:00:00.000Z',
+      type: 'event_msg',
+      payload: {
+        type: 'user_message',
+        text: 'duplicate transport envelope',
+      },
+    });
+
+    expect(preprocessed).toBeNull();
+  });
+
   it('bootstraps recently updated session files on startup', () => {
     const sessionsDir = join(testDir, 'sessions');
     mkdirSync(join(sessionsDir, '2026', '04', '12'), { recursive: true });
@@ -60,5 +89,81 @@ describe('CodexObserver', () => {
     expect(processed).toEqual([recentPath]);
     expect((observer as any).processedFiles.has(recentPath)).toBe(true);
     expect((observer as any).processedFiles.has(olderPath)).toBe(false);
+  });
+
+  it('primes byte offsets for existing session files without replaying them', () => {
+    const sessionsDir = join(testDir, 'sessions');
+    mkdirSync(join(sessionsDir, '2026', '04', '12'), { recursive: true });
+    const recentPath = join(sessionsDir, '2026', '04', '12', 'recent.jsonl');
+    const olderPath = join(sessionsDir, '2026', '04', '12', 'older.jsonl');
+    writeFileSync(recentPath, '{"timestamp":"2026-04-12T02:00:00.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"recent"}]}}\n', 'utf-8');
+    writeFileSync(olderPath, '{"timestamp":"2026-04-11T02:00:00.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"older"}]}}\n', 'utf-8');
+
+    const observer = new CodexObserver(sessionsDir);
+
+    (observer as any).primeSessionOffsets();
+
+    expect((observer as any).processedByteOffset.get(recentPath)).toBe(statSync(recentPath).size);
+    expect((observer as any).processedByteOffset.get(olderPath)).toBe(statSync(olderPath).size);
+  });
+
+  it('tracks processed byte offsets after bootstrap tail replay', () => {
+    const sessionsDir = join(testDir, 'sessions');
+    mkdirSync(join(sessionsDir, '2026', '04', '12'), { recursive: true });
+    const sessionPath = join(sessionsDir, '2026', '04', '12', 'recent.jsonl');
+    writeFileSync(
+      sessionPath,
+      [
+        '{"timestamp":"2026-04-12T01:00:00.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"one"}]}}',
+        '{"timestamp":"2026-04-12T02:00:00.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"two"}]}}',
+        '{"timestamp":"2026-04-12T03:00:00.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"three"}]}}',
+      ].join('\n') + '\n',
+      'utf-8',
+    );
+
+    const observer = new CodexObserver(sessionsDir);
+    const emittedTexts: string[] = [];
+
+    (observer as any).emitPreprocessedTraces = (_sessionId: string, traces: Array<{ content?: string }>) => {
+      emittedTexts.push(...traces.map((trace) => String(trace.content ?? '')));
+    };
+
+    (observer as any).processSessionFileInternal(sessionPath, { bootstrapTailLines: 2 });
+
+    expect(emittedTexts).toEqual(['two', 'three']);
+    expect((observer as any).processedByteOffset.get(sessionPath)).toBe(statSync(sessionPath).size);
+  });
+
+  it('advances byte offsets and only emits appended traces on file change', () => {
+    const sessionsDir = join(testDir, 'sessions');
+    mkdirSync(join(sessionsDir, '2026', '04', '12'), { recursive: true });
+    const sessionPath = join(sessionsDir, '2026', '04', '12', 'recent.jsonl');
+    writeFileSync(
+      sessionPath,
+      '{"timestamp":"2026-04-12T01:00:00.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"first"}]}}\n',
+      'utf-8',
+    );
+
+    const observer = new CodexObserver(sessionsDir);
+    const emittedTexts: string[] = [];
+
+    (observer as any).emitPreprocessedTraces = (_sessionId: string, traces: Array<{ content?: string }>) => {
+      emittedTexts.push(...traces.map((trace) => String(trace.content ?? '')));
+    };
+
+    (observer as any).processSessionFileInternal(sessionPath);
+    const initialOffset = (observer as any).processedByteOffset.get(sessionPath);
+
+    appendFileSync(
+      sessionPath,
+      '{"timestamp":"2026-04-12T02:00:00.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"second"}]}}\n',
+      'utf-8',
+    );
+
+    (observer as any).handleFileChange(sessionPath);
+
+    expect(emittedTexts).toEqual(['first', 'second']);
+    expect((observer as any).processedByteOffset.get(sessionPath)).toBe(statSync(sessionPath).size);
+    expect((observer as any).processedByteOffset.get(sessionPath)).toBeGreaterThan(initialOffset);
   });
 });

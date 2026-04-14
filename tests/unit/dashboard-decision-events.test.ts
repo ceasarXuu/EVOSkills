@@ -375,7 +375,7 @@ describe('dashboard decision event reader', () => {
     });
   });
 
-  it('backfills daemon failure state from recent decision events when checkpoint is empty', () => {
+  it('keeps daemon idle but backfills the latest analysis failure detail when checkpoint is empty', () => {
     const projectRoot = join(tmpdir(), `ornn-dashboard-daemon-failure-${Date.now()}`);
     testRoots.push(projectRoot);
     mkdirSync(join(projectRoot, '.ornn', 'state'), { recursive: true });
@@ -398,8 +398,8 @@ describe('dashboard decision event reader', () => {
 
     const daemon = readDaemonStatus(projectRoot);
     expect(daemon.optimizationStatus).toMatchObject({
-      currentState: 'error',
-      currentSkillId: 'systematic-debugging',
+      currentState: 'idle',
+      currentSkillId: null,
       lastError: 'llm unavailable',
     });
   });

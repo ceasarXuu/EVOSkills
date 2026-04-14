@@ -1219,7 +1219,7 @@ describe('dashboard ui recovery', () => {
     expect(rows[0]?.detail).toContain('这次调用没有观察到稳定的设计缺陷');
   });
 
-  it('treats analysis_failed as stability feedback instead of a core business step', () => {
+  it('shows a core-flow interruption row while keeping analysis_failed in stability feedback', () => {
     const { dashboard, getElement } = loadDashboardTestHarness({}, { lang: 'zh' });
     const projectPath = '/tmp/ornn-project';
 
@@ -1252,12 +1252,45 @@ describe('dashboard ui recovery', () => {
     dashboard.renderMainPanel(projectPath);
     const html = getElement('mainPanel').innerHTML;
     expect(html).toContain('核心流程');
-    expect(html).not.toContain('分析链路异常');
+    expect(html).toContain('分析中断');
+    expect(html).toContain('格式不符合系统要求');
+    expect(html).not.toContain('analysis_failed');
 
     dashboard.state.activityTagFilter = 'stability_feedback';
     dashboard.renderMainPanel(projectPath);
     const stabilityHtml = getElement('mainPanel').innerHTML;
     expect(stabilityHtml).toContain('分析链路异常');
+  });
+
+  it('uses localized business statuses instead of raw internal status enums in activity rows', () => {
+    const { dashboard } = loadDashboardTestHarness({}, { lang: 'zh' });
+    const projectPath = '/tmp/ornn-project';
+
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [{ skillId: 'test-driven-development', runtime: 'codex' }],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+        decisionEvents: [{
+          id: 'evt-analysis-start-1',
+          timestamp: '2026-04-10T05:23:00.000Z',
+          tag: 'analysis_requested',
+          runtime: 'codex',
+          skillId: 'test-driven-development',
+          status: 'episode_ready',
+          windowId: 'scope-status-1',
+          detail: '时机探测已通过，开始深度分析本次调用窗口。',
+        }],
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+      },
+    };
+
+    const rows = dashboard.buildActivityRows(projectPath);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.tag).toBe('analysis_started');
+    expect(rows[0]?.status).toBe('分析中');
+    expect(rows[0]?.status).not.toBe('episode_ready');
   });
 
   it('prefers canonical business fields from backend instead of inferring from raw event tags', () => {

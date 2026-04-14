@@ -1391,6 +1391,7 @@ function businessEventLabel(tag) {
     stability_feedback: t('activityTagStabilityFeedback'),
     skill_observed: t('activityTagSkillObserved'),
     analysis_started: t('activityTagAnalysisStarted'),
+    analysis_interrupted: t('activityTagAnalysisInterrupted'),
     analysis_waiting_more_context: t('activityTagAnalysisWaiting'),
     analysis_concluded: t('activityTagAnalysisConcluded'),
     optimization_skipped: t('activityTagOptimizationSkipped'),
@@ -1433,6 +1434,8 @@ function formatBusinessEvent(e) {
       return t('activitySummarySkillObserved') + (e.skillId ? ': ' + e.skillId : '');
     case 'analysis_started':
       return e.detail || t('activitySummaryAnalysisStarted');
+    case 'analysis_interrupted':
+      return e.detail || t('activitySummaryAnalysisInterrupted');
     case 'analysis_waiting_more_context':
       return e.detail || t('activitySummaryAnalysisWaiting');
     case 'analysis_concluded':
@@ -1549,7 +1552,10 @@ function getActivityScopeId(event) {
 }
 
 function describeAnalysisFailure(row) {
-  const technical = [row && row.rawReason, row && row.rawDetail]
+  const technical = [
+    row && (row.rawReason || row.reason),
+    row && (row.rawDetail || row.detail),
+  ]
     .filter((item, index, list) => item && list.indexOf(item) === index)
     .join(' | ');
   const haystack = technical.toLowerCase();
@@ -1642,6 +1648,41 @@ function describeAnalysisFailure(row) {
       : 'Investigate the analysis pipeline using the technical detail before changing the skill itself.',
     technical,
   };
+}
+
+function describeAnalysisInterruption(row) {
+  const failure = describeAnalysisFailure(row);
+  const isZh = currentLang === 'zh';
+  return {
+    summary: isZh
+      ? ('本轮分析已中断：' + failure.summary)
+      : ('This analysis round was interrupted: ' + failure.summary),
+    nextAction: failure.action,
+  };
+}
+
+function localizeActivityStatus(tag, rawStatus) {
+  switch (tag) {
+    case 'skill_observed':
+      return t('activityStatusObserved');
+    case 'analysis_started':
+      return t('activityStatusAnalyzing');
+    case 'analysis_interrupted':
+      return t('activityStatusInterrupted');
+    case 'analysis_waiting_more_context':
+      return t('activityStatusWaiting');
+    case 'analysis_concluded':
+      return t('activityStatusNoOptimization');
+    case 'optimization_skipped':
+      return t('activityStatusSkipped');
+    case 'optimization_applied':
+      return t('activityStatusApplied');
+    case 'analysis_failed':
+      return t('activityStatusFailed');
+    default:
+      if (rawStatus === 'failed') return t('activityStatusFailed');
+      return rawStatus || t('activityStatusFallback');
+  }
 }
 
 function formatActivityPreview(row) {
@@ -1768,6 +1809,11 @@ function buildActivityDetail(row) {
       nextStep = currentLang === 'zh'
         ? '等待这一轮分析返回结果，再决定是继续观察、保持现状还是执行优化。'
         : 'Wait for this analysis round to return before deciding whether to keep observing, stay unchanged, or optimize.';
+      break;
+    case 'analysis_interrupted':
+      nextStep = currentLang === 'zh'
+        ? '本轮没有形成业务结论，先排查分析链路或模型服务，再决定是否重新发起分析。'
+        : 'This round ended without a business conclusion; investigate the analysis path or model service before retrying.';
       break;
     case 'analysis_waiting_more_context':
       nextStep = currentLang === 'zh'
@@ -1897,6 +1943,7 @@ function buildActivityRows(projectPath) {
     const tag = normalizeDecisionTag(event);
     if (!tag) continue;
     const scopeId = getActivityScopeId(event);
+    const category = event.businessCategory || businessCategoryForTag(tag);
     const feedbackDetails = (event.businessCategory || businessCategoryForTag(tag)) === 'stability_feedback'
       ? []
       : collectUniqueText(
@@ -1907,14 +1954,15 @@ function buildActivityRows(projectPath) {
           skillId: event.skillId,
         }).flatMap((key) => (feedbackByKey.get(key) || []).map((item) => item.judgment || item.detail))
       );
-    decisionRows.push({
+    const row = {
       id: 'decision:' + event.id,
       timestamp: event.timestamp || '',
       tag,
-      category: event.businessCategory || businessCategoryForTag(tag),
+      category,
       runtime: event.runtime || (event.traceId ? runtimeByTraceId.get(event.traceId) : null) || t('activityHostFallback'),
       skillId: event.skillId || null,
-      status: event.status || (tag === 'analysis_failed' ? 'failed' : t('activityStatusFallback')),
+      status: localizeActivityStatus(tag, event.status),
+      rawStatus: event.status || null,
       scopeId: scopeId || null,
       detail: mergeBusinessDetail(
         event.judgment || event.detail || event.reason || formatBusinessEvent({ ...event, tag }),
@@ -1928,7 +1976,22 @@ function buildActivityRows(projectPath) {
       sourceLabel: t('activitySourceDecision'),
       traceId: event.traceId || null,
       sessionId: event.sessionId || null,
-    });
+    };
+
+    if (tag === 'analysis_failed' && category === 'stability_feedback') {
+      const interruption = describeAnalysisInterruption(row);
+      decisionRows.push({
+        ...row,
+        id: 'decision:core-flow:' + event.id,
+        tag: 'analysis_interrupted',
+        category: 'core_flow',
+        status: localizeActivityStatus('analysis_interrupted', 'interrupted'),
+        detail: interruption.summary,
+        nextAction: interruption.nextAction,
+      });
+    }
+
+    decisionRows.push(row);
   }
 
   const traceRows = [];
@@ -1944,7 +2007,8 @@ function buildActivityRows(projectPath) {
         category: 'core_flow',
         runtime: trace.runtime || t('activityHostFallback'),
         skillId: skillRef,
-        status: trace.status || 'observed',
+        status: localizeActivityStatus('skill_observed', trace.status),
+        rawStatus: trace.status || null,
         scopeId:
           scopeByTraceId.get(trace.trace_id) ||
           scopeBySessionSkill.get(trace.session_id + '::' + skillRef) ||
@@ -1985,6 +2049,7 @@ function buildActivityRows(projectPath) {
     traceCount: traceRows.length,
     coreFlowCount: rows.filter((row) => (row.category || 'core_flow') === 'core_flow').length,
     stabilityFeedbackCount: rows.filter((row) => row.category === 'stability_feedback').length,
+    interruptedCount: rows.filter((row) => row.tag === 'analysis_interrupted').length,
   });
   return rows;
 }

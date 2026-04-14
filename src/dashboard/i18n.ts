@@ -164,6 +164,7 @@ export interface I18nStrings {
   activityTagStabilityFeedback: string;
   activityTagSkillObserved: string;
   activityTagAnalysisStarted: string;
+  activityTagAnalysisInterrupted: string;
   activityTagAnalysisWaiting: string;
   activityTagAnalysisConcluded: string;
   activityTagOptimizationSkipped: string;
@@ -189,12 +190,21 @@ export interface I18nStrings {
   activityHostFallback: string;
   activityScopeFallback: string;
   activityStatusFallback: string;
+  activityStatusObserved: string;
+  activityStatusAnalyzing: string;
+  activityStatusWaiting: string;
+  activityStatusNoOptimization: string;
+  activityStatusSkipped: string;
+  activityStatusApplied: string;
+  activityStatusInterrupted: string;
+  activityStatusFailed: string;
   activityDetailFallback: string;
   activitySourceDecision: string;
   activitySourceTrace: string;
   activitySummarySkillCalled: string;
   activitySummarySkillObserved: string;
   activitySummaryAnalysisStarted: string;
+  activitySummaryAnalysisInterrupted: string;
   activitySummaryAnalysisWaiting: string;
   activitySummaryAnalysisConcluded: string;
   activitySummaryOptimizationSkipped: string;
@@ -491,6 +501,7 @@ const en: I18nStrings = {
   activityTagStabilityFeedback: 'Stability Feedback',
   activityTagSkillObserved: 'Skill Observed',
   activityTagAnalysisStarted: 'Analysis Started',
+  activityTagAnalysisInterrupted: 'Analysis Interrupted',
   activityTagAnalysisWaiting: 'Waiting for More Context',
   activityTagAnalysisConcluded: 'Analysis Concluded',
   activityTagOptimizationSkipped: 'Optimization Skipped',
@@ -516,12 +527,21 @@ const en: I18nStrings = {
   activityHostFallback: '—',
   activityScopeFallback: '—',
   activityStatusFallback: '—',
+  activityStatusObserved: 'Observed',
+  activityStatusAnalyzing: 'Analyzing',
+  activityStatusWaiting: 'Waiting',
+  activityStatusNoOptimization: 'No Optimization Needed',
+  activityStatusSkipped: 'Kept Unchanged',
+  activityStatusApplied: 'Applied',
+  activityStatusInterrupted: 'Interrupted',
+  activityStatusFailed: 'Failed',
   activityDetailFallback: 'No detail',
   activitySourceDecision: 'Decision Event',
   activitySourceTrace: 'Trace',
   activitySummarySkillCalled: 'Skill called',
   activitySummarySkillObserved: 'Observed skill activity',
   activitySummaryAnalysisStarted: 'Analysis started',
+  activitySummaryAnalysisInterrupted: 'Analysis interrupted before a business conclusion was reached',
   activitySummaryAnalysisWaiting: 'Waiting for more context',
   activitySummaryAnalysisConcluded: 'Analysis concluded',
   activitySummaryOptimizationSkipped: 'Optimization skipped',
@@ -818,6 +838,7 @@ const zh: I18nStrings = {
   activityTagStabilityFeedback: '稳定性反馈',
   activityTagSkillObserved: '观察到技能参与',
   activityTagAnalysisStarted: '开始分析',
+  activityTagAnalysisInterrupted: '分析中断',
   activityTagAnalysisWaiting: '继续等待上下文',
   activityTagAnalysisConcluded: '分析结论',
   activityTagOptimizationSkipped: '暂不优化',
@@ -843,12 +864,21 @@ const zh: I18nStrings = {
   activityHostFallback: '—',
   activityScopeFallback: '—',
   activityStatusFallback: '—',
+  activityStatusObserved: '已观察',
+  activityStatusAnalyzing: '分析中',
+  activityStatusWaiting: '继续观察',
+  activityStatusNoOptimization: '无需优化',
+  activityStatusSkipped: '保持现状',
+  activityStatusApplied: '已应用',
+  activityStatusInterrupted: '已中断',
+  activityStatusFailed: '失败',
   activityDetailFallback: '暂无详情',
   activitySourceDecision: '决策事件',
   activitySourceTrace: 'Trace',
   activitySummarySkillCalled: '调用技能',
   activitySummarySkillObserved: '观察到技能参与当前窗口',
   activitySummaryAnalysisStarted: '已提交本轮分析',
+  activitySummaryAnalysisInterrupted: '本轮分析已中断，尚未形成业务结论',
   activitySummaryAnalysisWaiting: '当前证据不足，继续收集上下文',
   activitySummaryAnalysisConcluded: '本轮分析已形成结论',
   activitySummaryOptimizationSkipped: '当前结论是不执行优化',

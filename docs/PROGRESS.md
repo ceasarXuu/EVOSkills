@@ -3,6 +3,11 @@
 ## 📊 总体进度：Phase 1 ✅ 完成
 
 ### 2026-04-15
+- ✅ 修正实时追踪的业务语义分层：`analysis_failed` 仍保留为 `stability_feedback` 根因事件，但 dashboard 会额外合成一个 `analysis_interrupted` 核心流程终态，避免“核心流程”过滤下只剩“开始分析”，让每个 scope 都能看见本轮是否真正形成业务结论
+- ✅ 去工程化实时追踪状态列：活动表不再直接展示 `episode_ready / continue_collecting / no_patch_needed` 这类内部枚举，而是统一映射为 `分析中 / 继续观察 / 无需优化 / 已应用 / 已中断` 等业务状态
+- ✅ 收紧 daemon 状态回填语义：dashboard 读侧不再把“最近一次分析失败”回填成 daemon 的当前 `error` 状态，而是仅保留 `lastError`；当前状态继续以 checkpoint 和活跃 episode 为准，避免守护进程明明空闲却长期显示错误
+- 📝 记录可观测性经验：`analysis_failed` 这类稳定性反馈不是核心业务节点，但它又确实会截断一条业务链路。正确做法不是把失败事件硬塞进核心流程，而是额外产出一个面向用户的“业务终态”节点，再把技术根因留在稳定性层
+- 📝 记录可观测性经验：daemon 的“当前状态”和“上次错误”必须拆开建模；只要把历史失败直接提升成当前状态，用户就会把“曾经失败过”误读成“现在仍然故障”，进而削弱对看板的信任
 - ✅ 修复 session-backed pipeline 的候选漂移：`session-window-candidates` 现在只会为 `recentTraces` 实际命中的 trace 建立 skill candidate，full session timeline 仅用于补上下文，不再因为长会话里更早的历史 skill 被重新映射而重复打开陈旧优化窗口
 - ✅ 收紧 analyzer 协议校验：`apply_optimization` 结果现在必须携带完整结构化 `evaluation`，且至少满足 `should_patch=true + change_type`；缺失执行字段时会直接归类为 `analysis_failed`，不再伪装成可执行 patch 建议
 - 📝 记录架构经验：恢复真实 session 时间线是为了补上下文，不是为了重跑整段历史上的所有 skill 候选；candidate 选择权仍然必须留在触发本轮分析的 recent batch 手里，否则长会话会持续复活陈旧窗口，破坏增量分析语义

@@ -562,9 +562,9 @@ describe('dashboard ui recovery', () => {
     expect(html).toContain('调用范围');
     expect(html).toContain('探测 + 优化 + 解释');
     expect(html).toContain('skill_call_analyzer');
-    expect(html).toContain('1.3千');
-    expect(html).toContain('2.3百万');
-    expect(html).toContain('540千');
+    expect(html).toContain('1.3K');
+    expect(html).toContain('2.3M');
+    expect(html).toContain('540K');
   });
 
   it('renders a richer cost tab with latency, skill breakdown, and LiteLLM metadata', () => {

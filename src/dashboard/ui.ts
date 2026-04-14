@@ -2271,20 +2271,14 @@ function renderCostBreakdown(title, rows, emptyText, formatter, countLabel) {
 function formatUsageCompact(value) {
   const num = Number(value || 0);
   if (!Number.isFinite(num)) return '0';
-  if (currentLang === 'zh') {
-    const abs = Math.abs(num);
-    if (abs >= 1000000) {
-      return (Math.round((num / 1000000) * 10) / 10).toString().replace(/\\.0$/, '') + '百万';
-    }
-    if (abs >= 1000) {
-      return (Math.round((num / 1000) * 10) / 10).toString().replace(/\\.0$/, '') + '千';
-    }
-    return String(Math.round(num));
+  const abs = Math.abs(num);
+  if (abs >= 1000000) {
+    return (Math.round((num / 1000000) * 10) / 10).toString().replace(/\\.0$/, '') + 'M';
   }
-  return new Intl.NumberFormat(currentLang === 'zh' ? 'zh-CN' : 'en-US', {
-    notation: num >= 1000 ? 'compact' : 'standard',
-    maximumFractionDigits: num >= 1000 ? 1 : 0,
-  }).format(num);
+  if (abs >= 1000) {
+    return (Math.round((num / 1000) * 10) / 10).toString().replace(/\\.0$/, '') + 'K';
+  }
+  return String(Math.round(num));
 }
 
 function incrementCounter(map, key) {

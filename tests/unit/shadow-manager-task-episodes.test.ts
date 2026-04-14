@@ -276,6 +276,56 @@ describe('ShadowManager task episodes', () => {
     expect(events.some((event) => event.tag === 'evaluation_result')).toBe(true);
   });
 
+  it('re-checks probe readiness when later context traces grow an existing episode window', async () => {
+    analyzeWindowMock.mockResolvedValue({
+      success: true,
+      model: 'deepseek/deepseek-chat',
+      decision: 'need_more_context',
+      userMessage: '当前窗口证据仍不足，继续等待更多上下文。',
+      nextWindowHint: {
+        suggestedTraceDelta: 8,
+        suggestedTurnDelta: 2,
+        waitForEventTypes: [],
+        mode: 'count_driven',
+      },
+      tokenUsage: {
+        promptTokens: 90,
+        completionTokens: 40,
+        totalTokens: 130,
+      },
+    });
+
+    const manager = createShadowManager(testProjectPath);
+    await manager.init();
+
+    await manager.processTrace(makeMixedTrace(1, testProjectPath, true));
+    for (let index = 2; index <= 10; index += 1) {
+      await manager.processTrace(makeMixedTrace(index, testProjectPath, false));
+    }
+
+    const snapshot = readTaskEpisodes(testProjectPath);
+    expect(snapshot.episodes).toHaveLength(1);
+    expect(snapshot.episodes[0]).toMatchObject({
+      sessionIds: ['sess-mixed'],
+      stats: {
+        totalTraceCount: 10,
+        totalTurnCount: 10,
+        mappedTraceCount: 1,
+        tracesSinceLastProbe: 0,
+        turnsSinceLastProbe: 0,
+      },
+      probeState: expect.objectContaining({
+        probeCount: 1,
+        lastProbeTraceIndex: 10,
+        lastProbeTurnIndex: 10,
+      }),
+    });
+
+    const events = readDecisionEvents(testProjectPath).filter((event) => event.sessionId === 'sess-mixed');
+    expect(events.some((event) => event.tag === 'analysis_requested')).toBe(true);
+    expect(events.some((event) => event.tag === 'evaluation_result')).toBe(true);
+  });
+
   it('attaches an unmapped context trace only to the most recently active episode in a shared session', () => {
     const store = createTaskEpisodeStore(testProjectPath);
     const traceA = makeEpisodeTrace('skill-a', 'trace-a-1', 'turn-a-1', '2026-04-11T09:00:01.000Z');

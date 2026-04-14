@@ -31,6 +31,7 @@ interface CodexRawEvent {
  */
 export class CodexObserver extends BaseObserver {
   private watcher: FSWatcher | null = null;
+  private reconciliationTimer: NodeJS.Timeout | null = null;
   private sessionsDir: string;
   private sessionIndexPath: string;
   private currentSessionId: string | null = null;
@@ -40,6 +41,8 @@ export class CodexObserver extends BaseObserver {
   // 启动恢复只保留极小窗口，避免把历史长会话一次性灌回优化链路。
   private readonly bootstrapFileLimit = 1;
   private readonly bootstrapTailLineLimit = 10;
+  private readonly reconciliationFileLimit = 3;
+  private readonly reconciliationIntervalMs = 3000;
   private readonly readChunkSize = 65536;
   private readonly maxMessageChars = 8000;
   private readonly maxStructuredPreviewChars = 4000;
@@ -96,8 +99,10 @@ export class CodexObserver extends BaseObserver {
 
     this.watcher.on('add', (path) => this.handleFileAdd(path));
     this.watcher.on('change', (path) => this.handleFileChange(path));
+    this.watcher.on('unlink', (path) => this.handleFileUnlink(path));
     this.primeSessionOffsets();
     this.bootstrapRecentSessionFiles(this.bootstrapFileLimit);
+    this.startReconciliationLoop();
 
     logger.debug('Codex observer started', { watchPattern });
   }
@@ -117,6 +122,11 @@ export class CodexObserver extends BaseObserver {
       this.watcher = null;
     }
 
+    if (this.reconciliationTimer) {
+      clearInterval(this.reconciliationTimer);
+      this.reconciliationTimer = null;
+    }
+
     this.processedFiles.clear();
     this.processedByteOffset.clear();
     logger.info('Codex observer stopped');
@@ -130,13 +140,26 @@ export class CodexObserver extends BaseObserver {
       return;
     }
 
-    // 避免重复处理
+    const currentSize = this.getFileSize(path);
+    const previousOffset = this.processedByteOffset.get(path) ?? 0;
+    const sessionId = this.extractSessionId(path);
+
+    // 对于 watcher 重连或底层抖动后重新上报 add 的场景，
+    // 不能直接短路，否则会把这段增量永久漏掉。
     if (this.processedFiles.has(path)) {
+      if (currentSize !== null && currentSize !== previousOffset) {
+        logger.warn('Recovering session file growth from repeated add event', {
+          sessionId,
+          path,
+          previousOffset,
+          currentSize,
+        });
+        this.processSessionFileInternal(path);
+      }
       return;
     }
     this.processedFiles.add(path);
 
-    const sessionId = this.extractSessionId(path);
     this.currentSessionId = sessionId;
 
     logger.debug(`New session detected: ${sessionId}`, { path });
@@ -160,6 +183,12 @@ export class CodexObserver extends BaseObserver {
     // 这里可以实现增量读取逻辑
     // 简化处理：重新读取整个文件
     this.processSessionFileInternal(path);
+  }
+
+  private handleFileUnlink(path: string): void {
+    this.processedFiles.delete(path);
+    this.processedByteOffset.delete(path);
+    logger.debug('Session file removed from observer tracking', { path });
   }
 
   /**
@@ -191,6 +220,52 @@ export class CodexObserver extends BaseObserver {
     });
   }
 
+  private startReconciliationLoop(): void {
+    if (this.reconciliationTimer) {
+      clearInterval(this.reconciliationTimer);
+    }
+
+    this.reconciliationTimer = setInterval(() => {
+      this.reconcileRecentSessionGrowth(this.reconciliationFileLimit);
+    }, this.reconciliationIntervalMs);
+  }
+
+  private reconcileRecentSessionGrowth(limit = this.reconciliationFileLimit): void {
+    const candidates = this.listRecentSessionFiles(limit);
+    for (const path of candidates) {
+      const currentSize = this.getFileSize(path);
+      if (currentSize === null) {
+        continue;
+      }
+
+      const previousOffset = this.processedByteOffset.get(path);
+      const sessionId = this.extractSessionId(path);
+
+      if (!this.processedFiles.has(path)) {
+        this.processedFiles.add(path);
+        if (currentSize > 0) {
+          logger.info('Recovered unseen recent session file during reconciliation', {
+            sessionId,
+            path,
+            currentSize,
+          });
+          this.processSessionFileInternal(path);
+        }
+        continue;
+      }
+
+      if (previousOffset === undefined || currentSize !== previousOffset) {
+        logger.warn('Recovered missed session file growth during reconciliation', {
+          sessionId,
+          path,
+          previousOffset: previousOffset ?? 0,
+          currentSize,
+        });
+        this.processSessionFileInternal(path);
+      }
+    }
+  }
+
   private listRecentSessionFiles(limit: number): string[] {
     const files = this.collectSessionFiles(this.sessionsDir)
       .map((path) => {
@@ -204,6 +279,14 @@ export class CodexObserver extends BaseObserver {
       .sort((a, b) => b.mtimeMs - a.mtimeMs)
       .slice(0, Math.max(limit, 0));
     return files.map((item) => item.path);
+  }
+
+  private getFileSize(path: string): number | null {
+    try {
+      return statSync(path).size;
+    } catch {
+      return null;
+    }
   }
 
   private collectSessionFiles(dir: string): string[] {

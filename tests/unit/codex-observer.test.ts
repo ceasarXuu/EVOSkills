@@ -166,4 +166,69 @@ describe('CodexObserver', () => {
     expect((observer as any).processedByteOffset.get(sessionPath)).toBe(statSync(sessionPath).size);
     expect((observer as any).processedByteOffset.get(sessionPath)).toBeGreaterThan(initialOffset);
   });
+
+  it('recovers appended traces when an already-known file is seen again as add', () => {
+    const sessionsDir = join(testDir, 'sessions');
+    mkdirSync(join(sessionsDir, '2026', '04', '12'), { recursive: true });
+    const sessionPath = join(sessionsDir, '2026', '04', '12', 'recent.jsonl');
+    writeFileSync(
+      sessionPath,
+      '{"timestamp":"2026-04-12T01:00:00.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"first"}]}}\n',
+      'utf-8',
+    );
+
+    const observer = new CodexObserver(sessionsDir);
+    const emittedTexts: string[] = [];
+
+    (observer as any).emitPreprocessedTraces = (_sessionId: string, traces: Array<{ content?: string }>) => {
+      emittedTexts.push(...traces.map((trace) => String(trace.content ?? '')));
+    };
+
+    (observer as any).processedFiles.add(sessionPath);
+    (observer as any).processSessionFileInternal(sessionPath);
+
+    appendFileSync(
+      sessionPath,
+      '{"timestamp":"2026-04-12T02:00:00.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"second"}]}}\n',
+      'utf-8',
+    );
+
+    (observer as any).handleFileAdd(sessionPath);
+
+    expect(emittedTexts).toEqual(['first', 'second']);
+    expect((observer as any).processedByteOffset.get(sessionPath)).toBe(statSync(sessionPath).size);
+  });
+
+  it('reconciles recent session growth even when watcher change is missed', () => {
+    const sessionsDir = join(testDir, 'sessions');
+    mkdirSync(join(sessionsDir, '2026', '04', '12'), { recursive: true });
+    const sessionPath = join(sessionsDir, '2026', '04', '12', 'recent.jsonl');
+    writeFileSync(
+      sessionPath,
+      '{"timestamp":"2026-04-12T01:00:00.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"first"}]}}\n',
+      'utf-8',
+    );
+
+    const observer = new CodexObserver(sessionsDir);
+    const emittedTexts: string[] = [];
+
+    (observer as any).emitPreprocessedTraces = (_sessionId: string, traces: Array<{ content?: string }>) => {
+      emittedTexts.push(...traces.map((trace) => String(trace.content ?? '')));
+    };
+
+    (observer as any).processedFiles.add(sessionPath);
+    (observer as any).processSessionFileInternal(sessionPath);
+
+    appendFileSync(
+      sessionPath,
+      '{"timestamp":"2026-04-12T02:00:00.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"second"}]}}\n',
+      'utf-8',
+    );
+    utimesSync(sessionPath, new Date('2026-04-12T02:00:00.000Z'), new Date('2026-04-12T02:00:00.000Z'));
+
+    (observer as any).reconcileRecentSessionGrowth(1);
+
+    expect(emittedTexts).toEqual(['first', 'second']);
+    expect((observer as any).processedByteOffset.get(sessionPath)).toBe(statSync(sessionPath).size);
+  });
 });

@@ -139,7 +139,25 @@ export class ShadowManager {
     // 检查是否需要触发评估
     const shadowId = this.findShadowForTrace(trace);
     if (!shadowId) {
-      this.taskEpisodes.recordContextTrace(trace);
+      const affectedEpisodes = this.taskEpisodes.recordContextTrace(trace);
+      for (const episode of affectedEpisodes) {
+        const segment = this.getEpisodeTriggerSegment(episode);
+        if (!segment?.shadowId) {
+          continue;
+        }
+
+        logger.debug('Re-checking probe readiness after context trace expanded episode window', {
+          traceId: trace.trace_id,
+          sessionId: trace.session_id,
+          episodeId: episode.episodeId,
+          skillId: segment.skillId,
+          runtime: segment.runtime,
+          totalTraceCount: episode.stats.totalTraceCount,
+          tracesSinceLastProbe: episode.stats.tracesSinceLastProbe,
+        });
+
+        await this.maybeRunEpisodeProbe(episode, segment.shadowId, trace, recentTraces);
+      }
       return;
     }
 
@@ -156,21 +174,7 @@ export class ShadowManager {
       shadowId,
       runtime: eventContext.runtime,
     }, recentTraces);
-    const trigger = this.taskEpisodes.shouldTriggerProbe(episode, trace);
-    if (!trigger.shouldProbe) {
-      if (episode.analysisStatus === 'running' || episode.state === 'analyzing') {
-        logger.debug('Skipping duplicate window analysis trigger while analysis is already running', {
-          traceId: trace.trace_id,
-          sessionId: eventContext.sessionId,
-          skillId: eventContext.skillId,
-          runtime: eventContext.runtime,
-          windowId: eventContext.windowId,
-        });
-      }
-      return;
-    }
-
-    await this.runWindowAnalysis(episode, shadowId, recentTraces, eventContext, trigger);
+    await this.maybeRunEpisodeProbe(episode, shadowId, trace, recentTraces, eventContext);
   }
 
   private describeProbeRequest(trigger: ProbeTriggerDecision): string {
@@ -202,6 +206,43 @@ export class ShadowManager {
       lastTraceAt: traces[traces.length - 1]?.timestamp ?? episode.lastActivityAt,
       traces,
     });
+  }
+
+  private getEpisodeTriggerSegment(episode: TaskEpisode): TaskEpisode['skillSegments'][number] | null {
+    return [...episode.skillSegments]
+      .sort((a, b) => String(b.lastActivityAt).localeCompare(String(a.lastActivityAt)))[0] ?? null;
+  }
+
+  private async maybeRunEpisodeProbe(
+    episode: TaskEpisode,
+    shadowId: string,
+    trace: Trace,
+    sessionTraces: Trace[],
+    eventContext?: ActivityEventContext
+  ): Promise<void> {
+    const trigger = this.taskEpisodes.shouldTriggerProbe(episode, trace);
+    const context =
+      eventContext ??
+      buildActivityEventContext({
+        shadowId,
+        trace,
+        traces: sessionTraces,
+      });
+
+    if (!trigger.shouldProbe) {
+      if (episode.analysisStatus === 'running' || episode.state === 'analyzing') {
+        logger.debug('Skipping duplicate window analysis trigger while analysis is already running', {
+          traceId: trace.trace_id,
+          sessionId: context.sessionId,
+          skillId: context.skillId,
+          runtime: context.runtime,
+          windowId: context.windowId,
+        });
+      }
+      return;
+    }
+
+    await this.runWindowAnalysis(episode, shadowId, sessionTraces, context, trigger);
   }
 
   private async recordSkillFeedback(

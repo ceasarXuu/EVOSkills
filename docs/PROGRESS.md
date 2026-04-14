@@ -284,6 +284,13 @@
 
 ## 更新日志
 
+### 2026-04-15
+- ✅ 修复 `CodexObserver` 的会话恢复断流问题：新增“最近活跃 session 增长补偿轮询”，即使 watcher 漏掉 `change` 事件，也会按字节偏移补读新增 trace
+- ✅ 修复重复 `add` 事件被直接短路的问题：同一路径再次出现时，会先比较文件大小和已处理偏移，必要时补读增量，而不是无条件跳过
+- ✅ 修复“episode 只增长上下文但 probe 永不触发”的业务链断点：`ShadowManager.processTrace()` 现在会在 `recordContextTrace()` 之后重新评估 probe 触发条件
+- ✅ 新增回归测试：覆盖 observer 重复 `add` 恢复、漏掉 `change` 后的 recent-growth 补偿，以及“先命中一次 skill、后续仅 context trace 增长也必须触发 probe”
+- 📝 调试经验：实时追踪“完全没新增”时，先同时核对三层文件：`~/.codex/sessions/**/*.jsonl` 的最新 mtime、`.ornn/state/default.ndjson` 的尾时间、`.ornn/state/task-episodes.json` 的 open episode。若第一层在增长、第二层停住，断点在 observer；若第二层在增长、episode 的 `totalTraceCount` 在涨但 `probeCount` 仍为 0，断点在 episode -> probe 触发链
+
 ### 2026-04-12
 - ✅ 修复成本看板长期无数据的 episode 统计口径问题：probe 现在按 session 窗口累计 trace，而不是只看映射命中的少量 trace
 - ✅ 新增 `shadow-manager-task-episodes` 回归测试，覆盖“session 已达阈值但仅部分 trace 映射到 skill”时仍应触发 probe
@@ -323,5 +330,5 @@
 
 ---
 
-*最后更新：2026-04-13*
+*最后更新：2026-04-15*
 *更新人：OrnnSkills Team*

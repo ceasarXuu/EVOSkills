@@ -40,6 +40,27 @@ import type {
 import { createSkillCallWindow, type SkillCallWindow } from '../skill-call-window/index.js';
 
 const logger = createChildLogger('shadow-manager');
+const MANUAL_OPTIMIZE_RECENT_TRACE_LIMIT = 200;
+
+export interface TriggerOptimizeResult {
+  kind:
+    | 'missing_window'
+    | 'analysis_failed'
+    | 'need_more_context'
+    | 'no_optimization'
+    | 'optimization_skipped'
+    | 'patch_applied'
+    | 'patch_failed';
+  evaluation: EvaluationResult | null;
+  detail: string;
+  status?: string;
+}
+
+interface ManualOptimizationScope {
+  traces: Trace[];
+  context: ActivityEventContext;
+  episodeId: string | null;
+}
 
 /**
  * Shadow Manager
@@ -204,6 +225,145 @@ export class ShadowManager {
     return sessionTraces.filter((trace) => traceRefSet.has(trace.trace_id));
   }
 
+  private buildScopedTraceSlice(sessionTraces: Trace[], anchorTraceIds: string[]): Trace[] {
+    if (anchorTraceIds.length === 0) {
+      return [];
+    }
+
+    const ordered = [...sessionTraces].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    const anchorSet = new Set(anchorTraceIds);
+    const firstIndex = ordered.findIndex((trace) => anchorSet.has(trace.trace_id));
+    if (firstIndex < 0) {
+      return [];
+    }
+
+    let lastIndex = firstIndex;
+    for (let index = firstIndex; index < ordered.length; index += 1) {
+      if (anchorSet.has(ordered[index]?.trace_id ?? '')) {
+        lastIndex = index;
+      }
+    }
+
+    return ordered.slice(firstIndex, lastIndex + 1);
+  }
+
+  private findLatestEpisodeForSkill(skillId: string, runtime: RuntimeType): TaskEpisode | null {
+    return this.taskEpisodes
+      .listEpisodes()
+      .filter((episode) =>
+        episode.runtime === runtime &&
+        episode.traceRefs.length > 0 &&
+        episode.skillSegments.some((segment) => segment.skillId === skillId)
+      )
+      .sort((a, b) => String(b.lastActivityAt).localeCompare(String(a.lastActivityAt)))[0] ?? null;
+  }
+
+  private buildFallbackManualContext(shadowId: string): ActivityEventContext {
+    const runtime = (runtimeFromShadowId(shadowId) ?? 'codex') as RuntimeType;
+    const skillId = skillIdFromShadowId(shadowId) ?? shadowId.split('@')[0];
+    const fallbackTrace: Trace = {
+      trace_id: `manual-optimize:${Date.now()}`,
+      session_id: `manual-optimize:${Date.now()}`,
+      turn_id: 'manual',
+      runtime,
+      event_type: 'status',
+      status: 'success',
+      timestamp: new Date().toISOString(),
+      metadata: { skill_id: skillId },
+    };
+
+    return buildActivityEventContext({
+      shadowId,
+      trace: fallbackTrace,
+      traces: [fallbackTrace],
+    });
+  }
+
+  private matchesManualShadowTarget(
+    trace: Trace,
+    mapping: { skill_id: string | null; shadow_id: string | null; confidence: number },
+    skillId: string,
+    runtime: RuntimeType
+  ): boolean {
+    if (!mapping.skill_id || mapping.confidence < 0.5) {
+      return false;
+    }
+
+    const mappedRuntime = runtimeFromShadowId(mapping.shadow_id ?? '') ?? trace.runtime ?? 'codex';
+    return mapping.skill_id === skillId && mappedRuntime === runtime;
+  }
+
+  private async resolveManualOptimizationScope(shadowId: string): Promise<ManualOptimizationScope | null> {
+    const runtime = (runtimeFromShadowId(shadowId) ?? 'codex') as RuntimeType;
+    const skillId = skillIdFromShadowId(shadowId) ?? shadowId.split('@')[0];
+    const episode = this.findLatestEpisodeForSkill(skillId, runtime);
+
+    if (episode) {
+      const sessionId = episode.sessionIds[episode.sessionIds.length - 1];
+      if (sessionId) {
+        const sessionTraces = await this.traceManager.getSessionTraces(sessionId);
+        const traces = this.buildEpisodeWindowTraces(episode, sessionTraces);
+        if (traces.length > 0) {
+          logger.debug('Resolved manual optimization scope from latest task episode', {
+            skillId,
+            runtime,
+            episodeId: episode.episodeId,
+            sessionId,
+            traceCount: traces.length,
+          });
+          return {
+            traces,
+            context: buildActivityEventContext({
+              shadowId,
+              trace: traces[traces.length - 1]!,
+              traces,
+            }),
+            episodeId: episode.episodeId,
+          };
+        }
+      }
+    }
+
+    const recentTraces = await this.traceManager.getRecentTraces(MANUAL_OPTIMIZE_RECENT_TRACE_LIMIT);
+    for (let index = recentTraces.length - 1; index >= 0; index -= 1) {
+      const trace = recentTraces[index]!;
+      const mapping = this.traceSkillMapper.mapTrace(trace);
+      if (!this.matchesManualShadowTarget(trace, mapping, skillId, runtime)) {
+        continue;
+      }
+
+      const sessionTraces = await this.traceManager.getSessionTraces(trace.session_id);
+      const anchorTraceIds = sessionTraces
+        .filter((sessionTrace) => {
+          const sessionMapping = this.traceSkillMapper.mapTrace(sessionTrace);
+          return this.matchesManualShadowTarget(sessionTrace, sessionMapping, skillId, runtime);
+        })
+        .map((sessionTrace) => sessionTrace.trace_id);
+      const traces = this.buildScopedTraceSlice(sessionTraces, anchorTraceIds);
+      if (traces.length === 0) {
+        continue;
+      }
+
+      logger.debug('Resolved manual optimization scope from recent session traces', {
+        skillId,
+        runtime,
+        sessionId: trace.session_id,
+        traceCount: traces.length,
+      });
+      return {
+        traces,
+        context: buildActivityEventContext({
+          shadowId,
+          trace: traces[traces.length - 1]!,
+          traces,
+        }),
+        episodeId: null,
+      };
+    }
+
+    return null;
+  }
+
   private async runWindowAnalysis(
     episode: TaskEpisode,
     shadowId: string,
@@ -353,7 +513,7 @@ export class ShadowManager {
     _traces: Trace[],
     context: ActivityEventContext,
     options: { skipAnalysisRequested?: boolean; closeOnSkip?: boolean } = {}
-  ): Promise<void> {
+  ): Promise<TriggerOptimizeResult> {
     const skillId = skillIdFromShadowId(shadowId) ?? shadowId.split('@')[0];
     const runtime = runtimeFromShadowId(shadowId) ?? 'codex';
     const shadow = this.shadowRegistry.get(skillId, runtime);
@@ -382,11 +542,15 @@ export class ShadowManager {
         this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
         this.daemonStatus.setIdle();
       }
-      return;
+      return {
+        kind: 'optimization_skipped',
+        evaluation,
+        detail: eligibility.detail,
+        status: eligibility.status,
+      };
     }
 
-    this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'running');
-    this.daemonStatus.setAnalyzing(context.skillId);
+    this.daemonStatus.setOptimizing(context.skillId);
     if (!options.skipAnalysisRequested) {
       this.decisionEvents.record(buildAnalysisRequestedEvent({ context, evaluation }));
     }
@@ -422,7 +586,11 @@ export class ShadowManager {
         detail: patchResult.error ?? '本轮优化未完成，但系统没有返回更具体的原因。',
         evaluation,
       }));
-      return;
+      return {
+        kind: 'patch_failed',
+        evaluation,
+        detail: patchResult.error ?? '本轮优化未完成，但系统没有返回更具体的原因。',
+      };
     }
 
     this.decisionEvents.record(buildPatchAppliedEvent({
@@ -434,6 +602,11 @@ export class ShadowManager {
     }));
     this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
     this.daemonStatus.setIdle();
+    return {
+      kind: 'patch_applied',
+      evaluation,
+      detail: '已完成本轮优化并写回 shadow skill。',
+    };
   }
 
   /**
@@ -462,22 +635,56 @@ export class ShadowManager {
   /**
    * 手动触发优化
    */
-  async triggerOptimize(shadowId: string): Promise<EvaluationResult | null> {
-    // 获取最近的 traces
-    const traces = await this.traceManager.getRecentTraces(100);
+  async triggerOptimize(shadowId: string): Promise<TriggerOptimizeResult> {
     const runtime = (runtimeFromShadowId(shadowId) ?? 'codex') as RuntimeType;
     const skillId = skillIdFromShadowId(shadowId) ?? shadowId.split('@')[0];
-    const fallbackTrace: Trace = traces[traces.length - 1] ?? {
-      trace_id: `manual-optimize:${Date.now()}`,
-      session_id: `manual-optimize:${Date.now()}`,
-      turn_id: 'manual',
-      runtime,
-      event_type: 'status',
-      status: 'success',
-      timestamp: new Date().toISOString(),
-      metadata: { skill_id: skillId },
-    };
-    const eventContext = buildActivityEventContext({ shadowId, trace: fallbackTrace, traces });
+    const scope = await this.resolveManualOptimizationScope(shadowId);
+    const eventContext = scope?.context ?? this.buildFallbackManualContext(shadowId);
+    const traces = scope?.traces ?? [];
+    const currentContent = this.shadowRegistry.readContent(skillId, runtime);
+
+    if (!scope) {
+      logger.warn('Manual optimization aborted because no scoped window could be resolved', {
+        shadowId,
+        skillId: eventContext.skillId,
+        runtime: eventContext.runtime,
+      });
+      this.daemonStatus.setError(eventContext.skillId, '当前没有可复用的真实调用窗口，无法手动触发优化。');
+      this.decisionEvents.record(buildAnalysisFailedEvent({
+        context: eventContext,
+        detail: '当前没有可复用的真实调用窗口，无法手动触发优化。',
+        evaluation: null,
+        reason: 'missing_window_scope',
+      }));
+      return {
+        kind: 'missing_window',
+        evaluation: null,
+        detail: '当前没有可复用的真实调用窗口，无法手动触发优化。',
+      };
+    }
+
+    if (!currentContent) {
+      if (scope.episodeId) {
+        this.taskEpisodes.markAnalysisState(eventContext.sessionId, eventContext.skillId, eventContext.runtime, 'failed');
+      }
+      this.daemonStatus.setError(skillId, '当前技能内容为空，无法启动窗口分析。');
+      this.decisionEvents.record(buildAnalysisFailedEvent({
+        context: eventContext,
+        detail: '当前技能内容为空，无法启动窗口分析。',
+        evaluation: null,
+        reason: 'missing_skill_content',
+      }));
+      return {
+        kind: 'analysis_failed',
+        evaluation: null,
+        detail: '当前技能内容为空，无法启动窗口分析。',
+      };
+    }
+
+    if (scope.episodeId) {
+      this.taskEpisodes.markAnalysisState(eventContext.sessionId, eventContext.skillId, eventContext.runtime, 'running');
+    }
+    this.daemonStatus.setAnalyzing(skillId);
     this.decisionEvents.record(buildAnalysisRequestedEvent({
       context: eventContext,
       evaluation: null,
@@ -491,17 +698,20 @@ export class ShadowManager {
         windowId: `manual::${eventContext.windowId}`,
         skillId,
         runtime,
-        sessionId: fallbackTrace.session_id,
+        sessionId: eventContext.sessionId,
         closeReason: 'manual_trigger',
-        startedAt: traces[0]?.timestamp ?? fallbackTrace.timestamp,
-        lastTraceAt: traces[traces.length - 1]?.timestamp ?? fallbackTrace.timestamp,
+        startedAt: traces[0]?.timestamp,
+        lastTraceAt: traces[traces.length - 1]?.timestamp,
         traces,
       }),
-      skillContent: this.shadowRegistry.readContent(skillId, runtime),
+      skillContent: currentContent,
       mode: 'manual',
     });
 
     if (result.kind === 'missing_skill_content') {
+      if (scope.episodeId) {
+        this.taskEpisodes.markAnalysisState(eventContext.sessionId, eventContext.skillId, eventContext.runtime, 'failed');
+      }
       this.daemonStatus.setError(skillId, result.detail);
       this.decisionEvents.record(buildAnalysisFailedEvent({
         context: eventContext,
@@ -509,10 +719,17 @@ export class ShadowManager {
         evaluation: null,
         reason: result.reasonCode,
       }));
-      return null;
+      return {
+        kind: 'analysis_failed',
+        evaluation: null,
+        detail: result.detail,
+      };
     }
 
     if (result.kind === 'analysis_failed') {
+      if (scope.episodeId) {
+        this.taskEpisodes.markAnalysisState(eventContext.sessionId, eventContext.skillId, eventContext.runtime, 'failed');
+      }
       this.daemonStatus.setError(skillId, result.detail);
       this.decisionEvents.record(buildAnalysisFailedEvent({
         context: eventContext,
@@ -525,10 +742,17 @@ export class ShadowManager {
             }
           : null,
       }));
-      return null;
+      return {
+        kind: 'analysis_failed',
+        evaluation: result.evaluation ?? null,
+        detail: result.detail,
+      };
     }
 
     if (result.kind === 'need_more_context') {
+      if (scope.episodeId) {
+        this.taskEpisodes.applyNeedMoreContextHint(scope.episodeId, result.nextWindowHint);
+      }
       this.decisionEvents.record(buildEvaluationResultEvent({
         shadowId,
         context: eventContext,
@@ -536,7 +760,12 @@ export class ShadowManager {
         detail: result.detail,
         evaluation: result.evaluation,
       }));
-      return result.evaluation;
+      this.daemonStatus.setIdle();
+      return {
+        kind: 'need_more_context',
+        evaluation: result.evaluation,
+        detail: result.detail,
+      };
     }
 
     if (result.kind === 'no_optimization') {
@@ -547,13 +776,21 @@ export class ShadowManager {
         detail: result.detail,
         evaluation: result.evaluation,
       }));
-      return result.evaluation;
+      if (scope.episodeId) {
+        this.taskEpisodes.markAnalysisState(eventContext.sessionId, eventContext.skillId, eventContext.runtime, 'completed');
+      }
+      this.daemonStatus.setIdle();
+      return {
+        kind: 'no_optimization',
+        evaluation: result.evaluation,
+        detail: result.detail,
+      };
     }
 
-    void this.handleEvaluation(shadowId, result.evaluation, traces, eventContext, {
+    return this.handleEvaluation(shadowId, result.evaluation, traces, eventContext, {
       skipAnalysisRequested: true,
+      closeOnSkip: true,
     });
-    return result.evaluation;
   }
 
   /**

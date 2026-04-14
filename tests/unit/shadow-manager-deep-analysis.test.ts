@@ -6,6 +6,7 @@ import { createShadowManager } from '../../src/core/shadow-manager/index.js';
 import type { Trace } from '../../src/types/index.js';
 import type { DecisionEventRecord } from '../../src/core/decision-events/index.js';
 import type { TaskEpisodeSnapshot } from '../../src/core/task-episode/index.js';
+import { buildShadowId } from '../../src/utils/parse.js';
 
 const {
   patchGeneratorMock,
@@ -45,6 +46,28 @@ function makeTrace(index: number, projectRoot: string): Trace {
     status: 'success',
     timestamp: new Date(Date.UTC(2026, 3, 12, 1, 0, index)).toISOString(),
     metadata: { skill_id: 'test-skill' },
+  };
+}
+
+function makeSkillTrace(input: {
+  traceId: string;
+  sessionId: string;
+  skillId: string;
+  projectRoot: string;
+  second?: number;
+}): Trace {
+  const { traceId, sessionId, skillId, projectRoot, second = 0 } = input;
+  return {
+    trace_id: traceId,
+    session_id: sessionId,
+    turn_id: `${traceId}-turn`,
+    runtime: 'codex',
+    event_type: 'tool_call',
+    tool_name: 'exec_command',
+    tool_args: { cmd: `cat ${projectRoot}/.agents/skills/${skillId}/SKILL.md` },
+    status: 'success',
+    timestamp: new Date(Date.UTC(2026, 3, 12, 2, 0, second)).toISOString(),
+    metadata: { skill_id: skillId },
   };
 }
 
@@ -93,9 +116,15 @@ describe('ShadowManager deep analysis recovery chain', () => {
     rmSync(testProjectPath, { recursive: true, force: true });
     mkdirSync(join(testProjectPath, '.ornn', 'state'), { recursive: true });
     mkdirSync(join(testProjectPath, '.agents', 'skills', 'test-skill'), { recursive: true });
+    mkdirSync(join(testProjectPath, '.agents', 'skills', 'other-skill'), { recursive: true });
     writeFileSync(
       join(testProjectPath, '.agents', 'skills', 'test-skill', 'SKILL.md'),
       '# Test Skill\n\nUse this skill in tests.\n',
+      'utf-8'
+    );
+    writeFileSync(
+      join(testProjectPath, '.agents', 'skills', 'other-skill', 'SKILL.md'),
+      '# Other Skill\n\nUse this skill for unrelated traces.\n',
       'utf-8'
     );
 
@@ -344,5 +373,96 @@ describe('ShadowManager deep analysis recovery chain', () => {
       (event) => event.tag === 'analysis_requested'
     );
     expect(analysisRequestedEvents).toHaveLength(1);
+  });
+
+  it('scopes manual optimize to the latest episode window and waits for patch execution to finish', async () => {
+    analyzeWindowMock.mockResolvedValue({
+      success: true,
+      model: 'deepseek/deepseek-chat',
+      decision: 'apply_optimization',
+      userMessage: '当前窗口已经足够明确，应该执行优化。',
+      evaluation: {
+        should_patch: true,
+        change_type: 'prune_noise',
+        target_section: 'TODO',
+        reason: '需要删除重复噪音。',
+        source_sessions: ['sess-1'],
+        confidence: 0.93,
+        rule_name: 'agent_call_window_analysis',
+      },
+      tokenUsage: {
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+      },
+    });
+
+    let resolvePatch: ((value: {
+      success: boolean;
+      patch: string;
+      newContent: string;
+      changeType: string;
+    }) => void) | null = null;
+    patchGeneratorMock.generate.mockImplementation(() => new Promise((resolve) => {
+      resolvePatch = resolve as typeof resolvePatch;
+    }));
+
+    const manager = createShadowManager(testProjectPath);
+    await manager.init();
+
+    const targetTraces = [
+      makeSkillTrace({ traceId: 'target-1', sessionId: 'sess-1', skillId: 'test-skill', projectRoot: testProjectPath, second: 1 }),
+      makeSkillTrace({ traceId: 'target-2', sessionId: 'sess-1', skillId: 'test-skill', projectRoot: testProjectPath, second: 2 }),
+      makeSkillTrace({ traceId: 'target-3', sessionId: 'sess-1', skillId: 'test-skill', projectRoot: testProjectPath, second: 3 }),
+    ];
+    const unrelatedTraces = [
+      makeSkillTrace({ traceId: 'other-1', sessionId: 'sess-2', skillId: 'other-skill', projectRoot: testProjectPath, second: 11 }),
+      makeSkillTrace({ traceId: 'other-2', sessionId: 'sess-2', skillId: 'other-skill', projectRoot: testProjectPath, second: 12 }),
+    ];
+
+    for (const trace of [...targetTraces, ...unrelatedTraces]) {
+      await manager.processTrace(trace);
+    }
+
+    let settled = false;
+    const optimizePromise = manager
+      .triggerOptimize(buildShadowId('test-skill', testProjectPath))
+      .finally(() => {
+        settled = true;
+      });
+
+    await vi.waitFor(() => {
+      expect(analyzeWindowMock).toHaveBeenCalledTimes(1);
+    });
+
+    expect(analyzeWindowMock.mock.calls[0]?.[1]).toMatchObject({
+      sessionId: 'sess-1',
+      traces: targetTraces,
+    });
+
+    const checkpointDuringPatch = readCheckpoint(testProjectPath);
+    expect(checkpointDuringPatch.optimizationStatus).toMatchObject({
+      currentState: 'optimizing',
+      currentSkillId: 'test-skill',
+      queueSize: 1,
+    });
+    expect(settled).toBe(false);
+
+    resolvePatch?.({
+      success: true,
+      patch: '@@ -1 +1 @@\n-old\n+new\n',
+      newContent: '# Test Skill\n\nManual optimize updated content.\n',
+      changeType: 'prune_noise',
+    });
+
+    await optimizePromise;
+    expect(settled).toBe(true);
+
+    const checkpoint = readCheckpoint(testProjectPath);
+    expect(checkpoint.optimizationStatus).toMatchObject({
+      currentState: 'idle',
+      currentSkillId: null,
+      queueSize: 0,
+    });
   });
 });

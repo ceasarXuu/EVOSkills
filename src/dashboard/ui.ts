@@ -465,6 +465,12 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
     white-space: pre-wrap;
     word-break: break-word;
   }
+  .activity-scope-traces pre {
+    display: block;
+    max-height: 320px;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
   .activity-detail-text { padding: 0; }
   .activity-node-cell {
     display: flex;

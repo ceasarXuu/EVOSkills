@@ -1124,6 +1124,13 @@ describe('dashboard ui recovery', () => {
     expect(getElement('eventModalContent').textContent).toContain('系统已经完成本轮分析。');
   });
 
+  it('limits expanded scope trace blocks with internal scrolling', () => {
+    const html = getDashboardHtml(47432, 'zh', 'test-build-id');
+    expect(html).toContain('.activity-scope-traces pre');
+    expect(html).toContain('max-height: 320px;');
+    expect(html).toContain('overflow: auto;');
+  });
+
   it('renders clickable skill cells in scope activity rows that open the skill modal', () => {
     const { dashboard, getElement } = loadDashboardTestHarness({}, { lang: 'zh' });
     const projectPath = '/tmp/ornn-project';

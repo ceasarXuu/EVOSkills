@@ -4,6 +4,7 @@ import { createChildLogger } from '../../utils/logger.js';
 import { recordAgentUsage } from '../agent-usage/index.js';
 import { readProjectLanguage } from '../../dashboard/language-state.js';
 import type { Language } from '../../dashboard/i18n.js';
+import { normalizeNarrativeArray, normalizeNarrativeString } from '../llm-localization/index.js';
 import type { DecisionEventEvidence, EvaluationResult, Trace } from '../../types/index.js';
 
 const logger = createChildLogger('decision-explainer');
@@ -98,6 +99,7 @@ function buildPrompt(
         '不要虚构不存在的 trace 细节或用户意图。',
         '只返回 JSON，字段固定为 summary, evidence_readout, causal_chain, decision_rationale, recommended_action, uncertainties, contradictions。',
         '所有自然语言字段必须使用简体中文，并尽量简洁。',
+        '如果任何自然语言字段出现英文句子，这份输出就是无效的，必须改写成简体中文后再返回。',
       ].join('\n')
     : [
         'You are Ornn\'s decision explanation synthesizer.',
@@ -154,25 +156,19 @@ function extractJsonObject(raw: string): string | null {
   return null;
 }
 
-function normalizeStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.map((item) => String(item)) : [];
-}
-
-function parseResponse(payload: Record<string, unknown>, fallback: DecisionExplanationResult): DecisionExplanationResult {
+function parseResponse(
+  payload: Record<string, unknown>,
+  fallback: DecisionExplanationResult,
+  lang: Language,
+): DecisionExplanationResult {
   return {
-    summary: typeof payload.summary === 'string' && payload.summary.trim() ? payload.summary.trim() : fallback.summary,
-    evidenceReadout: normalizeStringArray(payload.evidence_readout),
-    causalChain: normalizeStringArray(payload.causal_chain),
-    decisionRationale:
-      typeof payload.decision_rationale === 'string' && payload.decision_rationale.trim()
-        ? payload.decision_rationale.trim()
-        : fallback.decisionRationale,
-    recommendedAction:
-      typeof payload.recommended_action === 'string' && payload.recommended_action.trim()
-        ? payload.recommended_action.trim()
-        : fallback.recommendedAction,
-    uncertainties: normalizeStringArray(payload.uncertainties),
-    contradictions: normalizeStringArray(payload.contradictions),
+    summary: normalizeNarrativeString(payload.summary, fallback.summary, lang),
+    evidenceReadout: normalizeNarrativeArray(payload.evidence_readout, fallback.evidenceReadout, lang),
+    causalChain: normalizeNarrativeArray(payload.causal_chain, fallback.causalChain, lang),
+    decisionRationale: normalizeNarrativeString(payload.decision_rationale, fallback.decisionRationale, lang),
+    recommendedAction: normalizeNarrativeString(payload.recommended_action, fallback.recommendedAction, lang),
+    uncertainties: normalizeNarrativeArray(payload.uncertainties, fallback.uncertainties, lang),
+    contradictions: normalizeNarrativeArray(payload.contradictions, fallback.contradictions, lang),
   };
 }
 
@@ -198,12 +194,17 @@ export async function generateDecisionExplanation(
   evidence?: DecisionEventEvidence | null
 ): Promise<DecisionExplanationResult> {
   const lang = await readProjectLanguage(projectPath, 'en');
+  const localizedReason = normalizeNarrativeString(
+    evaluation.reason,
+    lang === 'zh' ? `已记录 ${skillId} 的决策结果。` : `Decision recorded for ${skillId}.`,
+    lang,
+  );
   const fallback = lang === 'zh'
     ? {
-        summary: evaluation.reason || `已记录 ${skillId} 的决策结果。`,
+        summary: localizedReason,
         evidenceReadout: [],
         causalChain: [],
-        decisionRationale: evaluation.reason || '当前没有记录到更具体的决策原因。',
+        decisionRationale: localizedReason || '当前没有记录到更具体的决策原因。',
         recommendedAction: evaluation.should_patch
           ? `继续执行 ${evaluation.change_type ?? '建议中的修改'}。`
           : '继续观察，暂不修改技能。',
@@ -260,7 +261,7 @@ export async function generateDecisionExplanation(
     }
 
     const payload = JSON.parse(jsonText) as Record<string, unknown>;
-    return parseResponse(payload, fallback);
+    return parseResponse(payload, fallback, lang);
   } catch (error) {
     logger.warn('Decision explanation failed, using fallback', {
       projectPath,

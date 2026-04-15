@@ -4,6 +4,11 @@ import { readDashboardConfig } from '../../config/manager.js';
 import { recordAgentUsage } from '../agent-usage/index.js';
 import { readProjectLanguage } from '../../dashboard/language-state.js';
 import type { Language } from '../../dashboard/i18n.js';
+import {
+  needsNarrativeFallback,
+  normalizeNarrativeArray,
+  normalizeNarrativeString,
+} from '../llm-localization/index.js';
 import type {
   ChangeType,
   EvaluationResult,
@@ -50,6 +55,24 @@ const ALLOWED_CHANGE_TYPES: ChangeType[] = [
   'prune_noise',
   'rewrite_section',
 ];
+
+function describeChangeType(changeType: ChangeType, lang: Language): string {
+  if (lang !== 'zh') return changeType;
+  switch (changeType) {
+    case 'append_context':
+      return '补充上下文';
+    case 'tighten_trigger':
+      return '收紧触发条件';
+    case 'add_fallback':
+      return '增加兜底策略';
+    case 'prune_noise':
+      return '裁剪噪声';
+    case 'rewrite_section':
+      return '重写段落';
+    default:
+      return changeType;
+  }
+}
 
 function truncate(value: string, maxLength: number): string {
   return value.length <= maxLength ? value : `${value.slice(0, maxLength)}...`;
@@ -114,6 +137,7 @@ function buildPrompt(
         '当 decision!=apply_optimization 时，change_type 和 target_section 必须为 null。',
         'confidence 必须是 0 到 1 之间的数字。',
         'evidence 必须是从时间线摘出的简短事实要点，自然语言内容必须使用简体中文。',
+        '如果任何自然语言字段出现英文句子，这份输出就是无效的，必须改写成简体中文后再返回。',
       ].join('\n')
     : [
         'You are Ornn\'s skill-call window analyzer.',
@@ -208,6 +232,44 @@ function normalizeEvidence(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => String(item)) : [];
 }
 
+function buildReasonFallback(
+  decision: WindowAnalysisDecision,
+  payload: AnalyzerResponsePayload,
+  lang: Language,
+): string {
+  if (lang === 'zh') {
+    if (decision === 'apply_optimization') {
+      const changeType = normalizeChangeType(payload.change_type);
+      const targetSection = typeof payload.target_section === 'string' && payload.target_section.trim()
+        ? payload.target_section.trim()
+        : '相关段落';
+      if (changeType) {
+        return `当前窗口已发现稳定改进信号，建议执行优化，并按“${describeChangeType(changeType, lang)}”方式修改“${targetSection}”。`;
+      }
+      return '当前窗口已发现稳定改进信号，建议执行优化。';
+    }
+    if (decision === 'need_more_context') {
+      return '当前窗口证据仍不足，暂时无法下结论，需要继续观察更多上下文。';
+    }
+    return '当前窗口显示该技能被正确调用并按预期执行，未发现需要优化的设计问题。';
+  }
+
+  if (decision === 'apply_optimization') {
+    const changeType = normalizeChangeType(payload.change_type);
+    const targetSection = typeof payload.target_section === 'string' && payload.target_section.trim()
+      ? payload.target_section.trim()
+      : 'the relevant section';
+    if (changeType) {
+      return `The current window shows a stable optimization signal; apply ${changeType} to ${targetSection}.`;
+    }
+    return 'The current window shows a stable optimization signal and recommends applying an optimization.';
+  }
+  if (decision === 'need_more_context') {
+    return 'The current window is still inconclusive and needs more context.';
+  }
+  return 'The current window indicates the skill was invoked correctly and does not need optimization.';
+}
+
 function normalizeHint(value: unknown, fallback: WindowAnalysisHint): WindowAnalysisHint {
   const source = (value && typeof value === 'object') ? value as Record<string, unknown> : {};
   return {
@@ -231,18 +293,15 @@ function normalizeHint(value: unknown, fallback: WindowAnalysisHint): WindowAnal
 function buildEvaluation(
   payload: AnalyzerResponsePayload,
   window: SkillCallWindow,
-  lang: Language
+  reason: string,
+  evidence: string[],
 ): EvaluationResult {
   const targetSection = typeof payload.target_section === 'string' && payload.target_section.trim()
     ? payload.target_section.trim()
     : undefined;
-  const reason = typeof payload.reason === 'string' && payload.reason.trim()
-    ? payload.reason.trim()
-    : (lang === 'zh' ? 'Agent 分析没有返回明确理由。' : 'Agent analysis did not provide a reason.');
   const pattern = typeof payload.pattern === 'string' && payload.pattern.trim()
     ? payload.pattern.trim()
     : undefined;
-  const evidence = normalizeEvidence(payload.evidence);
 
   return {
     should_patch: true,
@@ -412,12 +471,26 @@ export class SkillCallAnalyzer {
       const payload = JSON.parse(jsonText) as AnalyzerResponsePayload;
       const decision = normalizeDecision(payload.decision);
       const hint = normalizeHint(payload.next_window_hint, fallbackHint);
-      const reason = typeof payload.reason === 'string' && payload.reason.trim()
+      const fallbackReason = buildReasonFallback(decision, payload, lang);
+      const rawReason = typeof payload.reason === 'string' && payload.reason.trim()
         ? payload.reason.trim()
-        : (lang === 'zh' ? '当前窗口还没有足够的稳定证据。' : 'The current window is still inconclusive.');
+        : fallbackReason;
+      const reason = normalizeNarrativeString(rawReason, fallbackReason, lang);
+      const evidence = normalizeNarrativeArray(normalizeEvidence(payload.evidence), [], lang);
+
+      if (needsNarrativeFallback(rawReason, lang)) {
+        logger.warn('Skill call analyzer returned narrative in the wrong language; using localized fallback', {
+          projectPath,
+          windowId: window.windowId,
+          skillId: window.skillId,
+          lang,
+          decision,
+          rawReason,
+        });
+      }
 
       const evaluation = decision === 'apply_optimization'
-        ? buildEvaluation(payload, window, lang)
+        ? buildEvaluation(payload, window, reason, evidence)
         : {
             should_patch: false,
             reason,

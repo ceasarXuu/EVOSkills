@@ -1453,17 +1453,23 @@ function formatPatchSummary(e) {
 function formatBusinessEvent(e) {
   switch (e.tag) {
     case 'skill_observed':
-      return t('activitySummarySkillObserved') + (e.skillId ? ': ' + e.skillId : '');
+      return normalizeActivityNarrative('skill_observed', e.rawStatus || e.status, e.detail)
+        || (t('activitySummarySkillObserved') + (e.skillId ? ': ' + e.skillId : ''));
     case 'analysis_started':
-      return e.detail || t('activitySummaryAnalysisStarted');
+      return normalizeActivityNarrative('analysis_started', e.rawStatus || e.status, e.detail)
+        || t('activitySummaryAnalysisStarted');
     case 'analysis_interrupted':
-      return e.detail || t('activitySummaryAnalysisInterrupted');
+      return normalizeActivityNarrative('analysis_interrupted', e.rawStatus || e.status, e.detail)
+        || t('activitySummaryAnalysisInterrupted');
     case 'analysis_waiting_more_context':
-      return e.detail || t('activitySummaryAnalysisWaiting');
+      return normalizeActivityNarrative('analysis_waiting_more_context', e.rawStatus || e.status, e.detail)
+        || t('activitySummaryAnalysisWaiting');
     case 'analysis_concluded':
-      return e.detail || t('activitySummaryAnalysisConcluded');
+      return normalizeActivityNarrative('analysis_concluded', e.rawStatus || e.status, e.detail)
+        || t('activitySummaryAnalysisConcluded');
     case 'optimization_skipped':
-      return e.detail || t('activitySummaryOptimizationSkipped');
+      return normalizeActivityNarrative('optimization_skipped', e.rawStatus || e.status, e.detail)
+        || t('activitySummaryOptimizationSkipped');
     case 'optimization_applied': {
       const patchSummary = formatPatchSummary(e);
       return patchSummary
@@ -1487,15 +1493,27 @@ function formatBusinessEvent(e) {
     case 'optimization_state':
       return t('activitySummaryOptimizationChanged') + ': ' + (e.status || 'idle');
     case 'evaluation_result':
-      return t('activitySummaryEvaluationResult') + ': ' + (e.detail || e.reason || '');
+      return t('activitySummaryEvaluationResult') + ': ' + normalizeActivityNarrative(
+        normalizeDecisionTag(e) || e.tag,
+        e.rawStatus || e.status,
+        e.detail || e.reason || ''
+      );
     case 'skill_feedback':
-      return t('activitySummarySkillFeedback') + ': ' + (e.detail || e.reason || '');
+      return t('activitySummarySkillFeedback') + ': ' + normalizeActivityNarrative(
+        normalizeDecisionTag(e) || e.tag,
+        e.rawStatus || e.status,
+        e.detail || e.reason || ''
+      );
     case 'patch_applied':
       return formatPatchSummary(e)
         ? t('activitySummaryPatchApplied') + ': ' + formatPatchSummary(e)
         : t('activitySummaryPatchApplied');
     case 'analysis_failed':
-      return t('activitySummaryAnalysisFailed') + ': ' + (e.detail || e.reason || '');
+      return t('activitySummaryAnalysisFailed') + ': ' + normalizeActivityNarrative(
+        'analysis_failed',
+        e.rawStatus || e.status,
+        e.detail || e.reason || ''
+      );
     case 'analysis_requested':
       return t('activitySummaryAnalysisSubmitted');
     case 'episode_probe_result':
@@ -1559,6 +1577,92 @@ function getActivityRelationKeys(event) {
 
 function collectUniqueText(values) {
   return [...new Set(values.map((value) => (typeof value === 'string' ? value.trim() : '')).filter(Boolean))];
+}
+
+const ACTIVITY_CJK_CHAR_RE = /[\u3400-\u9fff]/u;
+const ACTIVITY_LATIN_CHAR_RE = /[A-Za-z]/;
+const ACTIVITY_LATIN_WORD_RE = /[A-Za-z]{2,}/g;
+
+function countActivityLatinWords(text) {
+  return String(text || '').match(ACTIVITY_LATIN_WORD_RE)?.length || 0;
+}
+
+function needsActivityNarrativeFallback(text) {
+  const normalized = String(text || '').trim();
+  if (!normalized || currentLang !== 'zh') return false;
+  if (!ACTIVITY_LATIN_CHAR_RE.test(normalized)) return false;
+  if (!ACTIVITY_CJK_CHAR_RE.test(normalized)) return true;
+  return countActivityLatinWords(normalized) >= 5;
+}
+
+function fallbackActivityNarrative(tag, rawStatus) {
+  switch (tag) {
+    case 'analysis_started':
+      return currentLang === 'zh'
+        ? '时机探测已通过，开始深度分析本次调用窗口。'
+        : 'The readiness probe passed, and the system started deep analysis for this call window.';
+    case 'analysis_waiting_more_context':
+      return currentLang === 'zh'
+        ? '当前窗口证据仍不够完整，系统会继续扩展观察范围后再分析。'
+        : 'The current window still lacks enough evidence, so the system will widen the observation scope before analyzing again.';
+    case 'analysis_concluded':
+      return currentLang === 'zh'
+        ? '窗口分析认为当前技能调用符合预期，暂时无需修改。'
+        : 'Window analysis concluded that the current skill call is behaving as expected and does not need changes right now.';
+    case 'optimization_skipped':
+      return currentLang === 'zh'
+        ? '这轮分析决定暂不执行优化，当前保持现状。'
+        : 'This round decided to skip optimization and keep the current skill unchanged.';
+    case 'optimization_applied':
+      return currentLang === 'zh'
+        ? '系统已经将本轮优化补丁写回技能，并会继续观察后续效果。'
+        : 'The system has written the optimization patch back to the skill and will continue validating the outcome.';
+    case 'analysis_interrupted':
+      return currentLang === 'zh'
+        ? '这轮分析在形成业务结论前被中断，需要先恢复分析链路。'
+        : 'This analysis round was interrupted before it could reach a business conclusion and the analysis path needs attention first.';
+    case 'analysis_failed':
+      return currentLang === 'zh'
+        ? '分析链路执行失败，本轮没有生成可用结论。'
+        : 'The analysis pipeline failed and did not produce a usable conclusion.';
+    case 'skill_observed':
+      return currentLang === 'zh'
+        ? '系统观察到该技能参与了本次上下文窗口。'
+        : 'The system observed this skill participating in the current context window.';
+    case 'skill_called':
+      return currentLang === 'zh'
+        ? '系统记录到一次技能调用。'
+        : 'The system recorded a skill invocation.';
+    default:
+      if (rawStatus === 'continue_collecting') {
+        return currentLang === 'zh'
+          ? '当前窗口证据仍不够完整，系统会继续扩展观察范围后再分析。'
+          : 'The current window still lacks enough evidence, so the system will widen the observation scope before analyzing again.';
+      }
+      if (
+        rawStatus === 'cooldown' ||
+        rawStatus === 'daily_limit_reached' ||
+        rawStatus === 'frozen' ||
+        rawStatus === 'confidence_too_low'
+      ) {
+        return currentLang === 'zh'
+          ? '当前判断是暂不执行优化，先继续保持现状。'
+          : 'The current decision is to skip optimization for now and keep the skill unchanged.';
+      }
+      if (rawStatus === 'no_patch_needed') {
+        return currentLang === 'zh'
+          ? '窗口分析认为当前技能调用符合预期，暂时无需修改。'
+          : 'Window analysis concluded that the current skill call is behaving as expected and does not need changes right now.';
+      }
+      return '';
+  }
+}
+
+function normalizeActivityNarrative(tag, rawStatus, value) {
+  const candidate = typeof value === 'string' ? value.trim() : '';
+  const fallback = fallbackActivityNarrative(tag, rawStatus);
+  if (!candidate) return fallback;
+  return needsActivityNarrativeFallback(candidate) ? (fallback || candidate) : candidate;
 }
 
 function mergeBusinessDetail(primary, supportingValues) {
@@ -1981,8 +2085,21 @@ function buildActivityRows(projectPath) {
           traceId: event.traceId,
           sessionId: event.sessionId,
           skillId: event.skillId,
-        }).flatMap((key) => (feedbackByKey.get(key) || []).map((item) => item.judgment || item.detail))
+        }).flatMap((key) =>
+          (feedbackByKey.get(key) || []).map((item) =>
+            normalizeActivityNarrative(
+              normalizeDecisionTag(item) || item.tag,
+              item.status,
+              item.judgment || item.detail || item.reason || ''
+            )
+          )
+        )
       );
+    const primaryDetail = normalizeActivityNarrative(
+      tag,
+      event.status,
+      event.judgment || event.detail || event.reason || formatBusinessEvent({ ...event, tag })
+    );
     const row = {
       id: 'decision:' + event.id,
       timestamp: event.timestamp || '',
@@ -1994,7 +2111,7 @@ function buildActivityRows(projectPath) {
       rawStatus: event.status || null,
       scopeId: scopeId || null,
       detail: mergeBusinessDetail(
-        event.judgment || event.detail || event.reason || formatBusinessEvent({ ...event, tag }),
+        primaryDetail,
         feedbackDetails
       ),
       inputSummary: event.inputSummary || null,

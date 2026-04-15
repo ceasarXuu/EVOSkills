@@ -3,9 +3,16 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 const { readDashboardConfigMock } = vi.hoisted(() => ({
   readDashboardConfigMock: vi.fn(),
 }));
+const { readProjectLanguageMock } = vi.hoisted(() => ({
+  readProjectLanguageMock: vi.fn(),
+}));
 
 vi.mock('../../src/config/manager.js', () => ({
   readDashboardConfig: readDashboardConfigMock,
+}));
+
+vi.mock('../../src/dashboard/language-state.js', () => ({
+  readProjectLanguage: readProjectLanguageMock,
 }));
 
 import { createSkillCallAnalyzer } from '../../src/core/skill-call-analyzer/index.js';
@@ -14,6 +21,8 @@ describe('SkillCallAnalyzer', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     readDashboardConfigMock.mockReset();
+    readProjectLanguageMock.mockReset();
+    readProjectLanguageMock.mockResolvedValue('en');
     readDashboardConfigMock.mockResolvedValue({
       autoOptimize: true,
       userConfirm: false,
@@ -208,5 +217,48 @@ describe('SkillCallAnalyzer', () => {
     expect(result.error).toBe('empty_llm_response');
     expect(result.userMessage).toContain('empty response');
     expect(result.technicalDetail).toContain('Empty content in LLM response');
+  });
+
+  it('forces zh analyzer reasons to stay in chinese even when the model returns english prose', async () => {
+    readProjectLanguageMock.mockResolvedValue('zh');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                decision: 'no_optimization',
+                reason: 'The skill was correctly invoked and followed, with no optimization needed.',
+                confidence: 0.9,
+                evidence: ['The assistant followed the skill guidance correctly.'],
+              }),
+            },
+          },
+        ],
+        usage: {
+          prompt_tokens: 12,
+          completion_tokens: 18,
+          total_tokens: 30,
+        },
+        model: 'gpt-4o-mini',
+      }),
+    }));
+
+    const analyzer = createSkillCallAnalyzer();
+    const result = await analyzer.analyzeWindow('/tmp/project', {
+      windowId: 'window-5',
+      skillId: 'systematic-debugging',
+      runtime: 'codex',
+      sessionId: 'session-1',
+      closeReason: 'completed',
+      startedAt: '2026-04-10T00:00:00.000Z',
+      lastTraceAt: '2026-04-10T00:01:00.000Z',
+      traces: [],
+    } as never, 'content');
+
+    expect(result.success).toBe(true);
+    expect(result.userMessage).toBe('当前窗口显示该技能被正确调用并按预期执行，未发现需要优化的设计问题。');
+    expect(result.evaluation?.reason).toBe('当前窗口显示该技能被正确调用并按预期执行，未发现需要优化的设计问题。');
   });
 });

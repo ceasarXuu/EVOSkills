@@ -1833,4 +1833,34 @@ describe('dashboard ui recovery', () => {
     const enRows = enHarness.dashboard.buildActivityRows(projectPath);
     expect(enRows[0]?.detail).toContain('Daemon stopped');
   });
+
+  it('falls back to localized zh activity detail when a historical analysis conclusion contains a long english explanation', () => {
+    const { dashboard } = loadDashboardTestHarness({}, { lang: 'zh' });
+    const projectPath = '/tmp/ornn-project';
+
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [{ skillId: 'systematic-debugging', runtime: 'codex' }],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+        decisionEvents: [{
+          id: 'evt-english-history',
+          timestamp: '2026-04-15T12:28:28.360Z',
+          tag: 'evaluation_result',
+          runtime: 'codex',
+          skillId: 'systematic-debugging',
+          sessionId: 'session-history',
+          status: 'no_patch_needed',
+          windowId: 'scope-history',
+          detail: "窗口分析结论：The skill was correctly invoked and followed, with the assistant performing root cause investigation as per the skill's guidelines, showing no design flaws or optimization needs.",
+        }],
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+      },
+    };
+
+    const rows = dashboard.buildActivityRows(projectPath);
+    expect(rows[0]?.detail).toContain('窗口分析认为当前技能调用符合预期，暂时无需修改。');
+    expect(rows[0]?.detail).not.toContain('The skill was correctly invoked');
+  });
 });

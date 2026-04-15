@@ -1041,6 +1041,37 @@ const state = {
   configLoadErrorByProject: {},
 };
 
+const GLOBAL_CONFIG_SCOPE = '__global__';
+
+function getConfigScopeId() {
+  return GLOBAL_CONFIG_SCOPE;
+}
+
+function getStoredConfig(projectPath) {
+  const scopeId = getConfigScopeId();
+  return state.configByProject[scopeId] || state.configByProject[projectPath] || null;
+}
+
+function getStoredProviderHealth(projectPath) {
+  const scopeId = getConfigScopeId();
+  return state.providerHealthByProject[scopeId] || state.providerHealthByProject[projectPath] || null;
+}
+
+function getStoredConfigUi(projectPath) {
+  const scopeId = getConfigScopeId();
+  return state.configUiByProject[scopeId] || state.configUiByProject[projectPath] || {};
+}
+
+function getStoredConfigLoading(projectPath) {
+  const scopeId = getConfigScopeId();
+  return !!(state.configLoadingByProject[scopeId] || state.configLoadingByProject[projectPath]);
+}
+
+function getStoredConfigLoadError(projectPath) {
+  const scopeId = getConfigScopeId();
+  return state.configLoadErrorByProject[scopeId] || state.configLoadErrorByProject[projectPath] || '';
+}
+
 // ─── Browser Runtime Error Reporting ─────────────────────────────────────────
 const clientErrorQueue = [];
 let clientErrorFlushTimer = null;
@@ -1467,7 +1498,7 @@ function ensureConfigTabDependencies(projectPath) {
   if (state.providerCatalog.length === 0 && !state.providerCatalogLoading) {
     void loadProviderCatalog(true);
   }
-  if (!state.providerHealthByProject[projectPath]) {
+  if (!getStoredProviderHealth(projectPath)) {
     void ensureProviderHealth(projectPath)
       .then(() => {
         if (state.selectedProjectId === projectPath && state.selectedMainTab === 'config') {
@@ -1481,14 +1512,14 @@ function ensureConfigTabDependencies(projectPath) {
 }
 
 async function ensureProviderHealth(projectPath, force = false) {
-  if (!force && state.providerHealthByProject[projectPath]) return;
+  const scopeId = getConfigScopeId();
+  if (!force && state.providerHealthByProject[scopeId]) return;
   try {
-    const enc = encodeURIComponent(projectPath);
-    const data = await fetchJsonWithTimeout('/api/projects/' + enc + '/provider-health', 20000);
-    state.providerHealthByProject[projectPath] = data.health || null;
+    const data = await fetchJsonWithTimeout('/api/provider-health', 20000);
+    state.providerHealthByProject[scopeId] = data.health || null;
   } catch (e) {
     console.warn('[dashboard] failed to load provider health', { projectPath, error: String(e) });
-    state.providerHealthByProject[projectPath] = {
+    state.providerHealthByProject[scopeId] = {
       level: 'warn',
       code: 'provider_connectivity_failed',
       message: String(e),
@@ -1509,7 +1540,7 @@ function providerAlertTitle(code) {
 }
 
 function renderProviderAlert(projectPath) {
-  const health = state.providerHealthByProject[projectPath];
+  const health = getStoredProviderHealth(projectPath);
   if (!health || health.level !== 'warn') return '';
 
   let message = health.message || '';
@@ -3451,7 +3482,7 @@ function setActivityTagFilter(tag) {
 }
 
 function renderConfigPanel(projectPath) {
-  const config = state.configByProject[projectPath] || {
+  const config = getStoredConfig(projectPath) || {
     autoOptimize: true,
     userConfirm: false,
     runtimeSync: true,
@@ -3459,9 +3490,9 @@ function renderConfigPanel(projectPath) {
     logLevel: 'info',
     providers: [],
   };
-  const loading = !!state.configLoadingByProject[projectPath];
-  const loadError = state.configLoadErrorByProject[projectPath] || '';
-  const configUi = state.configUiByProject[projectPath] || {};
+  const loading = getStoredConfigLoading(projectPath);
+  const loadError = getStoredConfigLoadError(projectPath);
+  const configUi = getStoredConfigUi(projectPath);
 
   const providers = Array.isArray(config.providers) ? config.providers : [];
   const activeProviderIndex = getActiveProviderIndex(config.defaultProvider, providers);
@@ -3494,7 +3525,10 @@ function renderConfigPanel(projectPath) {
 
 function retryLoadConfig() {
   if (!state.selectedProjectId) return;
+  const scopeId = getConfigScopeId();
+  delete state.configByProject[scopeId];
   delete state.configByProject[state.selectedProjectId];
+  state.configLoadErrorByProject[scopeId] = '';
   state.configLoadErrorByProject[state.selectedProjectId] = '';
   void ensureProjectConfig(state.selectedProjectId);
   safeRenderMainPanel(state.selectedProjectId, 'reloadProjectConfig');
@@ -3542,8 +3576,9 @@ function reloadProviderCatalog() {
 }
 
 function setConfigUi(projectPath, patch) {
-  const prev = state.configUiByProject[projectPath] || {};
-  state.configUiByProject[projectPath] = { ...prev, ...patch };
+  const scopeId = getConfigScopeId();
+  const prev = getStoredConfigUi(projectPath);
+  state.configUiByProject[scopeId] = { ...prev, ...patch };
 }
 
 function updateConfigSaveHint(projectPath, message) {
@@ -3769,7 +3804,8 @@ function handleModelChange(selectEl) {
 
 function addProviderRow() {
   if (!state.selectedProjectId) return;
-  const config = state.configByProject[state.selectedProjectId] || {};
+  const scopeId = getConfigScopeId();
+  const config = getStoredConfig(state.selectedProjectId) || {};
   const rows = document.getElementById('cfg_providers_rows')
     ? collectProvidersFromConfigEditor()
     : (Array.isArray(config.providers) ? config.providers.slice() : []);
@@ -3782,17 +3818,18 @@ function addProviderRow() {
     hasApiKey: false,
   });
   const nextDefaultProvider = config.defaultProvider || rows[0]?.provider || '';
-  state.configByProject[state.selectedProjectId] = { ...config, defaultProvider: nextDefaultProvider, providers: rows };
+  state.configByProject[scopeId] = { ...config, defaultProvider: nextDefaultProvider, providers: rows };
   safeRenderMainPanel(state.selectedProjectId, 'addProviderRow');
   scheduleProjectConfigSave(150);
 }
 
 function removeProviderRow(btn) {
   if (!state.selectedProjectId) return;
+  const scopeId = getConfigScopeId();
   const row = btn.closest('.provider-row');
   if (!row) return;
   const index = Number(row.getAttribute('data-row-index'));
-  const config = state.configByProject[state.selectedProjectId] || {};
+  const config = getStoredConfig(state.selectedProjectId) || {};
   const rows = document.getElementById('cfg_providers_rows')
     ? collectProvidersFromConfigEditor()
     : (Array.isArray(config.providers) ? config.providers.slice() : []);
@@ -3802,7 +3839,7 @@ function removeProviderRow(btn) {
   const nextDefaultProvider = rows.some((item) => item.provider === config.defaultProvider)
     ? config.defaultProvider
     : (rows[0]?.provider || '');
-  state.configByProject[state.selectedProjectId] = { ...config, defaultProvider: nextDefaultProvider, providers: rows };
+  state.configByProject[scopeId] = { ...config, defaultProvider: nextDefaultProvider, providers: rows };
   safeRenderMainPanel(state.selectedProjectId, 'removeProviderRow');
   scheduleProjectConfigSave(150);
 }
@@ -3817,39 +3854,40 @@ function getSelectedProviderIndexFromEditor(providerCount, fallbackDefaultProvid
 }
 
 async function ensureProjectConfig(projectPath) {
-  if (state.configByProject[projectPath]) return;
-  if (state.configLoadingByProject[projectPath]) return;
-  state.configLoadingByProject[projectPath] = true;
-  state.configLoadErrorByProject[projectPath] = '';
+  const scopeId = getConfigScopeId();
+  if (state.configByProject[scopeId]) return;
+  if (state.configLoadingByProject[scopeId]) return;
+  state.configLoadingByProject[scopeId] = true;
+  state.configLoadErrorByProject[scopeId] = '';
   try {
-    const enc = encodeURIComponent(projectPath);
     let data = null;
     try {
-      data = await fetchJsonWithTimeout(\`/api/projects/\${enc}/config\`, 6000);
+      data = await fetchJsonWithTimeout('/api/config', 6000);
     } catch (firstErr) {
       console.warn('[dashboard] first config fetch failed, retrying', { projectPath, error: String(firstErr) });
-      data = await fetchJsonWithTimeout(\`/api/projects/\${enc}/config\`, 12000);
+      data = await fetchJsonWithTimeout('/api/config', 12000);
     }
-    state.configByProject[projectPath] = data.config || {};
-    state.configLoadErrorByProject[projectPath] = '';
+    state.configByProject[scopeId] = data.config || {};
+    state.configLoadErrorByProject[scopeId] = '';
     if (state.selectedMainTab === 'config' && state.selectedProjectId === projectPath) {
       safeRenderMainPanel(projectPath, 'checkProvidersConnectivity.start');
     }
   } catch (e) {
     const message = String(e);
     console.error('[dashboard] failed to load config', { projectPath, error: message });
-    state.configLoadErrorByProject[projectPath] = message;
+    state.configLoadErrorByProject[scopeId] = message;
     if (state.selectedMainTab === 'config' && state.selectedProjectId === projectPath) {
       safeRenderMainPanel(projectPath, 'checkProvidersConnectivity.end');
     }
   } finally {
-    state.configLoadingByProject[projectPath] = false;
+    state.configLoadingByProject[scopeId] = false;
   }
 }
 
 async function saveProjectConfig(options = {}) {
   if (!state.selectedProjectId) return;
   const projectPath = state.selectedProjectId;
+  const scopeId = getConfigScopeId();
   const auto = !!options.auto;
   if (auto && configAutoSaveInFlight) {
     configAutoSaveQueued = true;
@@ -3860,7 +3898,7 @@ async function saveProjectConfig(options = {}) {
   }
   try {
     const providers = collectProvidersFromConfigEditor();
-    const currentConfig = state.configByProject[projectPath] || {};
+    const currentConfig = getStoredConfig(projectPath) || {};
     const selectedProviderIndex = getSelectedProviderIndexFromEditor(
       providers.length,
       currentConfig.defaultProvider,
@@ -3876,13 +3914,12 @@ async function saveProjectConfig(options = {}) {
         providers,
       },
     };
-    const enc = encodeURIComponent(projectPath);
-    await fetchJsonWithTimeout(\`/api/projects/\${enc}/config\`, 8000, {
+    await fetchJsonWithTimeout('/api/config', 8000, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    state.configByProject[projectPath] = {
+    state.configByProject[scopeId] = {
       ...payload.config,
       providers: sanitizeProvidersForState(payload.config.providers),
     };
@@ -3929,6 +3966,7 @@ function renderConnectivityResultsHtml(results) {
 async function checkProvidersConnectivity(targetRowIndex = null, btnEl = null) {
   if (!state.selectedProjectId) return;
   const projectPath = state.selectedProjectId;
+  const scopeId = getConfigScopeId();
   const rowIndex = Number.isInteger(Number(targetRowIndex)) ? Number(targetRowIndex) : null;
   const btn = btnEl || null;
   if (btn) {
@@ -3941,20 +3979,19 @@ async function checkProvidersConnectivity(targetRowIndex = null, btnEl = null) {
     const providersToCheck = rowIndex !== null && rowIndex >= 0 && rowIndex < providers.length
       ? [providers[rowIndex]]
       : providers;
-    const currentConfig = state.configByProject[projectPath] || {};
+    const currentConfig = getStoredConfig(projectPath) || {};
     const selectedProviderIndex = getSelectedProviderIndexFromEditor(
       providers.length,
       currentConfig.defaultProvider,
       providers
     );
-    const enc = encodeURIComponent(projectPath);
-    const data = await fetchJsonWithTimeout('/api/projects/' + enc + '/config/providers/connectivity', 15000, {
+    const data = await fetchJsonWithTimeout('/api/config/providers/connectivity', 15000, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ providers: providersToCheck }),
     });
-    state.configByProject[projectPath] = {
-      ...(state.configByProject[projectPath] || {}),
+    state.configByProject[scopeId] = {
+      ...(state.configByProject[scopeId] || {}),
       defaultProvider: selectedProviderIndex >= 0 ? (providers[selectedProviderIndex]?.provider || '') : '',
       providers: sanitizeProvidersForState(providers),
     };

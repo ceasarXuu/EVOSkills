@@ -262,4 +262,34 @@ describe('dashboard server sse bootstrap', () => {
       await dashboard.stop();
     }
   });
+
+  it('serves global config from a project-independent endpoint', async () => {
+    const port = await getFreePort();
+    mocks.readDashboardConfig.mockResolvedValue({
+      autoOptimize: true,
+      userConfirm: false,
+      runtimeSync: true,
+      defaultProvider: 'deepseek',
+      logLevel: 'info',
+      providers: [{ provider: 'deepseek', modelName: 'deepseek/deepseek-chat', apiKeyEnvVar: 'DEEPSEEK_API_KEY', hasApiKey: true }],
+    });
+
+    const { createDashboardServer } = await import('../../src/dashboard/server.js');
+    const dashboard = createDashboardServer(port, 'en');
+    await dashboard.start();
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/api/config`);
+      expect(response.ok).toBe(true);
+      expect(await response.json()).toEqual({
+        config: expect.objectContaining({
+          defaultProvider: 'deepseek',
+          logLevel: 'info',
+        }),
+      });
+      expect(mocks.readDashboardConfig).toHaveBeenCalledWith(undefined);
+    } finally {
+      await dashboard.stop();
+    }
+  });
 });

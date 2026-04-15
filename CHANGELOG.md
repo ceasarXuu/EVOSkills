@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [Unreleased]
+
+### Features
+* 将 `ornn init` 注册的项目统一纳入全局守护进程监控，`ornn start`/`ornn restart` 不再依赖当前项目目录
+* 将 Dashboard 配置页改为全局配置中心，所有项目共享 `~/.ornn/config/settings.toml` 与 Provider 健康状态
+
+### Tests
+* 补充 Dashboard 全局配置接口、UI 缓存复用、全局配置读写路径的单元测试
+* 验证全局配置改造后 `config-manager`、`dashboard-server`、`dashboard-ui` 定向测试全部通过
+
 ## [0.1.10] (2026-04-03)
 
 ### Features

@@ -378,8 +378,55 @@ describe('dashboard ui recovery', () => {
 
     const fetchCalls = getFetchCalls();
     expect(fetchCalls).not.toContain('/api/providers/catalog');
-    expect(fetchCalls).toContain(`/api/projects/${encodedPath}/provider-health`);
-    expect(fetchCalls).toContain(`/api/projects/${encodedPath}/config`);
+    expect(fetchCalls).toContain('/api/provider-health');
+    expect(fetchCalls).toContain('/api/config');
+  });
+
+  it('reuses one global config payload when switching projects on the config tab', async () => {
+    const projectA = '/tmp/ornn-project-a';
+    const projectB = '/tmp/ornn-project-b';
+    const encodedA = encodeURIComponent(projectA);
+    const encodedB = encodeURIComponent(projectB);
+    const { dashboard, getFetchCalls, clearFetchCalls } = loadDashboardTestHarness({}, {
+      fetchMap: {
+        '/api/projects': {
+          projects: [
+            { path: projectA, name: 'A', isRunning: true, skillCount: 1 },
+            { path: projectB, name: 'B', isRunning: true, skillCount: 1 },
+          ],
+        },
+        [`/api/projects/${encodedA}/snapshot`]: {
+          daemon: { isRunning: true, pid: 1, startedAt: '2026-04-10T00:00:00.000Z', processedTraces: 1, lastCheckpointAt: null, retryQueueSize: 0, optimizationStatus: { currentState: 'idle', currentSkillId: null, lastOptimizationAt: null, lastError: null, queueSize: 0 } },
+          skills: [],
+          traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+          recentTraces: [],
+          decisionEvents: [],
+          agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+        },
+        [`/api/projects/${encodedB}/snapshot`]: {
+          daemon: { isRunning: true, pid: 2, startedAt: '2026-04-10T00:00:00.000Z', processedTraces: 2, lastCheckpointAt: null, retryQueueSize: 0, optimizationStatus: { currentState: 'idle', currentSkillId: null, lastOptimizationAt: null, lastError: null, queueSize: 0 } },
+          skills: [],
+          traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+          recentTraces: [],
+          decisionEvents: [],
+          agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+        },
+      },
+    });
+
+    await dashboard.init();
+    dashboard.selectMainTab('config');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    clearFetchCalls();
+
+    await dashboard.selectProject(projectB);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const fetchCalls = getFetchCalls();
+    expect(fetchCalls).not.toContain('/api/config');
+    expect(fetchCalls).not.toContain('/api/provider-health');
   });
 
   it('rerenders the cost tab as soon as the provider catalog arrives', async () => {
@@ -1905,7 +1952,7 @@ describe('dashboard ui recovery', () => {
     const html = getElement('mainPanel').innerHTML;
     expect(html).toContain('Add Provider');
     expect(html).toContain('Provider Connectivity');
-    expect(html).toContain('.ornn/config/settings.toml');
+    expect(html).toContain('~/.ornn/config/settings.toml');
     expect(html).not.toContain('.ornn/ornn.toml');
     expect(html).not.toContain('Save Config');
     expect(html).not.toContain('onclick="saveProjectConfig()"');
@@ -2217,7 +2264,7 @@ describe('dashboard ui recovery', () => {
     };
     dashboard.renderMainPanel(projectPath);
     const html = getElement('mainPanel').innerHTML;
-    expect(html).toContain('.ornn/config/settings.toml');
+    expect(html).toContain('~/.ornn/config/settings.toml');
     expect(html).toContain('暂无模型服务');
     expect(html).toContain('只启用其中一个默认模型服务');
     expect(html).not.toContain('cfg_env');

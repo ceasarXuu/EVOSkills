@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync } from 'node:fs';
 import { ConfigManager } from '../../src/config/index.js';
+import { parse } from 'smol-toml';
 
 describe('ConfigManager', () => {
   const testDir = join(tmpdir(), 'ornn-config-mgr-test-' + Date.now());
@@ -172,8 +173,8 @@ describe('Config File Operations', () => {
 
   it('should check providers connectivity with litellm client path', async () => {
     const { checkProvidersConnectivity } = await import('../../src/config/manager.js');
-    const envPath = join(testDir, '.env.local');
-    writeFileSync(envPath, 'OPENAI_API_KEY=sk-test-openai\n', 'utf-8');
+    const previousApiKey = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = 'sk-test-openai';
 
     const originalFetch = globalThis.fetch;
     globalThis.fetch = (async () =>
@@ -193,14 +194,19 @@ describe('Config File Operations', () => {
       expect(result[0].ok).toBe(true);
       expect(result[0].provider).toBe('openai');
     } finally {
+      if (previousApiKey === undefined) {
+        delete process.env.OPENAI_API_KEY;
+      } else {
+        process.env.OPENAI_API_KEY = previousApiKey;
+      }
       globalThis.fetch = originalFetch;
     }
   });
 
   it('should use connectivity probe for deepseek reasoner providers', async () => {
     const { checkProvidersConnectivity } = await import('../../src/config/manager.js');
-    const envPath = join(testDir, '.env.local');
-    writeFileSync(envPath, 'DEEPSEEK_API_KEY=sk-test-deepseek\n', 'utf-8');
+    const previousApiKey = process.env.DEEPSEEK_API_KEY;
+    process.env.DEEPSEEK_API_KEY = 'sk-test-deepseek';
 
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       if (url.endsWith('/models')) {
@@ -245,6 +251,11 @@ describe('Config File Operations', () => {
         expect.objectContaining({ method: 'GET' })
       );
     } finally {
+      if (previousApiKey === undefined) {
+        delete process.env.DEEPSEEK_API_KEY;
+      } else {
+        process.env.DEEPSEEK_API_KEY = previousApiKey;
+      }
       globalThis.fetch = originalFetch;
     }
   });
@@ -260,13 +271,20 @@ describe('Config File Operations', () => {
   });
 
   it('should read dashboard config with default provider and log level', async () => {
+    const oldHome = process.env.HOME;
+    const globalHome = join(testDir, 'global-home-read');
+    mkdirSync(join(globalHome, '.ornn', 'config'), { recursive: true });
+    process.env.HOME = globalHome;
+    vi.resetModules();
+
+    try {
     const { readDashboardConfig } = await import('../../src/config/manager.js');
     writeFileSync(
-      join(testDir, '.ornn', 'config', 'settings.toml'),
+      join(globalHome, '.ornn', 'config', 'settings.toml'),
       `[ornn]
 version = "0.1.9"
 log_level = "debug"
-project_path = "${testDir}"
+project_path = "${globalHome}/.ornn"
 
 [llm]
 default_provider = "openai"
@@ -289,7 +307,7 @@ runtime_sync = true
       'utf-8'
     );
     writeFileSync(
-      join(testDir, '.env.local'),
+      join(globalHome, '.ornn', 'config', '.env.local'),
       'OPENAI_API_KEY=openai-secret\nDEEPSEEK_API_KEY=deepseek-secret\n',
       'utf-8'
     );
@@ -300,10 +318,21 @@ runtime_sync = true
     expect(config.providers).toHaveLength(2);
     expect(config.providers[0]?.apiKey).toBe('openai-secret');
     expect(config.providers[1]?.apiKey).toBe('deepseek-secret');
+    } finally {
+      process.env.HOME = oldHome;
+      vi.resetModules();
+    }
   });
 
   it('should persist dashboard default provider and log level when writing config', async () => {
-    const { writeDashboardConfig, readConfig } = await import('../../src/config/manager.js');
+    const oldHome = process.env.HOME;
+    const globalHome = join(testDir, 'global-home-write');
+    mkdirSync(globalHome, { recursive: true });
+    process.env.HOME = globalHome;
+    vi.resetModules();
+
+    try {
+    const { writeDashboardConfig } = await import('../../src/config/manager.js');
     await writeDashboardConfig(testDir, {
       autoOptimize: true,
       userConfirm: false,
@@ -316,8 +345,16 @@ runtime_sync = true
       ],
     });
 
-    const config = await readConfig(testDir);
-    expect(config?.llm?.default_provider).toBe('deepseek');
-    expect(config?.ornn?.log_level).toBe('warn');
+    const rawConfig = readFileSync(join(globalHome, '.ornn', 'config', 'settings.toml'), 'utf-8');
+    const parsed = parse(rawConfig) as {
+      llm?: { default_provider?: string };
+      ornn?: { log_level?: string };
+    };
+    expect(parsed.llm?.default_provider).toBe('deepseek');
+    expect(parsed.ornn?.log_level).toBe('warn');
+    } finally {
+      process.env.HOME = oldHome;
+      vi.resetModules();
+    }
   });
 });

@@ -6,6 +6,7 @@
 import { join } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { existsSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
 import { parse } from "smol-toml";
 import { logger } from "../utils/logger.js";
 import { createLiteLLMClient } from "../llm/litellm-client.js";
@@ -34,6 +35,9 @@ export interface OrnnConfig {
 }
 
 const DEFAULT_LOG_LEVEL = "info";
+const GLOBAL_DASHBOARD_CONFIG_DIR = () => join(homedir(), ".ornn", "config");
+const GLOBAL_DASHBOARD_CONFIG_PATH = () => join(GLOBAL_DASHBOARD_CONFIG_DIR(), "settings.toml");
+const GLOBAL_DASHBOARD_ENV_PATH = () => join(GLOBAL_DASHBOARD_CONFIG_DIR(), ".env.local");
 
 /**
  * Read existing config file
@@ -304,10 +308,40 @@ export interface ProviderConnectivityResult {
   durationMs: number;
 }
 
-export async function readDashboardConfig(projectPath: string): Promise<DashboardConfig> {
-  const config = await readConfig(projectPath);
-  const providers = await listConfiguredProviders(projectPath);
-  const envVars = await readProjectEnv(projectPath);
+async function readTomlConfigFile(configPath: string): Promise<OrnnConfig | null> {
+  if (!existsSync(configPath)) {
+    return null;
+  }
+
+  try {
+    const content = await readFile(configPath, "utf-8");
+    return parse(content) as OrnnConfig;
+  } catch (error) {
+    logger.warn("Failed to read existing config:", error);
+    return null;
+  }
+}
+
+function normalizeProvidersFromConfig(config: OrnnConfig | null): ProviderConfig[] {
+  if (!config?.providers) {
+    return [];
+  }
+
+  return Object.values(config.providers).map((provider: unknown) => {
+    const p = provider as Record<string, string>;
+    return {
+      provider: p.provider,
+      modelName: p.model_name || p.modelName,
+      apiKeyEnvVar: p.api_key_env_var || p.apiKeyEnvVar,
+    };
+  });
+}
+
+export async function readDashboardConfig(projectPath?: string): Promise<DashboardConfig> {
+  void projectPath;
+  const config = await readTomlConfigFile(GLOBAL_DASHBOARD_CONFIG_PATH());
+  const providers = normalizeProvidersFromConfig(config);
+  const envVars = await readEnvFile(GLOBAL_DASHBOARD_ENV_PATH());
   return {
     autoOptimize: config?.tracking?.auto_optimize ?? true,
     userConfirm: config?.tracking?.user_confirm ?? false,
@@ -322,12 +356,11 @@ export async function readDashboardConfig(projectPath: string): Promise<Dashboar
   };
 }
 
-async function writeProjectEnvVar(
-  projectPath: string,
+async function writeEnvVarToPath(
+  envPath: string,
   envVarName: string,
   value: string
 ): Promise<void> {
-  const envPath = join(projectPath, ".env.local");
   const existingContent = existsSync(envPath) ? await readFile(envPath, "utf-8") : "";
   const providerRegex = new RegExp(`^${envVarName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}=.*$`, "m");
   const newLine = `${envVarName}=${value}`;
@@ -346,14 +379,15 @@ async function writeProjectEnvVar(
 }
 
 export async function writeDashboardConfig(
-  projectPath: string,
+  projectPath: string | undefined,
   payload: DashboardConfig
 ): Promise<void> {
-  const configDir = join(projectPath, ".ornn", "config");
+  void projectPath;
+  const configDir = GLOBAL_DASHBOARD_CONFIG_DIR();
   if (!existsSync(configDir)) {
     mkdirSync(configDir, { recursive: true });
   }
-  const existing = await readConfig(projectPath);
+  const existing = await readTomlConfigFile(GLOBAL_DASHBOARD_CONFIG_PATH());
   const existingDefaultProvider = existing?.llm?.default_provider || "";
   const providers = payload.providers.map((p) => ({
     provider: p.provider,
@@ -367,7 +401,7 @@ export async function writeDashboardConfig(
     existingDefaultProvider;
 
   const content = generateConfigContent(
-    projectPath,
+    join(homedir(), ".ornn"),
     providers,
     defaultProvider,
     payload.logLevel || existing?.ornn?.log_level || DEFAULT_LOG_LEVEL,
@@ -377,11 +411,11 @@ export async function writeDashboardConfig(
       runtimeSync: payload.runtimeSync,
     }
   );
-  await writeFile(join(configDir, "settings.toml"), content, "utf-8");
+  await writeFile(GLOBAL_DASHBOARD_CONFIG_PATH(), content, "utf-8");
 
   for (const provider of payload.providers) {
     if (provider.apiKey && provider.apiKey.trim()) {
-      await writeProjectEnvVar(projectPath, provider.apiKeyEnvVar, provider.apiKey.trim());
+      await writeEnvVarToPath(GLOBAL_DASHBOARD_ENV_PATH(), provider.apiKeyEnvVar, provider.apiKey.trim());
     }
   }
 }
@@ -400,8 +434,7 @@ function parseEnvFile(content: string): Record<string, string> {
   return env;
 }
 
-async function readProjectEnv(projectPath: string): Promise<Record<string, string>> {
-  const envPath = join(projectPath, ".env.local");
+async function readEnvFile(envPath: string): Promise<Record<string, string>> {
   if (!existsSync(envPath)) return {};
   try {
     const content = await readFile(envPath, "utf-8");
@@ -412,10 +445,10 @@ async function readProjectEnv(projectPath: string): Promise<Record<string, strin
 }
 
 export async function checkProvidersConnectivity(
-  projectPath: string,
+  projectPath?: string,
   providersInput?: DashboardProviderConfig[]
 ): Promise<ProviderConnectivityResult[]> {
-  const envVars = await readProjectEnv(projectPath);
+  const envVars = await readEnvFile(GLOBAL_DASHBOARD_ENV_PATH());
   const providers = providersInput && providersInput.length > 0
     ? providersInput
     : (await readDashboardConfig(projectPath)).providers;

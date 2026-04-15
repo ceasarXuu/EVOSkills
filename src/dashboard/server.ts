@@ -204,7 +204,7 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
     }
   }
 
-  async function getProviderHealthSummary(projectPath: string): Promise<ProviderHealthSummary> {
+  async function getProviderHealthSummary(projectPath?: string): Promise<ProviderHealthSummary> {
     const checkedAt = new Date().toISOString();
     const config = await readDashboardConfig(projectPath);
     const providers = config.providers ?? [];
@@ -466,6 +466,93 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
         return;
       }
 
+      // ── API: Global dashboard config ──
+      if (path === '/api/config' && method === 'GET') {
+        const started = Date.now();
+        const config = await readDashboardConfig(undefined);
+        logger.info('Dashboard global config loaded', {
+          providerCount: config.providers.length,
+          durationMs: Date.now() - started,
+        });
+        json(res, { config });
+        return;
+      }
+
+      if (path === '/api/config' && method === 'POST') {
+        const started = Date.now();
+        const body = (await parseBody(req)) as {
+          config?: {
+            autoOptimize?: boolean;
+            userConfirm?: boolean;
+            runtimeSync?: boolean;
+            defaultProvider?: string;
+            logLevel?: string;
+            providers?: Array<{
+              provider: string;
+              modelName: string;
+              apiKeyEnvVar: string;
+              apiKey?: string;
+            }>;
+          };
+        };
+        if (!body.config) {
+          json(res, { ok: false, error: 'config is required' }, 400);
+          return;
+        }
+        await writeDashboardConfig(undefined, {
+          autoOptimize: body.config.autoOptimize ?? true,
+          userConfirm: body.config.userConfirm ?? false,
+          runtimeSync: body.config.runtimeSync ?? true,
+          defaultProvider: body.config.defaultProvider ?? '',
+          logLevel: body.config.logLevel ?? 'info',
+          providers: body.config.providers ?? [],
+        });
+        logger.info('Dashboard global config saved', {
+          providerCount: (body.config.providers ?? []).length,
+          autoOptimize: body.config.autoOptimize ?? true,
+          userConfirm: body.config.userConfirm ?? false,
+          runtimeSync: body.config.runtimeSync ?? true,
+          defaultProvider: body.config.defaultProvider ?? '',
+          logLevel: body.config.logLevel ?? 'info',
+          durationMs: Date.now() - started,
+        });
+        json(res, { ok: true });
+        return;
+      }
+
+      if (path === '/api/config/providers/connectivity' && method === 'POST') {
+        const started = Date.now();
+        const body = (await parseBody(req)) as {
+          providers?: Array<{
+            provider: string;
+            modelName: string;
+            apiKeyEnvVar: string;
+            apiKey?: string;
+          }>;
+        };
+        const results = await checkProvidersConnectivity(undefined, body.providers);
+        const failedCount = results.filter((item) => !item.ok).length;
+        logger.info('Dashboard global provider connectivity checked', {
+          providerCount: results.length,
+          failedCount,
+          durationMs: Date.now() - started,
+        });
+        json(res, { results });
+        return;
+      }
+
+      if (path === '/api/provider-health' && method === 'GET') {
+        const started = Date.now();
+        const health = await getProviderHealthSummary(undefined);
+        logger.info('Dashboard global provider health fetched', {
+          level: health.level,
+          code: health.code,
+          durationMs: Date.now() - started,
+        });
+        json(res, { health });
+        return;
+      }
+
       // ── API: Add project ──
       if (path === '/api/projects' && method === 'POST') {
         try {
@@ -724,7 +811,7 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
         // GET /api/projects/:id/config
         if (subPath === '/config' && method === 'GET') {
           const started = Date.now();
-          const config = await readDashboardConfig(projectPath);
+          const config = await readDashboardConfig(undefined);
           logger.info('Dashboard config loaded', {
             projectPath,
             providerCount: config.providers.length,
@@ -756,7 +843,7 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
             json(res, { ok: false, error: 'config is required' }, 400);
             return;
           }
-          await writeDashboardConfig(projectPath, {
+          await writeDashboardConfig(undefined, {
             autoOptimize: body.config.autoOptimize ?? true,
             userConfirm: body.config.userConfirm ?? false,
             runtimeSync: body.config.runtimeSync ?? true,
@@ -789,7 +876,7 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
               apiKey?: string;
             }>;
           };
-          const results = await checkProvidersConnectivity(projectPath, body.providers);
+          const results = await checkProvidersConnectivity(undefined, body.providers);
           const failedCount = results.filter((item) => !item.ok).length;
           logger.info('Dashboard provider connectivity checked', {
             projectPath,
@@ -804,7 +891,7 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
         // GET /api/projects/:id/provider-health
         if (subPath === '/provider-health' && method === 'GET') {
           const started = Date.now();
-          const health = await getProviderHealthSummary(projectPath);
+          const health = await getProviderHealthSummary(undefined);
           logger.info('Dashboard provider health fetched', {
             projectPath,
             level: health.level,

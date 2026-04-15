@@ -211,4 +211,89 @@ describe('LiteLLMClient connectivity probe', () => {
       response_format: { type: 'json_object' },
     });
   });
+
+  it('recovers json from reasoning_content when structured content is empty', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        model: 'deepseek-reasoner',
+        choices: [
+          {
+            index: 0,
+            finish_reason: 'stop',
+            message: {
+              role: 'assistant',
+              content: '',
+              reasoning_content: '```json\n{"ok":true}\n```',
+            },
+          },
+        ],
+        usage: {
+          prompt_tokens: 5,
+          completion_tokens: 6,
+          total_tokens: 11,
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new LiteLLMClient({
+      provider: 'deepseek',
+      modelName: 'deepseek/deepseek-reasoner',
+      apiKey: 'test-key',
+      maxTokens: 32,
+    });
+
+    await expect(client.completion({
+      prompt: 'return json',
+      timeout: 1000,
+      responseFormat: 'json_object',
+    })).resolves.toBe('{"ok":true}');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('includes diagnostics after exhausting structured-response retries', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          model: 'deepseek-reasoner',
+          choices: [
+            {
+              index: 0,
+              finish_reason: 'stop',
+              message: {
+                role: 'assistant',
+                content: '',
+                reasoning_content: '',
+              },
+            },
+          ],
+          usage: {
+            prompt_tokens: 5,
+            completion_tokens: 0,
+            total_tokens: 5,
+          },
+        }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new LiteLLMClient({
+      provider: 'deepseek',
+      modelName: 'deepseek/deepseek-reasoner',
+      apiKey: 'test-key',
+      maxTokens: 32,
+    });
+
+    await expect(client.completion({
+      prompt: 'return json',
+      timeout: 1000,
+      responseFormat: 'json_object',
+    })).rejects.toThrow(
+      'Empty content in LLM response | provider=deepseek | model=deepseek/deepseek-reasoner | response_format=json_object | attempts=3 | last_finish_reason=stop | last_has_reasoning_content=false | last_reasoning_has_json=false | last_total_tokens=5'
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
 });

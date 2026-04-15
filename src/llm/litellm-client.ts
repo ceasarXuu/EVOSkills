@@ -7,6 +7,7 @@
 
 import { createChildLogger } from '../utils/logger.js';
 import type { LLMConfig, LLMInstance } from './factory.js';
+import { extractJsonObject } from '../utils/json-response.js';
 
 const logger = createChildLogger('litellm-client');
 
@@ -44,6 +45,22 @@ export interface LiteLLMCompletionOptions {
   maxTokens?: number;
   timeout?: number;
   responseFormat?: 'text' | 'json_object';
+}
+
+interface CompletionExtractionDiagnostics {
+  responseModel: string | null;
+  finishReason: string | null;
+  hasContent: boolean;
+  hasReasoningContent: boolean;
+  reasoningHasJson: boolean;
+  reasoningExcerpt: string | null;
+  totalTokens: number | null;
+}
+
+interface CompletionExtractionResult {
+  content: string;
+  source: 'content' | 'reasoning_json' | null;
+  diagnostics: CompletionExtractionDiagnostics;
 }
 
 /**
@@ -136,25 +153,43 @@ export class LiteLLMClient implements LLMInstance {
     logger.debug(`Calling ${this.provider} API with model ${this.modelName}`);
 
     try {
-      const response = await this.makeRequest(body, timeout);
-      const content = this.extractContent(response);
-      if (content) {
-        return content;
-      }
+      const maxAttempts = this.getStructuredResponseAttempts(responseFormat);
+      let lastDiagnostics: CompletionExtractionDiagnostics | null = null;
 
-      if (responseFormat === 'json_object' && this.provider === 'deepseek') {
-        logger.warn('DeepSeek returned empty content in json_object mode, retrying once', {
-          provider: this.provider,
-          modelName: this.modelName,
-        });
-        const retryResponse = await this.makeRequest(body, timeout);
-        const retryContent = this.extractContent(retryResponse);
-        if (retryContent) {
-          return retryContent;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        const response = await this.makeRequest(body, timeout);
+        const extracted = this.extractContent(response, responseFormat);
+        lastDiagnostics = extracted.diagnostics;
+
+        if (extracted.content) {
+          if (extracted.source === 'reasoning_json') {
+            logger.warn('Recovered structured response from reasoning_content after empty content', {
+              provider: this.provider,
+              modelName: this.modelName,
+              attempt,
+              finishReason: extracted.diagnostics.finishReason,
+              responseModel: extracted.diagnostics.responseModel,
+            });
+          }
+          return extracted.content;
+        }
+
+        if (attempt < maxAttempts) {
+          logger.warn('Structured response returned no usable content, retrying', {
+            provider: this.provider,
+            modelName: this.modelName,
+            attempt,
+            maxAttempts,
+            finishReason: extracted.diagnostics.finishReason,
+            hasReasoningContent: extracted.diagnostics.hasReasoningContent,
+            reasoningHasJson: extracted.diagnostics.reasoningHasJson,
+            responseModel: extracted.diagnostics.responseModel,
+            totalTokens: extracted.diagnostics.totalTokens,
+          });
         }
       }
 
-      throw new Error('Empty content in LLM response');
+      throw new Error(this.buildEmptyResponseErrorMessage(responseFormat, maxAttempts, lastDiagnostics));
     } catch (error) {
       logger.error('LiteLLM API call failed:', error);
       throw error;
@@ -261,13 +296,101 @@ export class LiteLLMClient implements LLMInstance {
   /**
    * Parse response and extract content
    */
-  private extractContent(response: LiteLLMResponse): string {
+  private extractContent(
+    response: LiteLLMResponse,
+    responseFormat: LiteLLMCompletionOptions['responseFormat'] = 'text'
+  ): CompletionExtractionResult {
     if (!response.choices || response.choices.length === 0) {
       throw new Error('No choices in LLM response');
     }
 
-    const content = response.choices[0].message.content;
-    return content || '';
+    const choice = response.choices[0];
+    const message = choice.message || { content: '', role: 'assistant' };
+    const content = typeof message.content === 'string' ? message.content.trim() : '';
+    const reasoningContent = typeof message.reasoning_content === 'string'
+      ? message.reasoning_content.trim()
+      : '';
+    const reasoningJson = responseFormat === 'json_object' && reasoningContent
+      ? extractJsonObject(reasoningContent)
+      : null;
+
+    const diagnostics: CompletionExtractionDiagnostics = {
+      responseModel: response.model || null,
+      finishReason: choice.finish_reason || null,
+      hasContent: Boolean(content),
+      hasReasoningContent: Boolean(reasoningContent),
+      reasoningHasJson: Boolean(reasoningJson),
+      reasoningExcerpt: reasoningContent ? this.truncateForDiagnostics(reasoningContent) : null,
+      totalTokens: response.usage?.total_tokens ?? null,
+    };
+
+    if (content) {
+      return {
+        content,
+        source: 'content',
+        diagnostics,
+      };
+    }
+
+    if (reasoningJson) {
+      return {
+        content: reasoningJson,
+        source: 'reasoning_json',
+        diagnostics,
+      };
+    }
+
+    return {
+      content: '',
+      source: null,
+      diagnostics,
+    };
+  }
+
+  private truncateForDiagnostics(value: string, maxLength = 160): string {
+    return value.length <= maxLength ? value : `${value.slice(0, maxLength)}...`;
+  }
+
+  private getStructuredResponseAttempts(
+    responseFormat: LiteLLMCompletionOptions['responseFormat']
+  ): number {
+    if (responseFormat !== 'json_object') {
+      return 1;
+    }
+    return this.provider === 'deepseek' ? 3 : 2;
+  }
+
+  private buildEmptyResponseErrorMessage(
+    responseFormat: LiteLLMCompletionOptions['responseFormat'],
+    attempts: number,
+    diagnostics: CompletionExtractionDiagnostics | null,
+  ): string {
+    const parts = [
+      'Empty content in LLM response',
+      `provider=${this.provider}`,
+      `model=${this.modelName}`,
+      `response_format=${responseFormat || 'text'}`,
+      `attempts=${attempts}`,
+    ];
+
+    if (diagnostics?.finishReason) {
+      parts.push(`last_finish_reason=${diagnostics.finishReason}`);
+    }
+    if (diagnostics) {
+      parts.push(`last_has_reasoning_content=${diagnostics.hasReasoningContent}`);
+      parts.push(`last_reasoning_has_json=${diagnostics.reasoningHasJson}`);
+      if (typeof diagnostics.totalTokens === 'number') {
+        parts.push(`last_total_tokens=${diagnostics.totalTokens}`);
+      }
+      if (diagnostics.responseModel) {
+        parts.push(`last_response_model=${diagnostics.responseModel}`);
+      }
+      if (diagnostics.reasoningExcerpt) {
+        parts.push(`last_reasoning_excerpt=${JSON.stringify(diagnostics.reasoningExcerpt)}`);
+      }
+    }
+
+    return parts.join(' | ');
   }
 
   private supportsJsonResponseFormat(): boolean {

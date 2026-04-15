@@ -260,6 +260,63 @@ describe('SkillCallAnalyzer', () => {
     expect(result.error).toBe('empty_llm_response');
     expect(result.userMessage).toContain('empty response');
     expect(result.technicalDetail).toContain('Empty content in LLM response');
+    expect(result.technicalDetail).toContain('response_format=json_object');
+    expect(result.technicalDetail).toContain('attempts=2');
+  });
+
+  it('recovers structured json from reasoning_content-only responses', async () => {
+    readDashboardConfigMock.mockResolvedValue({
+      autoOptimize: true,
+      userConfirm: false,
+      runtimeSync: true,
+      defaultProvider: 'deepseek',
+      logLevel: 'info',
+      providers: [
+        {
+          provider: 'deepseek',
+          modelName: 'deepseek/deepseek-chat',
+          apiKeyEnvVar: 'DEEPSEEK_API_KEY',
+          apiKey: 'test-key',
+          hasApiKey: true,
+        },
+      ],
+    });
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: '',
+              reasoning_content: '{"decision":"no_optimization","reason":"当前无需修改","confidence":0.92,"evidence":[]}',
+            },
+          },
+        ],
+        usage: {
+          prompt_tokens: 12,
+          completion_tokens: 18,
+          total_tokens: 30,
+        },
+        model: 'deepseek-chat',
+      }),
+    }));
+
+    const analyzer = createSkillCallAnalyzer();
+    const result = await analyzer.analyzeWindow('/tmp/project', {
+      windowId: 'window-4b',
+      skillId: 'test-skill',
+      runtime: 'codex',
+      sessionId: 'session-1',
+      closeReason: 'completed',
+      startedAt: '2026-04-10T00:00:00.000Z',
+      lastTraceAt: '2026-04-10T00:01:00.000Z',
+      traces: [],
+    } as never, 'content');
+
+    expect(result.success).toBe(true);
+    expect(result.decision).toBe('no_optimization');
+    expect(result.evaluation?.reason).toBe('当前无需修改');
   });
 
   it('forces zh analyzer reasons to stay in chinese even when the model returns english prose', async () => {

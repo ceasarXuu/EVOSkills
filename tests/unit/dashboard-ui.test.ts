@@ -854,12 +854,19 @@ describe('dashboard ui recovery', () => {
 
     dashboard.renderMainPanel(projectPath);
     const html = getElement('mainPanel').innerHTML;
+    expect(html).toContain('>节点<');
+    expect(html).toContain("startActivityColumnResize(event,'node')");
+    expect(html).not.toContain("startActivityColumnResize(event,'status')");
     expect(html).toContain('复制');
     expect(html).toContain('查看详情');
 
     await dashboard.copyActivityDetail(projectPath, 'decision:evt-1');
     expect(getCopiedText()).toContain('test-driven-development');
     expect(getCopiedText()).toContain('scope-123');
+    expect(getCopiedText()).toContain('节点: 分析结论 / 无需优化');
+    expect(getCopiedText()).toContain('说明: 系统已经完成本轮分析。');
+    expect(getCopiedText()).not.toContain('判断:');
+    expect(getCopiedText()).not.toContain('输出:');
 
     await dashboard.openActivityDetail(projectPath, 'decision:evt-1');
     expect(getElement('eventModalContent').textContent).toContain('系统已经完成本轮分析。');
@@ -975,9 +982,10 @@ describe('dashboard ui recovery', () => {
 
     await dashboard.openActivityDetail(projectPath, 'decision:evt-failure');
     const detail = getElement('eventModalContent').textContent;
-    expect(detail).toContain('失败原因: 模型返回了内容，但格式不符合系统要求');
+    expect(detail).toContain('节点: 分析链路异常 / 失败');
+    expect(detail).toContain('说明: 模型返回了内容，但格式不符合系统要求');
     expect(detail).toContain('对结果的影响: 这更像是分析链路的输出格式异常');
-    expect(detail).toContain('建议动作: 建议保留这次原始返回并继续观察');
+    expect(detail).toContain('下一步: 建议保留这次原始返回并继续观察');
     expect(detail).toContain('原始技术信息: invalid_analysis_json | Empty content in LLM response');
   });
 

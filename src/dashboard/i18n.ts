@@ -155,6 +155,7 @@ export interface I18nStrings {
   traceStatus: string;
   traceTime: string;
   traceEvent: string;
+  activityNode: string;
   traceSession: string;
   traceId: string;
   activityLayerBusiness: string;
@@ -232,9 +233,9 @@ export interface I18nStrings {
   activitySourceLabel: string;
   activitySkillLabel: string;
   activitySessionIdLabel: string;
+  activityDetailNode: string;
   activityDetailInput: string;
-  activityDetailJudgment: string;
-  activityDetailOutput: string;
+  activityDetailSummary: string;
   activityDetailNextStep: string;
 
   // Cost Panel
@@ -492,6 +493,7 @@ const en: I18nStrings = {
   traceStatus: 'Status',
   traceTime: 'Time',
   traceEvent: 'Event',
+  activityNode: 'Node',
   traceSession: 'Session',
   traceId: 'Trace ID',
   activityLayerBusiness: 'Ornn Events',
@@ -569,9 +571,9 @@ const en: I18nStrings = {
   activitySourceLabel: 'Source',
   activitySkillLabel: 'Skill',
   activitySessionIdLabel: 'Session ID',
+  activityDetailNode: 'Node',
   activityDetailInput: 'Input',
-  activityDetailJudgment: 'Judgment',
-  activityDetailOutput: 'Output',
+  activityDetailSummary: 'Summary',
   activityDetailNextStep: 'Next Step',
 
   // Cost Panel
@@ -829,6 +831,7 @@ const zh: I18nStrings = {
   traceStatus: '状态',
   traceTime: '时间',
   traceEvent: '事件',
+  activityNode: '节点',
   traceSession: '会话',
   traceId: '追踪 ID',
   activityLayerBusiness: 'Ornn 业务事件',
@@ -906,9 +909,9 @@ const zh: I18nStrings = {
   activitySourceLabel: '来源',
   activitySkillLabel: '技能',
   activitySessionIdLabel: '会话 ID',
+  activityDetailNode: '节点',
   activityDetailInput: '输入',
-  activityDetailJudgment: '判断',
-  activityDetailOutput: '输出',
+  activityDetailSummary: '说明',
   activityDetailNextStep: '下一步',
 
   // Cost Panel

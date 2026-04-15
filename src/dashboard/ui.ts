@@ -330,6 +330,14 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
     padding: 0;
   }
   .detail-copy-btn:hover, .detail-view-btn:hover { text-decoration: underline; }
+  .activity-node-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    line-height: 1.45;
+  }
+  .activity-node-title { color: var(--text); }
+  .activity-node-status { color: var(--muted); }
 
   /* Cost tab */
   .cost-shell { display: flex; flex-direction: column; gap: 14px; }
@@ -1522,6 +1530,29 @@ function formatBusinessEvent(e) {
   }
 }
 
+function formatActivityNode(row) {
+  if (!row) return t('activityDetailFallback');
+  const eventLabel = businessEventLabel(row.tag);
+  const statusLabel = row.status || '';
+  return statusLabel && statusLabel !== t('activityStatusFallback')
+    ? (eventLabel + ' / ' + statusLabel)
+    : eventLabel;
+}
+
+function renderActivityNodeCell(row) {
+  if (!row) return '—';
+  const eventLabel = businessEventLabel(row.tag);
+  const statusLabel = row.status || '';
+  return '<div class="activity-node-cell">' +
+    '<div class="activity-node-title">' + escHtml(eventLabel) + '</div>' +
+    (
+      statusLabel && statusLabel !== t('activityStatusFallback')
+        ? '<div class="activity-node-status">' + escHtml(statusLabel) + '</div>'
+        : ''
+    ) +
+  '</div>';
+}
+
 function normalizeDecisionTag(event) {
   if (event?.businessTag) return event.businessTag;
   const tag = event?.tag;
@@ -1821,6 +1852,16 @@ function formatActivityPreview(row) {
   return row.detail || formatBusinessEvent(row) || t('activityDetailFallback');
 }
 
+function buildActivityInputText(row) {
+  const inputParts = [];
+  if (row?.inputSummary) inputParts.push(row.inputSummary);
+  if (row?.sourceLabel) inputParts.push(t('activitySourceLabel') + ': ' + row.sourceLabel);
+  if (row?.traceId) inputParts.push(t('traceId') + ': ' + row.traceId);
+  if (row?.sessionId) inputParts.push(t('activitySessionIdLabel') + ': ' + row.sessionId);
+  if (row?.scopeId) inputParts.push(t('traceScope') + ': ' + row.scopeId);
+  return inputParts.join(' | ') || t('activityDetailFallback');
+}
+
 function loadSavedActivityColumnWidths() {
   try {
     const raw = localStorage.getItem('ornn-dashboard-activity-columns');
@@ -1911,27 +1952,18 @@ function buildActivityDetail(row) {
     const lines = [
       t('traceTime') + ': ' + formatEventTimestamp(row.timestamp),
       t('traceRuntime') + ': ' + (row.runtime || t('activityHostFallback')),
-      t('traceEvent') + ': ' + businessEventLabel(row.tag),
       t('activitySkillLabel') + ': ' + (row.skillId || '—'),
-      t('traceStatus') + ': ' + (row.status || t('activityStatusFallback')),
-      t('traceScope') + ': ' + (row.scopeId || t('activityScopeFallback')),
-      (currentLang === 'zh' ? '失败原因' : 'Failure Cause') + ': ' + failure.summary,
+      t('activityDetailNode') + ': ' + formatActivityNode(row),
+      t('activityDetailInput') + ': ' + buildActivityInputText(row),
+      t('activityDetailSummary') + ': ' + failure.summary,
       (currentLang === 'zh' ? '对结果的影响' : 'Impact') + ': ' + failure.impact,
-      (currentLang === 'zh' ? '建议动作' : 'Suggested Action') + ': ' + failure.action,
+      t('activityDetailNextStep') + ': ' + failure.action,
     ];
     if (failure.technical) {
       lines.push((currentLang === 'zh' ? '原始技术信息' : 'Technical Detail') + ': ' + failure.technical);
     }
-    if (row.traceId) lines.push(t('traceId') + ': ' + row.traceId);
-    if (row.sessionId) lines.push(t('activitySessionIdLabel') + ': ' + row.sessionId);
     return lines.join('\\n');
   }
-  const inputParts = [];
-  if (row.inputSummary) inputParts.push(row.inputSummary);
-  if (row.sourceLabel) inputParts.push(t('activitySourceLabel') + ': ' + row.sourceLabel);
-  if (row.traceId) inputParts.push(t('traceId') + ': ' + row.traceId);
-  if (row.sessionId) inputParts.push(t('activitySessionIdLabel') + ': ' + row.sessionId);
-  if (row.scopeId) inputParts.push(t('traceScope') + ': ' + row.scopeId);
   let nextStep = row.nextAction || '';
   if (!nextStep) {
     switch (row.tag) {
@@ -1971,13 +2003,10 @@ function buildActivityDetail(row) {
   const lines = [
     t('traceTime') + ': ' + formatEventTimestamp(row.timestamp),
     t('traceRuntime') + ': ' + (row.runtime || t('activityHostFallback')),
-    t('traceEvent') + ': ' + businessEventLabel(row.tag),
     t('activitySkillLabel') + ': ' + (row.skillId || '—'),
-    t('traceStatus') + ': ' + (row.status || t('activityStatusFallback')),
-    t('traceScope') + ': ' + (row.scopeId || t('activityScopeFallback')),
-    t('activityDetailInput') + ': ' + (inputParts.join(' | ') || t('activityDetailFallback')),
-    t('activityDetailJudgment') + ': ' + (row.detail || t('activityDetailFallback')),
-    t('activityDetailOutput') + ': ' + formatBusinessEvent(row),
+    t('activityDetailNode') + ': ' + formatActivityNode(row),
+    t('activityDetailInput') + ': ' + buildActivityInputText(row),
+    t('activityDetailSummary') + ': ' + (row.detail || t('activityDetailFallback')),
     t('activityDetailNextStep') + ': ' + nextStep,
   ];
   return lines.join('\\n');
@@ -2261,9 +2290,8 @@ function renderBusinessEvents(projectPath) {
         <thead><tr>
           <th style="\${getActivityColumnStyle('time', DEFAULT_ACTIVITY_TIME_COLUMN_WIDTH)}">\${t('traceTime')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'time')"></span></th>
           <th style="\${getActivityColumnStyle('host', 96)}">\${t('traceRuntime')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'host')"></span></th>
-          <th style="\${getActivityColumnStyle('event', 128)}">\${t('traceEvent')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'event')"></span></th>
+          <th style="\${getActivityColumnStyle('node', 188)}">\${t('activityNode')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'node')"></span></th>
           <th style="\${getActivityColumnStyle('skill', 220)}">\${t('activitySkillLabel')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'skill')"></span></th>
-          <th style="\${getActivityColumnStyle('status', 140)}">\${t('traceStatus')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'status')"></span></th>
           <th style="\${getActivityColumnStyle('scope', 180)}">\${t('traceScope')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'scope')"></span></th>
           <th style="\${getActivityColumnStyle('detail', 520)}">\${t('traceDetail')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'detail')"></span></th>
         </tr></thead>
@@ -2271,9 +2299,8 @@ function renderBusinessEvents(projectPath) {
           \${filtered.slice(0, 80).map((e) => \`<tr>
             <td style="color:var(--muted);\${getActivityColumnStyle('time', DEFAULT_ACTIVITY_TIME_COLUMN_WIDTH)}">\${formatEventTimestamp(e.timestamp)}</td>
             <td style="\${getActivityColumnStyle('host', 96)}">\${escHtml(e.runtime || t('activityHostFallback'))}</td>
-            <td style="\${getActivityColumnStyle('event', 128)}">\${escHtml(businessEventLabel(e.tag))}</td>
+            <td style="\${getActivityColumnStyle('node', 188)}">\${renderActivityNodeCell(e)}</td>
             <td style="\${getActivityColumnStyle('skill', 220)}">\${renderActivitySkillCell(projectPath, e)}</td>
-            <td style="color:var(--muted);\${getActivityColumnStyle('status', 140)}">\${escHtml(e.status || t('activityStatusFallback'))}</td>
             <td style="\${getActivityColumnStyle('scope', 180)}">\${escHtml(e.scopeId || t('activityScopeFallback'))}</td>
             <td style="\${getActivityColumnStyle('detail', 520)}">
               <div class="business-detail-preview">\${escHtml(formatActivityPreview(e))}</div>

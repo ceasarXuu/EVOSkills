@@ -1311,6 +1311,49 @@ describe('dashboard ui recovery', () => {
     expect(rows[0]?.detail).toContain('这次调用没有观察到稳定的设计缺陷');
   });
 
+  it('deduplicates merged skill feedback when it repeats the same conclusion text', () => {
+    const { dashboard } = loadDashboardTestHarness({}, { lang: 'zh' });
+    const projectPath = '/tmp/ornn-project';
+    const repeated =
+      '技能内容完整且设计良好，时间线显示助手正确触发并遵循测试驱动开发流程，工具调用和执行结果均正常，未发现技能设计问题、宿主故障或工具故障。';
+
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [{ skillId: 'test-driven-development', runtime: 'codex' }],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+        decisionEvents: [
+          {
+            id: 'evt-eval-dedupe-1',
+            timestamp: '2026-04-16T00:52:51.000Z',
+            tag: 'evaluation_result',
+            runtime: 'codex',
+            skillId: 'test-driven-development',
+            status: 'no_patch_needed',
+            windowId: 'scope-dedupe-1',
+            detail: `窗口分析结论：${repeated}`,
+          },
+          {
+            id: 'evt-feedback-dedupe-1',
+            timestamp: '2026-04-16T00:52:52.000Z',
+            tag: 'skill_feedback',
+            runtime: 'codex',
+            skillId: 'test-driven-development',
+            status: 'no_patch_needed',
+            windowId: 'scope-dedupe-1',
+            detail: repeated,
+          },
+        ],
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+      },
+    };
+
+    const rows = dashboard.buildActivityRows(projectPath);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.detail).toBe(`窗口分析结论：${repeated}`);
+  });
+
   it('does not merge later skill feedback into analysis_started rows', () => {
     const { dashboard } = loadDashboardTestHarness({}, { lang: 'zh' });
     const projectPath = '/tmp/ornn-project';

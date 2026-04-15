@@ -1689,8 +1689,26 @@ function normalizeActivityNarrative(tag, rawStatus, value) {
   return needsActivityNarrativeFallback(candidate) ? (fallback || candidate) : candidate;
 }
 
+function normalizeBusinessDetailForCompare(value) {
+  const candidate = typeof value === 'string' ? value.trim() : '';
+  if (!candidate) return '';
+  return candidate
+    .replace(/^(窗口分析结论|分析结论|Window Analysis Conclusion|Analysis Conclusion)[:：]\s*/iu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function mergeBusinessDetail(primary, supportingValues) {
-  const parts = collectUniqueText([primary].concat(Array.isArray(supportingValues) ? supportingValues : [supportingValues]));
+  const parts = [];
+  const seen = new Set();
+  for (const value of [primary].concat(Array.isArray(supportingValues) ? supportingValues : [supportingValues])) {
+    const candidate = typeof value === 'string' ? value.trim() : '';
+    if (!candidate) continue;
+    const dedupeKey = normalizeBusinessDetailForCompare(candidate) || candidate;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    parts.push(candidate);
+  }
   return parts.join('\\n');
 }
 

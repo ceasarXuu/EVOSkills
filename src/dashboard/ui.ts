@@ -385,7 +385,7 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
   }
   .cost-hero-copy {
     margin-top: 10px;
-    max-width: 30ch;
+    max-width: 100%;
     font-size: 11px;
     line-height: 1.6;
     color: var(--text);

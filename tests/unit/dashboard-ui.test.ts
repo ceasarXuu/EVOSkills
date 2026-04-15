@@ -295,6 +295,8 @@ describe('dashboard ui recovery', () => {
     expect(zhHtml).toContain('宿主');
     expect(zhHtml).not.toContain('客户端运行时错误');
     expect(zhHtml).toContain('客户端错误已经进入上报队列');
+    expect(zhHtml).toContain('max-width: 100%;');
+    expect(zhHtml).not.toContain('max-width: 30ch;');
 
     const enHtml = getDashboardHtml(47432, 'en', 'test-build-id');
     expect(enHtml).toContain('Host');

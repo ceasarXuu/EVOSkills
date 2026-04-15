@@ -898,7 +898,7 @@ describe('dashboard ui recovery', () => {
     expect(html).toContain('activity-skill-link');
   });
 
-  it('backfills skill_called scope ids from related decision events on the same trace', () => {
+  it('does not render trace-only skill observation rows in the business activity table', () => {
     const { dashboard } = loadDashboardTestHarness();
     const projectPath = '/tmp/ornn-project';
 
@@ -933,8 +933,10 @@ describe('dashboard ui recovery', () => {
     };
 
     const rows = dashboard.buildActivityRows(projectPath);
-    const traceRow = rows.find((row) => row.tag === 'skill_observed');
-    expect(traceRow?.scopeId).toBe('scope-trace-1');
+    expect(rows.find((row) => row.tag === 'skill_observed')).toBeUndefined();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.tag).toBe('analysis_concluded');
+    expect(rows[0]?.scopeId).toBe('scope-trace-1');
   });
 
   it('renders user-friendly analysis failure detail while preserving technical info in the modal', async () => {
@@ -1425,16 +1427,18 @@ describe('dashboard ui recovery', () => {
         daemon: {},
         skills: [{ skillId: 'test-driven-development', runtime: 'codex' }],
         traceStats: { total: 1, byRuntime: { codex: 1 }, byStatus: { success: 1 }, byEventType: { tool_call: 1 } },
-        recentTraces: [{
-          trace_id: 'trace-1',
-          session_id: 'session-1',
+        recentTraces: [],
+        decisionEvents: [{
+          id: 'evt-width-1',
+          timestamp: '2026-04-10T05:23:01.000Z',
+          tag: 'evaluation_result',
           runtime: 'codex',
-          timestamp: '2026-04-10T05:23:00.000Z',
-          event_type: 'tool_call',
-          skill_refs: ['test-driven-development'],
-          status: 'success',
+          skillId: 'test-driven-development',
+          sessionId: 'session-1',
+          status: 'no_patch_needed',
+          windowId: 'scope-width-1',
+          detail: '窗口分析结论：当前无需修改。',
         }],
-        decisionEvents: [],
         agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
       },
     };

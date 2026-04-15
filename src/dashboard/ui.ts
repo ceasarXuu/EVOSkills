@@ -1452,9 +1452,6 @@ function formatPatchSummary(e) {
 
 function formatBusinessEvent(e) {
   switch (e.tag) {
-    case 'skill_observed':
-      return normalizeActivityNarrative('skill_observed', e.rawStatus || e.status, e.detail)
-        || (t('activitySummarySkillObserved') + (e.skillId ? ': ' + e.skillId : ''));
     case 'analysis_started':
       return normalizeActivityNarrative('analysis_started', e.rawStatus || e.status, e.detail)
         || t('activitySummaryAnalysisStarted');
@@ -1625,10 +1622,6 @@ function fallbackActivityNarrative(tag, rawStatus) {
       return currentLang === 'zh'
         ? '分析链路执行失败，本轮没有生成可用结论。'
         : 'The analysis pipeline failed and did not produce a usable conclusion.';
-    case 'skill_observed':
-      return currentLang === 'zh'
-        ? '系统观察到该技能参与了本次上下文窗口。'
-        : 'The system observed this skill participating in the current context window.';
     case 'skill_called':
       return currentLang === 'zh'
         ? '系统记录到一次技能调用。'
@@ -1790,8 +1783,6 @@ function describeAnalysisInterruption(row) {
 
 function localizeActivityStatus(tag, rawStatus) {
   switch (tag) {
-    case 'skill_observed':
-      return t('activityStatusObserved');
     case 'analysis_started':
       return t('activityStatusAnalyzing');
     case 'analysis_interrupted':
@@ -1934,11 +1925,6 @@ function buildActivityDetail(row) {
   let nextStep = row.nextAction || '';
   if (!nextStep) {
     switch (row.tag) {
-    case 'skill_observed':
-      nextStep = currentLang === 'zh'
-        ? '继续在同一观察窗口内积累上下文，直到系统决定发起分析。'
-        : 'Keep collecting context in the same observation window until the system decides to start analysis.';
-      break;
     case 'analysis_started':
       nextStep = currentLang === 'zh'
         ? '等待这一轮分析返回结果，再决定是继续观察、保持现状还是执行优化。'
@@ -2141,36 +2127,8 @@ function buildActivityRows(projectPath) {
     decisionRows.push(row);
   }
 
-  const traceRows = [];
-  for (const trace of traces) {
-    const skillRefs = Array.isArray(trace.skill_refs) ? [...new Set(trace.skill_refs.filter(Boolean))] : [];
-    if (skillRefs.length === 0) continue;
-    for (const skillRef of skillRefs) {
-      if (knownSkills.size > 0 && !knownSkills.has(skillRef)) continue;
-      traceRows.push({
-        id: 'trace:' + trace.trace_id + ':' + skillRef,
-        timestamp: trace.timestamp || '',
-        tag: 'skill_observed',
-        category: 'core_flow',
-        runtime: trace.runtime || t('activityHostFallback'),
-        skillId: skillRef,
-        status: localizeActivityStatus('skill_observed', trace.status),
-        rawStatus: trace.status || null,
-        scopeId:
-          scopeByTraceId.get(trace.trace_id) ||
-          scopeBySessionSkill.get(trace.session_id + '::' + skillRef) ||
-          null,
-        detail: summarizeTraceEventType(trace),
-        sourceLabel: t('activitySourceTrace'),
-        traceId: trace.trace_id || null,
-        sessionId: trace.session_id || null,
-      });
-    }
-  }
-
   const dedupe = new Map();
   const rows = decisionRows
-    .concat(traceRows)
     .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)))
     .filter((row) => {
       const dedupeKey = [row.tag, row.skillId || '', row.status || '', row.scopeId || '', row.detail || ''].join('::');
@@ -2193,7 +2151,7 @@ function buildActivityRows(projectPath) {
     projectPath,
     rowCount: rows.length,
     decisionCount: decisionRows.length,
-    traceCount: traceRows.length,
+    traceCount: 0,
     coreFlowCount: rows.filter((row) => (row.category || 'core_flow') === 'core_flow').length,
     stabilityFeedbackCount: rows.filter((row) => row.category === 'stability_feedback').length,
     interruptedCount: rows.filter((row) => row.tag === 'analysis_interrupted').length,

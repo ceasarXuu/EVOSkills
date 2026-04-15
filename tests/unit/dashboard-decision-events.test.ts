@@ -518,4 +518,34 @@ describe('dashboard decision event reader', () => {
     const daemon = readDaemonStatus(projectRoot);
     expect(daemon.processedTraces).toBe(2);
   });
+
+  it('prefers runtime pid detection over stale checkpoint running flags', () => {
+    const projectRoot = join(tmpdir(), `ornn-dashboard-daemon-running-flag-${Date.now()}`);
+    testRoots.push(projectRoot);
+    mkdirSync(join(projectRoot, '.ornn', 'state'), { recursive: true });
+
+    writeFileSync(
+      join(projectRoot, '.ornn', 'state', 'daemon-checkpoint.json'),
+      JSON.stringify({
+        isRunning: true,
+        pid: 999999,
+        startedAt: '2026-04-10T22:00:00.000Z',
+        processedTraces: 12,
+        lastCheckpointAt: '2026-04-10T22:39:24.975Z',
+        retryQueueSize: 0,
+        optimizationStatus: {
+          currentState: 'idle',
+          currentSkillId: null,
+          lastOptimizationAt: null,
+          lastError: null,
+          queueSize: 0,
+        },
+      }),
+      'utf-8'
+    );
+
+    const daemon = readDaemonStatus(projectRoot);
+    expect(daemon.pid).toBeNull();
+    expect(daemon.isRunning).toBe(false);
+  });
 });

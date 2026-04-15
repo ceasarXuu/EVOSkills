@@ -148,6 +148,41 @@ describe('activity scope reader', () => {
     ]);
   });
 
+  it('keeps a failed episode visible as an observing scope', () => {
+    const summaries = buildActivityScopeSummariesFromData({
+      projectName: 'ornn-project',
+      episodes: [makeEpisode({
+        state: 'closed',
+        analysisStatus: 'failed',
+        lastActivityAt: '2026-04-16T00:02:00.000Z',
+      })],
+      decisionEvents: [
+        makeDecisionEvent({
+          id: 'event-submit',
+          episodeId: 'episode-1',
+          timestamp: '2026-04-16T00:01:10.000Z',
+        }),
+        makeDecisionEvent({
+          id: 'event-failed',
+          episodeId: 'episode-1',
+          tag: 'analysis_failed',
+          status: 'failed',
+          timestamp: '2026-04-16T00:01:40.000Z',
+          detail: '当前项目没有可用的模型服务配置，所以这轮分析没有开始。',
+          reason: 'provider_not_configured',
+        }),
+      ],
+    });
+
+    expect(summaries).toEqual([
+      expect.objectContaining({
+        scopeId: 'episode-1',
+        status: 'observing',
+        updatedAt: '2026-04-16T00:01:40.000Z',
+      }),
+    ]);
+  });
+
   it('builds timeline detail for an observing scope with analysis submission and continue-collecting result', () => {
     const detail = buildActivityScopeDetailFromData({
       lang: 'zh',
@@ -280,6 +315,55 @@ describe('activity scope reader', () => {
     });
     expect(detail?.timeline[3]).toMatchObject({
       summary: '已完成本轮优化并写回 shadow skill。revision=3',
+    });
+  });
+
+  it('keeps failed analysis detail visible inside the observing scope timeline', () => {
+    const detail = buildActivityScopeDetailFromData({
+      lang: 'zh',
+      projectName: 'ornn-project',
+      episode: makeEpisode({
+        state: 'closed',
+        analysisStatus: 'failed',
+        lastActivityAt: '2026-04-16T00:01:40.000Z',
+      }),
+      decisionEvents: [
+        makeDecisionEvent({
+          id: 'event-submit',
+          episodeId: 'episode-1',
+          traceCount: 2,
+          timestamp: '2026-04-16T00:01:10.000Z',
+        }),
+        makeDecisionEvent({
+          id: 'event-failed',
+          episodeId: 'episode-1',
+          tag: 'analysis_failed',
+          status: 'failed',
+          timestamp: '2026-04-16T00:01:40.000Z',
+          detail: '当前项目没有可用的模型服务配置，所以这轮分析没有开始。',
+          reason: 'provider_not_configured',
+        }),
+      ],
+      agentUsageRecords: [],
+      traces: [
+        makeTrace('trace-1', '2026-04-16T00:00:00.000Z'),
+        makeTrace('trace-2', '2026-04-16T00:01:00.000Z', {
+          event_type: 'tool_call',
+          tool_name: 'exec_command',
+          tool_args: { cmd: 'npm test' },
+        }),
+      ],
+    });
+
+    expect(detail?.status).toBe('observing');
+    expect(detail?.timeline.map((node) => node.type)).toEqual([
+      'skill_called',
+      'analysis_submitted',
+      'analysis_result',
+    ]);
+    expect(detail?.timeline[2]).toMatchObject({
+      summary: '当前项目没有可用的模型服务配置，所以这轮分析没有开始。',
+      outcome: null,
     });
   });
 });

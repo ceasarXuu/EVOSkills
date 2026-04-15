@@ -118,8 +118,12 @@ function deriveScopeStatus(
     };
   }
 
-  if (episode.analysisStatus === 'failed') {
-    return { status: null, updatedAt: episode.lastActivityAt };
+  const analysisFailed = [...events].reverse().find((event) => event.tag === 'analysis_failed');
+  if (analysisFailed || episode.analysisStatus === 'failed') {
+    return {
+      status: 'observing',
+      updatedAt: analysisFailed?.timestamp || episode.lastActivityAt,
+    };
   }
 
   return {
@@ -209,6 +213,17 @@ function buildAnalysisResultNode(
     timestamp: event.timestamp || '',
     summary,
     outcome,
+  };
+}
+
+function buildAnalysisFailedNode(event: DecisionEventRecord): ActivityScopeTimelineNode {
+  const summary = String(event.detail || event.judgment || event.reason || '').trim();
+  return {
+    id: `analysis-failed:${event.id}`,
+    type: 'analysis_result',
+    timestamp: event.timestamp || '',
+    summary,
+    outcome: null,
   };
 }
 
@@ -319,6 +334,12 @@ export function buildActivityScopeDetailFromData(
           summary: String(evaluationResult.detail || evaluationResult.reason || '').trim(),
         });
       }
+      continue;
+    }
+
+    const analysisFailed = followupEvents.find((event) => event.tag === 'analysis_failed');
+    if (analysisFailed) {
+      timeline.push(buildAnalysisFailedNode(analysisFailed));
       continue;
     }
 

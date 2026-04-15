@@ -215,9 +215,9 @@ export function readDaemonStatus(projectRoot: string): DaemonStatus {
   const backfilled = backfillOptimizationStatus(projectRoot, checkpoint.optimizationStatus);
 
   return {
+    ...checkpoint,
     isRunning,
     pid,
-    ...checkpoint,
     optimizationStatus: backfilled,
   };
 }

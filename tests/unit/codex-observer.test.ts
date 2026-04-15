@@ -38,6 +38,30 @@ describe('CodexObserver', () => {
     });
   });
 
+  it('should attach skill refs for assistant messages that mention backticked skill ids', () => {
+    const observer = new CodexObserver('/tmp/codex-sessions');
+
+    const preprocessed = (observer as any).preprocessResponseItem('session-1', 'turn-1', {
+      timestamp: '2026-04-15T14:46:23.646Z',
+      type: 'response_item',
+      payload: {
+        type: 'message',
+        role: 'assistant',
+        content: [
+          {
+            type: 'output_text',
+            text: '使用 `systematic-debugging` 先查运行链路，再按 `test-driven-development` 收敛修改。',
+          },
+        ],
+      },
+    });
+
+    expect(preprocessed).toMatchObject({
+      eventType: 'assistant_output',
+      skillRefs: ['systematic-debugging', 'test-driven-development'],
+    });
+  });
+
   it('skips compacted maintenance events', () => {
     const observer = new CodexObserver('/tmp/codex-sessions');
 

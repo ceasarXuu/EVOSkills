@@ -3,7 +3,7 @@ import { closeSync, existsSync, openSync, readFileSync, readSync, readdirSync, s
 import { join, basename } from 'node:path';
 import { BaseObserver } from './base-observer.js';
 import { createChildLogger } from '../../utils/logger.js';
-import { extractSkillRefsFromSources } from '../../utils/skill-refs.js';
+import { extractSkillRefs, extractSkillRefsFromSources } from '../../utils/skill-refs.js';
 import type { Trace, TraceStatus, PreprocessedTrace } from '../../types/index.js';
 
 const logger = createChildLogger('codex-observer');
@@ -712,10 +712,7 @@ export class CodexObserver extends BaseObserver {
    * 格式: [$skillname]
    */
   private extractSkillReferences(text: string): string[] {
-    const matches = text.match(/\[\$([^\]]+)\]/g);
-    if (!matches) return [];
-
-    return matches.map((match) => match.slice(2, -1)); // 去掉 [$ 和 ]
+    return extractSkillRefs(text);
   }
 
   /**

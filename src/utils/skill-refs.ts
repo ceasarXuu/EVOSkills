@@ -46,6 +46,21 @@ function extractSkillRefsFromPathText(text: string): string[] {
   return refs;
 }
 
+function extractBacktickedSkillRefs(text: string): string[] {
+  const refs: string[] = [];
+  const matches = text.match(/`([a-z0-9]+(?:-[a-z0-9]+)+)`/gi);
+  if (!matches) return refs;
+
+  for (const match of matches) {
+    const skillId = match.slice(1, -1);
+    if (!skillId) continue;
+    if (CODE_KEYWORDS.has(skillId.toLowerCase())) continue;
+    refs.push(skillId);
+  }
+
+  return refs;
+}
+
 /**
  * Extract skill references from text
  * Supports: [$skill-name] and @skill-name formats
@@ -71,6 +86,7 @@ export function extractSkillRefs(text: string): string[] {
     refs.push(...filteredMatches);
   }
 
+  refs.push(...extractBacktickedSkillRefs(text));
   refs.push(...extractSkillRefsFromPathText(text));
 
   return [...new Set(refs)]; // Remove duplicates

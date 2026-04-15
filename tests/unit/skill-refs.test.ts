@@ -52,6 +52,19 @@ describe('Skill Refs Utils', () => {
       const refs = extractSkillRefs(content);
       expect(refs).toContain('show-my-repo');
     });
+
+    it('should extract hyphenated skill refs from backticked prose used in codex messages', () => {
+      const content = '使用 `systematic-debugging` 先查运行链路，再按 `test-driven-development` 收敛修改。';
+      const refs = extractSkillRefs(content);
+      expect(refs).toContain('systematic-debugging');
+      expect(refs).toContain('test-driven-development');
+    });
+
+    it('should not treat underscored internal field names in backticks as skill refs', () => {
+      const content = '先检查 `skill_refs` 字段，再继续分析。';
+      const refs = extractSkillRefs(content);
+      expect(refs).not.toContain('skill_refs');
+    });
   });
 
   describe('extractSkillRefsFromSources', () => {

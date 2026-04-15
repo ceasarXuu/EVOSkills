@@ -253,7 +253,7 @@ function loadDashboardTestHarness(
   const script = scriptMatch[1]
     .replace(/\binit\(\);\s*$/, '')
     .concat(
-      '\n;globalThis.__dashboardTest = { state, init, selectProject, selectMainTab, renderMainPanel, safeRenderMainPanel, buildActivityRows, copyActivityDetail, openActivityDetail, renderCostPanel };'
+      '\n;globalThis.__dashboardTest = { state, init, switchLang, selectProject, selectMainTab, renderMainPanel, safeRenderMainPanel, buildActivityRows, copyActivityDetail, openActivityDetail, renderCostPanel };'
     );
 
   vm.runInNewContext(script, runtime);
@@ -263,6 +263,7 @@ function loadDashboardTestHarness(
       __dashboardTest: {
         state: Record<string, any>;
         init: () => Promise<void>;
+        switchLang: (lang: string) => Promise<void>;
         selectProject: (projectPath: string) => Promise<void>;
         selectMainTab: (tab: string) => void;
         renderMainPanel: (projectPath: string) => void;
@@ -376,6 +377,45 @@ describe('dashboard ui recovery', () => {
     expect(fetchCalls).toContain('/api/providers/catalog');
     expect(fetchCalls).toContain(`/api/projects/${encodedPath}/provider-health`);
     expect(fetchCalls).toContain(`/api/projects/${encodedPath}/config`);
+  });
+
+  it('syncs the selected project language to the backend when the dashboard language changes', async () => {
+    const requests: Array<{ url: string; init?: Record<string, unknown> }> = [];
+    const projectPath = '/tmp/ornn-project';
+    const { dashboard } = loadDashboardTestHarness({}, {
+      fetchImpl: async (url, init) => {
+        requests.push({ url, init });
+        if (url === '/api/lang') {
+          return {
+            ok: true,
+            status: 200,
+            statusText: 'OK',
+            json: async () => ({ ok: true, lang: 'en' }),
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          json: async () => ({ projects: [] }),
+        };
+      },
+    });
+
+    dashboard.state.selectedProjectId = projectPath;
+    await dashboard.switchLang('en');
+
+    expect(requests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: '/api/lang',
+          init: expect.objectContaining({
+            method: 'POST',
+            body: JSON.stringify({ lang: 'en', projectPath }),
+          }),
+        }),
+      ])
+    );
   });
 
   it('renders decision summary cards and metric groups in overview', () => {

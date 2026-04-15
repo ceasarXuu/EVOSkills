@@ -16,6 +16,7 @@ import {
   addProject,
   type RegisteredProject,
 } from './projects-registry.js';
+import { writeProjectLanguage } from './language-state.js';
 import {
   readDaemonStatus,
   readSkills,
@@ -385,9 +386,17 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
       }
       if (path === '/api/lang' && method === 'POST') {
         try {
-          const body = (await parseBody(req)) as { lang?: string };
+          const body = (await parseBody(req)) as { lang?: string; projectPath?: string };
           if (body.lang === 'en' || body.lang === 'zh') {
             currentLang = normalizeLanguage(body.lang);
+            if (typeof body.projectPath === 'string' && body.projectPath.length > 0) {
+              await writeProjectLanguage(body.projectPath, currentLang);
+              logger.debug('Persisted dashboard language for project', {
+                projectPath: body.projectPath,
+                lang: currentLang,
+                source: 'api.lang',
+              });
+            }
             json(res, { ok: true, lang: currentLang });
           } else {
             json(res, { ok: false, error: 'Invalid language. Use "en" or "zh"' }, 400);
@@ -461,6 +470,12 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
             return;
           }
           addProject(body.path, body.name);
+          await writeProjectLanguage(body.path, currentLang);
+          logger.debug('Initialized project dashboard language', {
+            projectPath: body.path,
+            lang: currentLang,
+            source: 'api.projects.add',
+          });
           json(res, { ok: true, projects: getProjectsWithStatus() });
         } catch (e) {
           json(res, { ok: false, error: String(e) }, 400);

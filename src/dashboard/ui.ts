@@ -828,7 +828,27 @@ function detectBrowserLang() {
   return 'en';
 }
 
-function switchLang(lang) {
+async function persistDashboardLanguage(lang, projectPath) {
+  if (!projectPath) return;
+  try {
+    await fetchJsonWithTimeout('/api/lang', 5000, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lang: lang === 'zh' ? 'zh' : 'en',
+        projectPath,
+      }),
+    });
+  } catch (error) {
+    console.warn('[dashboard] failed to persist dashboard language', {
+      lang,
+      projectPath,
+      error: String(error),
+    });
+  }
+}
+
+async function switchLang(lang) {
   currentLang = lang === 'zh' ? 'zh' : 'en';
   document.documentElement.lang = currentLang;
   // Update active button
@@ -859,6 +879,7 @@ function switchLang(lang) {
   renderSidebar();
   if (state.selectedProjectId) safeRenderMainPanel(state.selectedProjectId, 'updateLanguageUI');
   renderLogs();
+  await persistDashboardLanguage(currentLang, state.selectedProjectId);
 }
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -1254,6 +1275,7 @@ function renderSidebar() {
 async function selectProject(path) {
   state.selectedProjectId = path;
   renderSidebar();
+  await persistDashboardLanguage(currentLang, path);
   // Fetch project data if not cached
   if (!state.projectData[path]) {
     document.getElementById('mainPanel').innerHTML = '<div class="panel-inner"><div class="no-project">' + t('mainLoading') + '</div></div>';

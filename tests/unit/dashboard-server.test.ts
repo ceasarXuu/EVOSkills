@@ -4,6 +4,7 @@ import { createServer } from 'node:net';
 const mocks = vi.hoisted(() => ({
   listProjects: vi.fn(),
   addProject: vi.fn(),
+  writeProjectLanguage: vi.fn(),
   readDaemonStatus: vi.fn(),
   readSkills: vi.fn(),
   readSkillContent: vi.fn(),
@@ -23,6 +24,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../src/dashboard/projects-registry.js', () => ({
   listProjects: mocks.listProjects,
   addProject: mocks.addProject,
+}));
+
+vi.mock('../../src/dashboard/language-state.js', () => ({
+  writeProjectLanguage: mocks.writeProjectLanguage,
 }));
 
 vi.mock('../../src/dashboard/data-reader.js', () => ({
@@ -222,6 +227,37 @@ describe('dashboard server sse bootstrap', () => {
       await new Promise((resolve) => setTimeout(resolve, 70));
       expect(mocks.readProjectSnapshot).not.toHaveBeenCalled();
       response.body?.cancel().catch(() => undefined);
+    } finally {
+      await dashboard.stop();
+    }
+  });
+
+  it('persists the selected dashboard language for the requested project', async () => {
+    const projectPath = '/tmp/demo-project';
+    const port = await getFreePort();
+    mocks.listProjects.mockReturnValue([
+      {
+        path: projectPath,
+        name: 'demo-project',
+        registeredAt: '2026-04-15T00:00:00.000Z',
+        lastSeenAt: '2026-04-15T00:00:00.000Z',
+      },
+    ]);
+
+    const { createDashboardServer } = await import('../../src/dashboard/server.js');
+    const dashboard = createDashboardServer(port, 'en');
+    await dashboard.start();
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/api/lang`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lang: 'zh', projectPath }),
+      });
+
+      expect(response.ok).toBe(true);
+      expect(await response.json()).toEqual({ ok: true, lang: 'zh' });
+      expect(mocks.writeProjectLanguage).toHaveBeenCalledWith(projectPath, 'zh');
     } finally {
       await dashboard.stop();
     }

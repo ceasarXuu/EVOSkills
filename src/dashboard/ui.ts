@@ -2695,6 +2695,32 @@ function formatDurationMs(value) {
   return (Math.round(minutes * 10) / 10).toFixed(1).replace(/\\.0$/, '') + 'm';
 }
 
+function normalizeCostModelKey(modelName) {
+  const segments = String(modelName || '')
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (segments.length === 0) return '';
+
+  while (segments.length >= 3 && String(segments[0]).toLowerCase() === String(segments[1]).toLowerCase()) {
+    segments.splice(1, 1);
+  }
+
+  return segments.join('/');
+}
+
+function buildCostModelAliases(modelName) {
+  const normalized = normalizeCostModelKey(modelName);
+  if (!normalized) return [];
+  const segments = normalized.split('/').filter(Boolean);
+  const aliases = new Set([normalized]);
+  if (segments.length > 1) {
+    aliases.add(segments.slice(1).join('/'));
+    aliases.add(segments[segments.length - 1]);
+  }
+  return [...aliases];
+}
+
 function getLiteLLMModelDetailsIndex() {
   const index = {};
   const catalog = Array.isArray(state.providerCatalog) ? state.providerCatalog : [];
@@ -2702,9 +2728,9 @@ function getLiteLLMModelDetailsIndex() {
     const details = Array.isArray(provider.modelDetails) ? provider.modelDetails : [];
     for (const detail of details) {
       if (!detail || !detail.id) continue;
-      index[detail.id] = detail;
-      const shortName = String(detail.id).split('/').pop();
-      if (shortName && !index[shortName]) index[shortName] = detail;
+      for (const alias of buildCostModelAliases(detail.id)) {
+        if (!index[alias]) index[alias] = detail;
+      }
     }
   }
   return index;
@@ -2729,8 +2755,13 @@ function formatContextWindow(detail) {
 function buildCostRows(recordMap, modelDetailsIndex, options) {
   const rows = Object.entries(recordMap || {})
     .map(([key, bucket]) => {
-      const normalizedKey = String(key || '');
-      const detail = modelDetailsIndex[normalizedKey] || modelDetailsIndex[normalizedKey.split('/').pop() || ''] || null;
+      const rawKey = String(key || '');
+      const normalizedKey = options?.type === 'model' ? normalizeCostModelKey(rawKey) : rawKey;
+      const detail = options?.type === 'model'
+        ? (buildCostModelAliases(normalizedKey)
+          .map((alias) => modelDetailsIndex[alias] || null)
+          .find(Boolean) || null)
+        : null;
       const estimatedSpend = options?.type === 'model' ? estimateModelSpend(bucket, detail) : null;
       return { key: normalizedKey, bucket: bucket || {}, detail, estimatedSpend };
     })

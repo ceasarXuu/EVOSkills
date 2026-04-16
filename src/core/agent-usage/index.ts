@@ -28,6 +28,54 @@ export interface AgentUsageSummary {
   }>;
 }
 
+export function normalizeAgentUsageModelId(model: string): string {
+  const segments = String(model || '')
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (segments.length === 0) return '';
+
+  while (segments.length >= 3 && segments[0].toLowerCase() === segments[1].toLowerCase()) {
+    segments.splice(1, 1);
+  }
+
+  return segments.join('/');
+}
+
+export function buildAgentUsageModelId(provider: string, modelName: string): string {
+  const normalizedProvider = String(provider || '').trim();
+  const normalizedModel = normalizeAgentUsageModelId(modelName);
+  if (!normalizedProvider) return normalizedModel;
+  if (!normalizedModel) return normalizedProvider;
+
+  const modelSegments = normalizedModel.split('/').filter(Boolean);
+  if (modelSegments[0]?.toLowerCase() === normalizedProvider.toLowerCase()) {
+    return normalizedModel;
+  }
+
+  return normalizeAgentUsageModelId(`${normalizedProvider}/${normalizedModel}`);
+}
+
+function mergeByModelBucket(
+  target: AgentUsageSummary['byModel'],
+  key: string,
+  item: Partial<AgentUsageSummary['byModel'][string]>
+): void {
+  if (!key) return;
+  if (!target[key]) {
+    target[key] = {
+      callCount: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    };
+  }
+  target[key].callCount += typeof item.callCount === 'number' ? item.callCount : 0;
+  target[key].promptTokens += typeof item.promptTokens === 'number' ? item.promptTokens : 0;
+  target[key].completionTokens += typeof item.completionTokens === 'number' ? item.completionTokens : 0;
+  target[key].totalTokens += typeof item.totalTokens === 'number' ? item.totalTokens : 0;
+}
+
 function emptySummary(): AgentUsageSummary {
   return {
     updatedAt: new Date().toISOString(),
@@ -71,9 +119,16 @@ export function readAgentUsageSummary(projectPath: string): AgentUsageSummary | 
     summary.promptTokens = typeof parsed.promptTokens === 'number' ? parsed.promptTokens : 0;
     summary.completionTokens = typeof parsed.completionTokens === 'number' ? parsed.completionTokens : 0;
     summary.totalTokens = typeof parsed.totalTokens === 'number' ? parsed.totalTokens : 0;
-    summary.byModel = parsed.byModel && typeof parsed.byModel === 'object'
-      ? parsed.byModel as AgentUsageSummary['byModel']
-      : {};
+    if (parsed.byModel && typeof parsed.byModel === 'object') {
+      for (const [key, value] of Object.entries(parsed.byModel)) {
+        if (!value || typeof value !== 'object') continue;
+        mergeByModelBucket(
+          summary.byModel,
+          normalizeAgentUsageModelId(key),
+          value as Partial<AgentUsageSummary['byModel'][string]>
+        );
+      }
+    }
 
     const rawByScope = parsed.byScope && typeof parsed.byScope === 'object'
       ? parsed.byScope as Partial<AgentUsageSummary['byScope']>
@@ -108,11 +163,22 @@ export function recordAgentUsage(
   projectPath: string,
   record: Omit<AgentUsageRecord, 'id' | 'timestamp'>
 ): void {
+  const normalizedModel = normalizeAgentUsageModelId(record.model);
+  if (normalizedModel && normalizedModel !== record.model) {
+    logger.warn('Normalized agent usage model id before persistence', {
+      projectPath,
+      originalModel: record.model,
+      normalizedModel,
+      scope: record.scope,
+      eventId: record.eventId,
+    });
+  }
   const writer = new NDJSONWriter<AgentUsageRecord>(join(projectPath, '.ornn', 'state', 'agent-usage.ndjson'));
   writer.append({
     id: randomUUID(),
     timestamp: new Date().toISOString(),
     ...record,
+    model: normalizedModel,
   });
 
   const summary = readAgentUsageSummary(projectPath) ?? emptySummary();
@@ -122,18 +188,18 @@ export function recordAgentUsage(
   summary.completionTokens += record.completionTokens;
   summary.totalTokens += record.totalTokens;
 
-  if (!summary.byModel[record.model]) {
-    summary.byModel[record.model] = {
+  if (!summary.byModel[normalizedModel]) {
+    summary.byModel[normalizedModel] = {
       callCount: 0,
       promptTokens: 0,
       completionTokens: 0,
       totalTokens: 0,
     };
   }
-  summary.byModel[record.model].callCount += 1;
-  summary.byModel[record.model].promptTokens += record.promptTokens;
-  summary.byModel[record.model].completionTokens += record.completionTokens;
-  summary.byModel[record.model].totalTokens += record.totalTokens;
+  summary.byModel[normalizedModel].callCount += 1;
+  summary.byModel[normalizedModel].promptTokens += record.promptTokens;
+  summary.byModel[normalizedModel].completionTokens += record.completionTokens;
+  summary.byModel[normalizedModel].totalTokens += record.totalTokens;
 
   if (!summary.byScope[record.scope]) {
     summary.byScope[record.scope] = {
@@ -155,7 +221,7 @@ export function recordAgentUsage(
     scope: record.scope,
     eventId: record.eventId,
     skillId: record.skillId,
-    model: record.model,
+    model: normalizedModel,
     totalTokens: record.totalTokens,
     cumulativeCalls: summary.callCount,
   });

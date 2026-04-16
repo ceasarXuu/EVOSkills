@@ -18,7 +18,7 @@ import { basename, join } from 'node:path';
 import { homedir } from 'node:os';
 import type { ShadowEntry } from '../core/shadow-registry/index.js';
 import type { DecisionEventRecord } from '../core/decision-events/index.js';
-import type { AgentUsageSummary } from '../core/agent-usage/index.js';
+import { normalizeAgentUsageModelId, type AgentUsageSummary } from '../core/agent-usage/index.js';
 import type { TaskEpisodeSnapshot } from '../core/task-episode/index.js';
 import type { AgentUsageRecord, Trace } from '../types/index.js';
 import {
@@ -863,6 +863,7 @@ function normalizeUsageBucketMap(input: Record<string, unknown>): Record<string,
   for (const [key, value] of Object.entries(input)) {
     if (!value || typeof value !== 'object') continue;
     const item = value as Partial<AgentUsageBucket>;
+    const normalizedKey = normalizeAgentUsageModelId(key) || key;
     const bucket = emptyUsageBucket();
     bucket.callCount = typeof item.callCount === 'number' ? item.callCount : 0;
     bucket.promptTokens = typeof item.promptTokens === 'number' ? item.promptTokens : 0;
@@ -873,13 +874,26 @@ function normalizeUsageBucketMap(input: Record<string, unknown>): Record<string,
       ? item.avgDurationMs
       : (bucket.callCount > 0 ? Math.round(bucket.durationMsTotal / bucket.callCount) : 0);
     bucket.lastCallAt = typeof item.lastCallAt === 'string' ? item.lastCallAt : null;
-    out[key] = bucket;
+    const existing = out[normalizedKey];
+    if (existing) {
+      existing.callCount += bucket.callCount;
+      existing.promptTokens += bucket.promptTokens;
+      existing.completionTokens += bucket.completionTokens;
+      existing.totalTokens += bucket.totalTokens;
+      existing.durationMsTotal += bucket.durationMsTotal;
+      if (bucket.lastCallAt && (!existing.lastCallAt || bucket.lastCallAt > existing.lastCallAt)) {
+        existing.lastCallAt = bucket.lastCallAt;
+      }
+      existing.avgDurationMs = existing.callCount > 0 ? Math.round(existing.durationMsTotal / existing.callCount) : 0;
+      continue;
+    }
+    out[normalizedKey] = bucket;
   }
   return out;
 }
 
 function ingestUsageRecord(stats: AgentUsageStats, record: Partial<AgentUsageRecord>): void {
-  const model = typeof record.model === 'string' ? record.model.trim() : '';
+  const model = typeof record.model === 'string' ? normalizeAgentUsageModelId(record.model) : '';
   const scope = typeof record.scope === 'string' ? record.scope.trim() : '';
   const skillId = typeof record.skillId === 'string' ? record.skillId.trim() : '';
   if (!model || !scope) return;

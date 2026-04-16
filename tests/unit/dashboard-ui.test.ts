@@ -929,6 +929,73 @@ describe('dashboard ui recovery', () => {
     expect(html).not.toContain('class="cost-hero-pill"');
   });
 
+  it('prices cost rows even when usage model ids contain duplicated provider prefixes', () => {
+    const { dashboard, getElement } = loadDashboardTestHarness();
+    const projectPath = '/tmp/ornn-project';
+
+    getElement('mainPanel');
+    dashboard.state.selectedMainTab = 'cost';
+    dashboard.state.selectedProjectId = projectPath;
+    dashboard.state.providerCatalog = [{
+      id: 'deepseek',
+      name: 'deepseek',
+      models: ['deepseek/deepseek-reasoner'],
+      modelDetails: [{
+        id: 'deepseek/deepseek-reasoner',
+        mode: 'chat',
+        maxInputTokens: 64000,
+        maxOutputTokens: 8000,
+        inputCostPerToken: 0.00000055,
+        outputCostPerToken: 0.00000219,
+        supportsReasoning: true,
+        supportsFunctionCalling: true,
+        supportsPromptCaching: false,
+        supportsStructuredOutput: true,
+        supportsVision: false,
+        supportsWebSearch: false,
+      }],
+      defaultModel: 'deepseek/deepseek-reasoner',
+      apiKeyEnvVar: 'DEEPSEEK_API_KEY',
+    }];
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+        decisionEvents: [],
+        agentUsage: {
+          callCount: 12,
+          promptTokens: 120000,
+          completionTokens: 30000,
+          totalTokens: 150000,
+          durationMsTotal: 24000,
+          avgDurationMs: 2000,
+          lastCallAt: '2026-04-10T05:23:00.000Z',
+          byModel: {
+            'deepseek/deepseek/deepseek-reasoner': {
+              callCount: 12,
+              promptTokens: 120000,
+              completionTokens: 30000,
+              totalTokens: 150000,
+              durationMsTotal: 24000,
+              avgDurationMs: 2000,
+              lastCallAt: '2026-04-10T05:23:00.000Z',
+            },
+          },
+          byScope: {},
+          bySkill: {},
+        },
+      },
+    };
+
+    dashboard.renderMainPanel(projectPath);
+    const html = getElement('mainPanel').innerHTML;
+    expect(html).toContain('deepseek/deepseek-reasoner');
+    expect(html).toContain('$0.13');
+    expect(html).not.toContain('deepseek/deepseek/deepseek-reasoner');
+  });
+
   it('renders the richer cost tab with fully localized English copy', () => {
     const { dashboard, getElement } = loadDashboardTestHarness({}, { lang: 'en' });
     const projectPath = '/tmp/ornn-project';

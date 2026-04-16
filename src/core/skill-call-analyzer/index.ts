@@ -1,7 +1,7 @@
 import { createChildLogger } from '../../utils/logger.js';
 import { createLiteLLMClient } from '../../llm/litellm-client.js';
 import { readDashboardConfig } from '../../config/manager.js';
-import { recordAgentUsage } from '../agent-usage/index.js';
+import { buildAgentUsageModelId, recordAgentUsage } from '../agent-usage/index.js';
 import { readProjectLanguage } from '../../dashboard/language-state.js';
 import type { Language } from '../../dashboard/i18n.js';
 import {
@@ -430,7 +430,7 @@ export class SkillCallAnalyzer {
       maxTokens: 1600,
     });
     const prompt = buildPrompt(window, skillContent, lang);
-    const model = `${activeProvider.provider}/${activeProvider.modelName}`;
+    const model = buildAgentUsageModelId(activeProvider.provider, activeProvider.modelName);
     const started = Date.now();
 
     try {

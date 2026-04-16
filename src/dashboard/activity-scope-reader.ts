@@ -227,6 +227,17 @@ function buildAnalysisFailedNode(event: DecisionEventRecord): ActivityScopeTimel
   };
 }
 
+function buildCloseSummary(kind: 'no_optimization' | 'optimization_completed', lang: Language): string {
+  if (lang === 'zh') {
+    return kind === 'no_optimization'
+      ? '本轮已判定无需优化，当前 scope 已关闭。'
+      : '本轮优化已执行完成，当前 scope 已关闭。';
+  }
+  return kind === 'no_optimization'
+    ? 'This scope is now closed because the current window was concluded as no optimization needed.'
+    : 'This scope is now closed because the optimization for the current window has completed.';
+}
+
 function buildTraceLookup(traces: Trace[]): Map<string, Trace> {
   const lookup = new Map<string, Trace>();
   for (const trace of traces) {
@@ -331,7 +342,7 @@ export function buildActivityScopeDetailFromData(
           id: `no-optimization:${evaluationResult.id}`,
           type: 'no_optimization',
           timestamp: evaluationResult.timestamp || '',
-          summary: String(evaluationResult.detail || evaluationResult.reason || '').trim(),
+          summary: buildCloseSummary('no_optimization', input.lang),
         });
       }
       continue;
@@ -356,7 +367,7 @@ export function buildActivityScopeDetailFromData(
         id: `optimization-completed:${patchApplied.id}`,
         type: 'optimization_completed',
         timestamp: patchApplied.timestamp || '',
-        summary: String(patchApplied.detail || '').trim(),
+        summary: buildCloseSummary('optimization_completed', input.lang),
       });
     }
   }

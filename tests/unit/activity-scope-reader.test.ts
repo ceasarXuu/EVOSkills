@@ -314,8 +314,69 @@ describe('activity scope reader', () => {
       outcome: 'apply_optimization',
     });
     expect(detail?.timeline[3]).toMatchObject({
-      summary: '已完成本轮优化并写回 shadow skill。revision=3',
+      summary: '本轮优化已执行完成，当前 scope 已关闭。',
     });
+  });
+
+  it('does not duplicate the analysis conclusion inside the no-optimization close node', () => {
+    const detail = buildActivityScopeDetailFromData({
+      lang: 'zh',
+      projectName: 'ornn-project',
+      episode: makeEpisode({
+        state: 'closed',
+        analysisStatus: 'completed',
+        lastActivityAt: '2026-04-16T00:02:20.000Z',
+      }),
+      decisionEvents: [
+        makeDecisionEvent({
+          id: 'event-submit',
+          episodeId: 'episode-1',
+          timestamp: '2026-04-16T00:01:10.000Z',
+          traceCount: 2,
+        }),
+        makeDecisionEvent({
+          id: 'event-eval',
+          episodeId: 'episode-1',
+          tag: 'evaluation_result',
+          status: 'no_patch_needed',
+          timestamp: '2026-04-16T00:02:20.000Z',
+          detail: '窗口分析结论：当前窗口内技能调用正确，无需优化。',
+          reason: '窗口分析结论：当前窗口内技能调用正确，无需优化。',
+        }),
+      ],
+      agentUsageRecords: [
+        {
+          id: 'usage-1',
+          timestamp: '2026-04-16T00:02:19.000Z',
+          scope: 'skill_call_analyzer',
+          eventId: 'sess-1::test-driven-development',
+          skillId: 'test-driven-development',
+          model: 'deepseek/deepseek-reasoner',
+          promptTokens: 100,
+          completionTokens: 50,
+          totalTokens: 150,
+          durationMs: 3000,
+          episodeId: 'episode-1',
+          triggerTraceId: 'trace-2',
+          windowId: 'sess-1::test-driven-development',
+        } as AgentUsageRecord,
+      ],
+      traces: [
+        makeTrace('trace-1', '2026-04-16T00:00:00.000Z'),
+        makeTrace('trace-2', '2026-04-16T00:01:00.000Z'),
+      ],
+    });
+
+    expect(detail?.timeline.map((node) => node.type)).toEqual([
+      'skill_called',
+      'analysis_submitted',
+      'analysis_result',
+      'no_optimization',
+    ]);
+    expect(detail?.timeline[2]?.summary).toBe('窗口分析结论：当前窗口内技能调用正确，无需优化。');
+    expect(detail?.timeline[3]?.summary).not.toBe(detail?.timeline[2]?.summary);
+    expect(detail?.timeline[3]?.summary).toContain('本轮');
+    expect(detail?.timeline[3]?.summary).toContain('关闭');
   });
 
   it('keeps failed analysis detail visible inside the observing scope timeline', () => {

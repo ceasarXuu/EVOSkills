@@ -3,6 +3,7 @@ import {
   applyProbeResultToEpisode,
   markEpisodeAnalysisState,
   shouldTriggerEpisodeProbe,
+  synchronizeEpisodeWithTrace,
 } from '../../src/core/task-episode-policy/index.js';
 import type {
   ProbeTriggerDecision,
@@ -127,5 +128,54 @@ describe('task-episode-policy', () => {
     expect(episode.state).toBe('closed');
     expect(episode.analysisStatus).toBe('completed');
     expect(episode.skillSegments[0]?.status).toBe('closed');
+  });
+
+  it('does not silently backfill older session traces when a later mapped trace arrives', () => {
+    const episode = {
+      ...makeEpisode(),
+      traceRefs: ['trace-1'],
+      turnIds: ['turn-1'],
+      skillSegments: [
+        {
+          ...makeEpisode().skillSegments[0]!,
+          firstMappedTraceId: 'trace-1',
+          lastRelatedTraceId: 'trace-1',
+          mappedTraceIds: ['trace-1'],
+          relatedTraceIds: ['trace-1'],
+        },
+      ],
+      stats: {
+        totalTraceCount: 1,
+        totalTurnCount: 1,
+        mappedTraceCount: 1,
+        tracesSinceLastProbe: 1,
+        turnsSinceLastProbe: 1,
+      },
+    };
+    const laterMappedTrace: Trace = {
+      ...makeTrace('tool_call'),
+      trace_id: 'trace-3',
+      turn_id: 'turn-3',
+      timestamp: '2026-04-14T00:00:13.000Z',
+    };
+    const unseenContextTrace: Trace = {
+      ...makeTrace('assistant_output'),
+      trace_id: 'trace-2',
+      turn_id: 'turn-2',
+      timestamp: '2026-04-14T00:00:12.000Z',
+      assistant_output: 'intermediate output',
+    };
+
+    synchronizeEpisodeWithTrace(
+      episode,
+      laterMappedTrace,
+      { skillId: 'test-skill', shadowId: 'codex::test-skill@/tmp/project', runtime: 'codex' },
+      [makeTrace('tool_call'), unseenContextTrace, laterMappedTrace]
+    );
+
+    expect(episode.traceRefs).toEqual(['trace-1', 'trace-3']);
+    expect(episode.turnIds).toEqual(['turn-1', 'turn-3']);
+    expect(episode.skillSegments[0]?.mappedTraceIds).toEqual(['trace-1', 'trace-3']);
+    expect(episode.skillSegments[0]?.relatedTraceIds).toEqual(['trace-1', 'trace-3']);
   });
 });

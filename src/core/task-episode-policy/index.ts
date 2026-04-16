@@ -128,24 +128,16 @@ export function synchronizeEpisodeWithTrace(
   context: TaskEpisodeTraceContext,
   sessionTraces: Trace[]
 ): void {
-  const normalizedSessionTraces = sessionTraces.length > 0 ? sessionTraces : [trace];
-  const relevantSessionTraces = normalizedSessionTraces.filter((sessionTrace) =>
-    isTraceWithinEpisodeWindow(episode, sessionTrace)
-  );
-
-  for (const sessionTrace of relevantSessionTraces) {
-    pushUnique(episode.sessionIds, sessionTrace.session_id);
-    pushUnique(episode.traceRefs, sessionTrace.trace_id);
-    pushUnique(episode.turnIds, sessionTrace.turn_id);
-  }
+  const normalizedTrace = sessionTraces.find((sessionTrace) => sessionTrace.trace_id === trace.trace_id) ?? trace;
+  pushUnique(episode.sessionIds, normalizedTrace.session_id);
+  pushUnique(episode.traceRefs, normalizedTrace.trace_id);
+  pushUnique(episode.turnIds, normalizedTrace.turn_id);
   episode.lastActivityAt = trace.timestamp;
 
   const segment = episode.skillSegments.find((item) => item.skillId === context.skillId) ?? episode.skillSegments[0];
   pushUnique(segment.mappedTraceIds, trace.trace_id);
-  for (const sessionTrace of relevantSessionTraces) {
-    pushUnique(segment.relatedTraceIds, sessionTrace.trace_id);
-  }
-  segment.lastRelatedTraceId = relevantSessionTraces[relevantSessionTraces.length - 1]?.trace_id ?? trace.trace_id;
+  pushUnique(segment.relatedTraceIds, normalizedTrace.trace_id);
+  segment.lastRelatedTraceId = normalizedTrace.trace_id;
   segment.lastActivityAt = trace.timestamp;
   segment.status = episode.analysisStatus === 'running' ? 'analyzing' : 'active';
 

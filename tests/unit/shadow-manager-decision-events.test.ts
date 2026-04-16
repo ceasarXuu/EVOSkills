@@ -49,6 +49,22 @@ function makeTrace(traceId: string, projectRoot: string, index = 0): Trace {
   };
 }
 
+function makeMixedTrace(traceId: string, projectRoot: string, index: number, mapped: boolean): Trace {
+  return {
+    trace_id: traceId,
+    session_id: 'sess-mixed',
+    turn_id: `turn-${index}`,
+    runtime: 'codex',
+    event_type: mapped ? 'tool_call' : 'assistant_output',
+    tool_name: mapped ? 'exec_command' : undefined,
+    tool_args: mapped ? { cmd: `cat ${projectRoot}/.agents/skills/test-skill/SKILL.md` } : undefined,
+    assistant_output: mapped ? undefined : `context ${index}`,
+    status: 'success',
+    timestamp: new Date(Date.UTC(2026, 3, 11, 9, 0, index)).toISOString(),
+    metadata: mapped ? { skill_id: 'test-skill' } : undefined,
+  };
+}
+
 describe('ShadowManager decision events', () => {
   const testProjectPath = join(tmpdir(), `ornn-shadow-manager-events-${Date.now()}`);
 
@@ -291,5 +307,46 @@ describe('ShadowManager decision events', () => {
       changeType: 'prune_noise',
     });
     expect(events[1].detail).toContain('缺少 target_section');
+  });
+
+  it('records window trace counts from the scoped episode window instead of the full session backlog', async () => {
+    analyzeWindowMock.mockResolvedValue({
+      success: true,
+      model: 'deepseek/deepseek-chat',
+      decision: 'need_more_context',
+      userMessage: '当前窗口证据仍不足，继续等待更多上下文。',
+      nextWindowHint: {
+        suggestedTraceDelta: 8,
+        suggestedTurnDelta: 2,
+        waitForEventTypes: [],
+        mode: 'count_driven',
+      },
+      tokenUsage: {
+        promptTokens: 90,
+        completionTokens: 40,
+        totalTokens: 130,
+      },
+    });
+
+    const manager = createShadowManager(testProjectPath);
+    await manager.init();
+
+    for (let index = 1; index <= 9; index += 1) {
+      await manager.processTrace(makeMixedTrace(`trace-pre-${index}`, testProjectPath, index, false));
+    }
+    await manager.processTrace(makeMixedTrace('trace-start', testProjectPath, 10, true));
+    for (let index = 11; index <= 19; index += 1) {
+      await manager.processTrace(makeMixedTrace(`trace-context-${index}`, testProjectPath, index, false));
+    }
+
+    const requested = readDecisionEvents(testProjectPath).find(
+      (event) => event.tag === 'analysis_requested' && event.sessionId === 'sess-mixed'
+    );
+    expect(requested).toMatchObject({
+      traceId: 'trace-context-19',
+      traceCount: 10,
+      sessionId: 'sess-mixed',
+      windowId: 'sess-mixed::test-skill',
+    });
   });
 });

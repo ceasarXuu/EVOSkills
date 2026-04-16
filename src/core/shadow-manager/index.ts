@@ -437,10 +437,19 @@ export class ShadowManager {
 
     const windowTraces = this.buildEpisodeWindowTraces(episode, sessionTraces);
     const window = this.buildSkillCallWindow(episode, windowTraces, context);
+    const anchorTrace = windowTraces[windowTraces.length - 1]
+      ?? sessionTraces.find((item) => item.trace_id === context.traceId)
+      ?? sessionTraces[sessionTraces.length - 1];
+    const scopedContext = buildActivityEventContext({
+      episodeId: episode.episodeId,
+      shadowId,
+      trace: anchorTrace!,
+      traces: windowTraces.length > 0 ? windowTraces : (anchorTrace ? [anchorTrace] : []),
+    });
     this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'running');
     this.daemonStatus.setAnalyzing(context.skillId);
     this.decisionEvents.record(buildAnalysisRequestedEvent({
-      context,
+      context: scopedContext,
       evaluation: null,
       detail: this.describeProbeRequest(trigger).replace('时机探测', '窗口分析'),
       status: 'window_ready',
@@ -470,7 +479,7 @@ export class ShadowManager {
       this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'failed');
       this.daemonStatus.setError(context.skillId, result.detail);
       this.decisionEvents.record(buildAnalysisFailedEvent({
-        context,
+        context: scopedContext,
         detail: result.detail,
         evaluation: result.evaluation ?? null,
         reason: result.reasonCode,
@@ -487,7 +496,7 @@ export class ShadowManager {
       this.taskEpisodes.applyNeedMoreContextHint(episode.episodeId, result.nextWindowHint);
       this.decisionEvents.record(buildEvaluationResultEvent({
         shadowId,
-        context,
+        context: scopedContext,
         status: 'continue_collecting',
         detail: result.detail,
         evaluation: result.evaluation,
@@ -499,19 +508,19 @@ export class ShadowManager {
     if (result.kind === 'no_optimization') {
       this.decisionEvents.record(buildEvaluationResultEvent({
         shadowId,
-        context,
+        context: scopedContext,
         status: 'no_patch_needed',
         detail: result.detail,
         evaluation: result.evaluation,
       }));
-      await this.recordSkillFeedback(context, result.evaluation, windowTraces);
+      await this.recordSkillFeedback(scopedContext, result.evaluation, windowTraces);
       this.taskEpisodes.markAnalysisState(context.sessionId, context.skillId, context.runtime, 'completed');
       this.daemonStatus.setIdle();
       return;
     }
 
-    await this.recordSkillFeedback(context, result.evaluation, windowTraces);
-    await this.handleEvaluation(shadowId, result.evaluation, windowTraces, context, {
+    await this.recordSkillFeedback(scopedContext, result.evaluation, windowTraces);
+    await this.handleEvaluation(shadowId, result.evaluation, windowTraces, scopedContext, {
       skipAnalysisRequested: true,
       closeOnSkip: true,
     });

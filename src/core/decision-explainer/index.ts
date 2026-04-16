@@ -10,6 +10,7 @@ import { extractJsonObject } from '../../utils/json-response.js';
 import type { DecisionEventEvidence, EvaluationResult, Trace } from '../../types/index.js';
 
 const logger = createChildLogger('decision-explainer');
+const MAX_DECISION_EXPLAINER_ATTEMPTS = 2;
 
 export interface DecisionExplanationResult {
   summary: string;
@@ -123,6 +124,15 @@ function parseResponse(
   };
 }
 
+function buildRetrySystemPrompt(basePrompt: string, lang: Language): string {
+  return [
+    basePrompt,
+    lang === 'zh'
+      ? '上一轮输出未返回有效 JSON。这一轮必须只返回单个 JSON 对象，不要附加 Markdown、解释文字或代码块围栏。'
+      : 'The previous reply was not valid JSON. Retry and return only one JSON object with no markdown, prose, or code fences.',
+  ].join('\n');
+}
+
 function buildFallbackExplanation(skillId: string, evaluation: EvaluationResult): DecisionExplanationResult {
   return {
     summary: evaluation.reason || `Decision recorded for ${skillId}.`,
@@ -181,38 +191,57 @@ export async function generateDecisionExplanation(
   const started = Date.now();
 
   try {
-    const raw = await client.completion({
-      prompt: prompt.userPrompt,
-      systemPrompt: prompt.systemPrompt,
-      temperature: 0.1,
-      maxTokens: 1200,
-      timeout: 30000,
-      responseFormat: 'json_object',
-    });
-    const usage = client.getTokenUsage();
-    recordAgentUsage(projectPath, {
-      scope: 'decision_explainer',
-      eventId: skillId,
-      skillId,
-      model,
-      promptTokens: usage.promptTokens,
-      completionTokens: usage.completionTokens,
-      totalTokens: usage.totalTokens,
-      durationMs: Date.now() - started,
-    });
+    for (let attempt = 1; attempt <= MAX_DECISION_EXPLAINER_ATTEMPTS; attempt += 1) {
+      const raw = await client.completion({
+        prompt: prompt.userPrompt,
+        systemPrompt: attempt === 1
+          ? prompt.systemPrompt
+          : buildRetrySystemPrompt(prompt.systemPrompt, lang),
+        temperature: attempt === 1 ? 0.1 : 0,
+        maxTokens: 1200,
+        timeout: 30000,
+        responseFormat: 'json_object',
+      });
+      const usage = client.getTokenUsage();
+      recordAgentUsage(projectPath, {
+        scope: 'decision_explainer',
+        eventId: skillId,
+        skillId,
+        model,
+        promptTokens: usage.promptTokens,
+        completionTokens: usage.completionTokens,
+        totalTokens: usage.totalTokens,
+        durationMs: Date.now() - started,
+      });
 
-    const jsonText = extractJsonObject(raw);
-    if (!jsonText) {
+      const jsonText = extractJsonObject(raw);
+      if (jsonText) {
+        const payload = JSON.parse(jsonText) as Record<string, unknown>;
+        return parseResponse(payload, fallback, lang);
+      }
+
+      const rawExcerpt = truncate(String(raw || '').replace(/\s+/g, ' ').trim(), 240);
+      if (attempt < MAX_DECISION_EXPLAINER_ATTEMPTS) {
+        logger.debug('Decision explanation returned non-json response, retrying', {
+          projectPath,
+          skillId,
+          model,
+          attempt,
+          rawExcerpt,
+        });
+        continue;
+      }
+
       logger.warn('Decision explanation failed to return JSON', {
         projectPath,
         skillId,
         model,
+        attempts: MAX_DECISION_EXPLAINER_ATTEMPTS,
+        rawExcerpt,
       });
       return fallback;
     }
-
-    const payload = JSON.parse(jsonText) as Record<string, unknown>;
-    return parseResponse(payload, fallback, lang);
+    return fallback;
   } catch (error) {
     logger.warn('Decision explanation failed, using fallback', {
       projectPath,

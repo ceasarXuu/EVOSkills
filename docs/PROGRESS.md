@@ -15,6 +15,9 @@
 
 ### 2026-04-17
 
+- ✅ 降低 observer / decision-explainer 告警噪音：`CodexObserver` 现在会对同一路径的连续 reconciliation 大增量恢复做冷却节流，避免同一活跃 session 每隔几秒重复刷 warn；`decision-explainer` 在第一次拿不到有效 JSON 时会自动带强约束再重试一次，并把最终失败日志补上原始响应摘要，减少无信息量 warn
+- 📝 记录调试经验：实时监听链路里的恢复告警不能只看“有没有补偿”，还要看“同一问题是否在短时间内重复刷屏”；对于这类连续恢复，warn 更应该表达“进入异常状态”，而不是把每次补偿都单独记成新的故障
+- 📝 记录协议经验：要求模型输出 JSON 的链路，第一次解析失败时不要立刻放弃；先用更严格的“只返回 JSON 对象”约束重试一次，通常能显著降低 reasoning 模型偶发吐出 prose / markdown 的概率
 - ✅ 从协议层根治 dashboard SSE 大包：steady-state `/events` 广播不再内嵌 `projectData`，只发送 `projects / logs / changedProjects`；前端改成按需刷新当前选中项目的 `/snapshot`，非当前项目只标记为 stale，等真正切换过去时再拉详情
 - 📝 记录架构经验：SSE 最怕把“全量详情”当成实时协议本体。正确边界应该是“推变更信号，拉详细快照”；只要把重对象放回按需 HTTP 读取，连接数增长时成本才会近似保持常数级，而不是被 `客户端数 × 项目数 × 快照体积` 成倍放大
 - ✅ 二次收紧 dashboard SSE 快照预算：项目 snapshot 的 `decisionEvents` 窗口从 150 收到 35，`recentTraces` 窗口收紧到 30，并把 snapshot 内 `skills` 条目瘦身为 UI 真正使用的字段；当前双项目合并 `projectData` 体积已从约 291KB 降回约 128KB 内

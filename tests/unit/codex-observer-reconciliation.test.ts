@@ -59,4 +59,46 @@ describe('CodexObserver reconciliation logging', () => {
       })
     );
   });
+
+  it('rate limits repeated reconciliation warnings for the same active session file', async () => {
+    const sessionsDir = join(testDir, 'sessions');
+    mkdirSync(join(sessionsDir, '2026', '04', '16'), { recursive: true });
+    const sessionPath = join(sessionsDir, '2026', '04', '16', 'rollout-2026-04-16T00-00-00-session.jsonl');
+    writeFileSync(sessionPath, 'x'.repeat(90000), 'utf-8');
+
+    const { CodexObserver } = await import('../../src/core/observer/codex-observer.js');
+    const observer = new CodexObserver(sessionsDir);
+
+    const nowSpy = vi.spyOn(Date, 'now');
+    nowSpy
+      .mockReturnValueOnce(1000)
+      .mockReturnValueOnce(4000);
+
+    (observer as any).processedFiles.add(sessionPath);
+    (observer as any).processedByteOffset.set(sessionPath, 0);
+    (observer as any).listRecentSessionFiles = () => [sessionPath];
+    (observer as any).processSessionFileInternal = vi.fn();
+
+    (observer as any).reconcileRecentSessionGrowth(1);
+    (observer as any).reconcileRecentSessionGrowth(1);
+
+    const warnCalls = loggerMocks.warn.mock.calls.filter(
+      ([message]) => message === 'Recovered missed session file growth during reconciliation'
+    );
+    const debugCalls = loggerMocks.debug.mock.calls.filter(
+      ([message]) => message === 'Recovered missed session file growth during reconciliation'
+    );
+
+    expect(warnCalls).toHaveLength(1);
+    expect(debugCalls).toContainEqual([
+      'Recovered missed session file growth during reconciliation',
+      expect.objectContaining({
+        path: sessionPath,
+        previousOffset: 0,
+        currentSize: 90000,
+        deltaBytes: 90000,
+        suppressedRepeatedWarning: true,
+      }),
+    ]);
+  });
 });

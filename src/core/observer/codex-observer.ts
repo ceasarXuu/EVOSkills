@@ -48,12 +48,14 @@ export class CodexObserver extends BaseObserver {
   private processedByteOffset: Map<string, number> = new Map();
   private pendingLineFragment: Map<string, string> = new Map();
   private sessionProjectPaths: Map<string, string> = new Map();
+  private reconciliationWarnState: Map<string, { lastWarnAt: number; suppressedWarnCount: number }> = new Map();
   // 启动恢复只保留极小窗口，避免把历史长会话一次性灌回优化链路。
   private readonly bootstrapFileLimit = 1;
   private readonly bootstrapTailLineLimit = 10;
   private readonly reconciliationFileLimit = 3;
   private readonly reconciliationIntervalMs = 3000;
   private readonly reconciliationWarnDeltaBytes = 65536;
+  private readonly reconciliationWarnCooldownMs = 60000;
   private readonly readChunkSize = 65536;
   private readonly maxMessageChars = 8000;
   private readonly maxStructuredPreviewChars = 4000;
@@ -138,6 +140,7 @@ export class CodexObserver extends BaseObserver {
     this.processedByteOffset.clear();
     this.pendingLineFragment.clear();
     this.sessionProjectPaths.clear();
+    this.reconciliationWarnState.clear();
     logger.info('Codex observer stopped');
   }
 
@@ -198,7 +201,59 @@ export class CodexObserver extends BaseObserver {
     this.processedFiles.delete(path);
     this.processedByteOffset.delete(path);
     this.pendingLineFragment.delete(path);
+    this.reconciliationWarnState.delete(path);
     logger.debug('Session file removed from observer tracking', { path });
+  }
+
+  private logReconciliationRecovery(
+    sessionId: string,
+    path: string,
+    previousOffset: number,
+    currentSize: number,
+    deltaBytes: number
+  ): void {
+    if (deltaBytes <= this.reconciliationWarnDeltaBytes) {
+      logger.debug('Recovered missed session file growth during reconciliation', {
+        sessionId,
+        path,
+        previousOffset,
+        currentSize,
+        deltaBytes,
+      });
+      return;
+    }
+
+    const now = Date.now();
+    const previousWarn = this.reconciliationWarnState.get(path);
+    if (previousWarn && now - previousWarn.lastWarnAt < this.reconciliationWarnCooldownMs) {
+      previousWarn.suppressedWarnCount += 1;
+      this.reconciliationWarnState.set(path, previousWarn);
+      logger.debug('Recovered missed session file growth during reconciliation', {
+        sessionId,
+        path,
+        previousOffset,
+        currentSize,
+        deltaBytes,
+        suppressedRepeatedWarning: true,
+        suppressedWarnCount: previousWarn.suppressedWarnCount,
+      });
+      return;
+    }
+
+    this.reconciliationWarnState.set(path, {
+      lastWarnAt: now,
+      suppressedWarnCount: 0,
+    });
+    logger.warn('Recovered missed session file growth during reconciliation', {
+      sessionId,
+      path,
+      previousOffset,
+      currentSize,
+      deltaBytes,
+      ...(previousWarn && previousWarn.suppressedWarnCount > 0
+        ? { suppressedWarnCount: previousWarn.suppressedWarnCount }
+        : {}),
+    });
   }
 
   /**
@@ -269,17 +324,13 @@ export class CodexObserver extends BaseObserver {
           previousOffset === undefined
             ? currentSize
             : Math.max(currentSize - previousOffset, 0);
-        const log =
-          previousOffset !== undefined && deltaBytes <= this.reconciliationWarnDeltaBytes
-            ? logger.debug.bind(logger)
-            : logger.warn.bind(logger);
-        log('Recovered missed session file growth during reconciliation', {
+        this.logReconciliationRecovery(
           sessionId,
           path,
-          previousOffset: previousOffset ?? 0,
+          previousOffset ?? 0,
           currentSize,
           deltaBytes,
-        });
+        );
         this.processSessionFileInternal(path);
       }
     }

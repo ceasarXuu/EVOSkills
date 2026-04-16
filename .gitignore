@@ -62,3 +62,6 @@ show-my-repo/
 
 # Planning and temporary files
 .sisyphus/
+
+# External repo exploration sandboxes
+.external/

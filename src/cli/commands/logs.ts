@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { existsSync, readFileSync, statSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, statSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { printErrorAndExit } from '../../utils/error-helper.js';
 import {
@@ -8,6 +8,10 @@ import {
   formatRelativeTime,
   levelIcon,
 } from '../../utils/cli-formatters.js';
+import {
+  readRecentRotatingLogEntries,
+  type GlobalLogEntry,
+} from '../../utils/global-log-source.js';
 
 interface LogOptions {
   project: string;
@@ -17,69 +21,58 @@ interface LogOptions {
   follow?: boolean;
 }
 
-interface ParsedLogEntry {
-  timestamp: string;
-  level: string;
-  context: string;
-  message: string;
-  raw: string;
+type ParsedLogEntry = GlobalLogEntry;
+
+interface LogStream {
+  displayName: string;
+  basePath: string;
+  totalSizeBytes: number;
+  latestMtimeMs: number;
 }
 
-function getLogFiles(): string[] {
-  const logs: string[] = [];
+function normalizeLogStreamName(fileName: string): string {
+  const rotatedMatch = fileName.match(/^(.*?)(\d+)\.log$/);
+  if (rotatedMatch) {
+    return `${rotatedMatch[1]}.log`;
+  }
+
+  return fileName;
+}
+
+function getLogStreams(): LogStream[] {
   const globalLogPath = join(process.env.HOME || '', '.ornn', 'logs');
+  const streams = new Map<string, LogStream>();
 
-  if (existsSync(globalLogPath)) {
-    try {
-      const files = readdirSync(globalLogPath);
-      for (const file of files) {
-        if (file.endsWith('.log')) {
-          logs.push(join(globalLogPath, file));
-        }
+  if (!existsSync(globalLogPath)) {
+    return [];
+  }
+
+  try {
+    const files = readdirSync(globalLogPath).filter((file) => file.endsWith('.log'));
+    for (const file of files) {
+      const displayName = normalizeLogStreamName(file);
+      const stream = streams.get(displayName) ?? {
+        displayName,
+        basePath: join(globalLogPath, displayName),
+        totalSizeBytes: 0,
+        latestMtimeMs: 0,
+      };
+      try {
+        const stats = statSync(join(globalLogPath, file));
+        stream.totalSizeBytes += stats.size;
+        stream.latestMtimeMs = Math.max(stream.latestMtimeMs, stats.mtimeMs);
+      } catch {
+        // Ignore unreadable files
       }
-    } catch (_err) {
-      // Ignore errors reading global log directory
+      streams.set(displayName, stream);
     }
+  } catch (_err) {
+    // Ignore errors reading global log directory
   }
 
-  return logs;
-}
-
-/**
- * Parse a single log line in the format:
- *   [YYYY-MM-DD HH:mm:ss] LEVEL  [context] message | key=val
- * Also accepts the old format (no context) for backward compatibility.
- */
-function parseLine(line: string): ParsedLogEntry | null {
-  if (!line.trim()) return null;
-
-  // New format: [timestamp] LEVEL  [context] message
-  const newFmt = line.match(
-    /^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (\w+)\s+\[([^\]]+)\] (.*)/
+  return Array.from(streams.values()).sort(
+    (left, right) => right.latestMtimeMs - left.latestMtimeMs || left.displayName.localeCompare(right.displayName)
   );
-  if (newFmt) {
-    return {
-      timestamp: newFmt[1],
-      level: newFmt[2].toUpperCase(),
-      context: newFmt[3],
-      message: newFmt[4],
-      raw: line,
-    };
-  }
-
-  // Old / context-less format: [timestamp] LEVEL  message  OR  [timestamp] LEVEL: message
-  const oldFmt = line.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (\w+)[:\s]+\s*(.*)/);
-  if (oldFmt) {
-    return {
-      timestamp: oldFmt[1],
-      level: oldFmt[2].toUpperCase(),
-      context: '',
-      message: oldFmt[3],
-      raw: line,
-    };
-  }
-
-  return null;
 }
 
 interface LogGroup {
@@ -120,8 +113,7 @@ function groupEntries(entries: ParsedLogEntry[], maxGroupSize: number = 20): Log
     .slice(0, maxGroupSize);
 }
 
-function filterAndParse(content: string, options: LogOptions): ParsedLogEntry[] {
-  const lines = content.split('\n');
+function filterEntries(entries: ParsedLogEntry[], options: LogOptions): ParsedLogEntry[] {
   const maxLines = parseInt(options.tail, 10) || 100;
   const targetLevel = (options.level || 'info').toUpperCase();
   const skillFilter = options.skill?.toLowerCase();
@@ -132,9 +124,7 @@ function filterAndParse(content: string, options: LogOptions): ParsedLogEntry[] 
   const minPriority = levelPriority[targetLevel] ?? 1;
 
   const parsed: ParsedLogEntry[] = [];
-  for (const line of lines) {
-    const entry = parseLine(line);
-    if (!entry) continue;
+  for (const entry of entries) {
     if ((levelPriority[entry.level] ?? 0) < minPriority) continue;
     // --skill filters on the full raw line so it catches skill IDs in both
     // template-interpolated messages and structured metadata (key=skillId).
@@ -254,9 +244,9 @@ export function createLogsCommand(): Command {
         return;
       }
       try {
-        const logFiles = getLogFiles();
+        const logStreams = getLogStreams();
 
-        if (logFiles.length === 0) {
+        if (logStreams.length === 0) {
           log('\n📋 OrnnSkills Logs\n');
           log('   No log files found.\n');
           log('   Log files are stored at:');
@@ -265,21 +255,24 @@ export function createLogsCommand(): Command {
           return;
         }
 
-        for (const logFile of logFiles) {
+        const maxLines = parseInt(options.tail, 10) || 100;
+        const scanLimit = Math.max(maxLines * 20, 2000);
+
+        for (const stream of logStreams) {
           try {
-            const stats = statSync(logFile);
-            const basename = logFile.split('/').pop() || logFile;
-            const content = readFileSync(logFile, 'utf-8');
-            const entries = filterAndParse(content, options);
+            const entries = filterEntries(
+              readRecentRotatingLogEntries(stream.basePath, scanLimit),
+              options
+            );
 
             if (entries.length === 0) {
-              log(`\n📋 ${basename}`);
+              log(`\n📋 ${stream.displayName}`);
               log('   No matching log entries.');
               continue;
             }
 
             log('');
-            log(`┌─ 📄 ${basename}  (${formatFileSize(stats.size)}, ${entries.length} entries) ───────────────────────────────`);
+            log(`┌─ 📄 ${stream.displayName}  (${formatFileSize(stream.totalSizeBytes)}, ${entries.length} entries) ───────────────────────────────`);
 
             if (options.raw) {
               log('│');
@@ -327,7 +320,7 @@ export function createLogsCommand(): Command {
 
             log('└──────────────────────────────────────────────────────────────────────┘');
           } catch (error) {
-            log(`\n   ⚠️  Could not read ${logFile}: ${error instanceof Error ? error.message : String(error)}`);
+            log(`\n   ⚠️  Could not read ${stream.displayName}: ${error instanceof Error ? error.message : String(error)}`);
           }
         }
 

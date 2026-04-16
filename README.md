@@ -283,6 +283,26 @@ auto_start = true
 log_level = "info"
 ```
 
+### LLM Safety Guard
+
+To prevent runaway loops from spamming model providers and creating abnormal cost spikes, `LiteLLMClient` now enforces a local in-process safety guard before each provider call.
+
+Default limits:
+
+- `12` requests per `60s` rolling window
+- `2` concurrent in-flight requests
+- `48,000` estimated tokens per `60s` rolling window
+
+You can override these defaults with environment variables:
+
+```bash
+ORNN_LLM_SAFETY_ENABLED=true
+ORNN_LLM_SAFETY_WINDOW_MS=60000
+ORNN_LLM_MAX_REQUESTS_PER_WINDOW=12
+ORNN_LLM_MAX_CONCURRENT_REQUESTS=2
+ORNN_LLM_MAX_ESTIMATED_TOKENS_PER_WINDOW=48000
+```
+
 ### Project Configuration (.ornn/config/settings.toml)
 
 ```toml

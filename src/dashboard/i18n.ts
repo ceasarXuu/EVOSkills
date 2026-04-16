@@ -55,6 +55,13 @@ export interface I18nStrings {
   configRuntimeSyncHelp: string;
   configProvidersLabel: string;
   configProvidersHelp: string;
+  configLlmSafetyLabel: string;
+  configLlmSafetyHelp: string;
+  configLlmSafetyEnabledLabel: string;
+  configLlmSafetyWindowLabel: string;
+  configLlmSafetyRequestsLabel: string;
+  configLlmSafetyConcurrentLabel: string;
+  configLlmSafetyTokensLabel: string;
   configProvidersExample: string;
   configCheckConnectivity: string;
   configConnectivityChecking: string;
@@ -408,6 +415,13 @@ const en: I18nStrings = {
   configProvidersLabel: 'Providers',
   configProvidersHelp:
     'Configure providers with dropdown + inputs. Pick provider, choose or type model, paste API Key, and mark exactly one provider as active.',
+  configLlmSafetyLabel: 'LLM Safety Guard',
+  configLlmSafetyHelp: 'Blocks bursty or runaway model calls before they reach the provider.',
+  configLlmSafetyEnabledLabel: 'Enable safety guard',
+  configLlmSafetyWindowLabel: 'Rolling Window (ms)',
+  configLlmSafetyRequestsLabel: 'Max Requests / Window',
+  configLlmSafetyConcurrentLabel: 'Max Concurrent Requests',
+  configLlmSafetyTokensLabel: 'Max Estimated Tokens / Window',
   configProvidersExample:
     '',
   configCheckConnectivity: 'Check Connectivity',
@@ -762,6 +776,13 @@ const zh: I18nStrings = {
   configProvidersLabel: '模型服务列表',
   configProvidersHelp:
     '通过下拉和输入框配置模型服务：选择模型服务，选择或输入模型，直接粘贴 API Key，并且只启用其中一个默认模型服务。',
+  configLlmSafetyLabel: 'LLM 安全闸门',
+  configLlmSafetyHelp: '在请求真正发到模型服务前，拦截异常突发或失控重试的调用。',
+  configLlmSafetyEnabledLabel: '启用安全闸门',
+  configLlmSafetyWindowLabel: '滚动窗口（毫秒）',
+  configLlmSafetyRequestsLabel: '窗口内最大请求数',
+  configLlmSafetyConcurrentLabel: '最大并发请求数',
+  configLlmSafetyTokensLabel: '窗口内最大预计 Tokens',
   configProvidersExample:
     '',
   configCheckConnectivity: '检查连通性',

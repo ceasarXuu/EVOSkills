@@ -3,6 +3,7 @@
  * Using LiteLLM client for unified API access
  */
 
+import type { LLMRequestGuard, LLMSafetyOptions } from './request-guard.js';
 import { LiteLLMClient, createLiteLLMClient } from './litellm-client.js';
 
 export interface LLMConfig {
@@ -10,6 +11,8 @@ export interface LLMConfig {
   modelName: string;
   apiKey: string;
   maxTokens?: number;
+  safety?: Partial<LLMSafetyOptions>;
+  requestGuard?: LLMRequestGuard;
 }
 
 export interface LLMInstance {

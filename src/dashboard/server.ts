@@ -44,6 +44,7 @@ import { createSkillDeployer } from '../core/skill-deployer/index.js';
 import { readDashboardConfig, writeDashboardConfig, checkProvidersConnectivity } from '../config/manager.js';
 import { getLiteLLMCatalog } from '../config/litellm-catalog.js';
 import { buildActivityScopeDetailFromData } from './activity-scope-reader.js';
+import { resolveLLMSafetyOptions } from '../llm/request-guard.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -487,6 +488,13 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
             autoOptimize?: boolean;
             userConfirm?: boolean;
             runtimeSync?: boolean;
+            llmSafety?: {
+              enabled?: boolean;
+              windowMs?: number;
+              maxRequestsPerWindow?: number;
+              maxConcurrentRequests?: number;
+              maxEstimatedTokensPerWindow?: number;
+            };
             defaultProvider?: string;
             logLevel?: string;
             providers?: Array<{
@@ -505,6 +513,7 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
           autoOptimize: body.config.autoOptimize ?? true,
           userConfirm: body.config.userConfirm ?? false,
           runtimeSync: body.config.runtimeSync ?? true,
+          llmSafety: resolveLLMSafetyOptions(body.config.llmSafety),
           defaultProvider: body.config.defaultProvider ?? '',
           logLevel: body.config.logLevel ?? 'info',
           providers: body.config.providers ?? [],
@@ -514,6 +523,7 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
           autoOptimize: body.config.autoOptimize ?? true,
           userConfirm: body.config.userConfirm ?? false,
           runtimeSync: body.config.runtimeSync ?? true,
+          llmSafety: resolveLLMSafetyOptions(body.config.llmSafety),
           defaultProvider: body.config.defaultProvider ?? '',
           logLevel: body.config.logLevel ?? 'info',
           durationMs: Date.now() - started,
@@ -833,6 +843,13 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
               autoOptimize?: boolean;
               userConfirm?: boolean;
               runtimeSync?: boolean;
+              llmSafety?: {
+                enabled?: boolean;
+                windowMs?: number;
+                maxRequestsPerWindow?: number;
+                maxConcurrentRequests?: number;
+                maxEstimatedTokensPerWindow?: number;
+              };
               defaultProvider?: string;
               logLevel?: string;
               providers?: Array<{
@@ -851,6 +868,7 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
             autoOptimize: body.config.autoOptimize ?? true,
             userConfirm: body.config.userConfirm ?? false,
             runtimeSync: body.config.runtimeSync ?? true,
+            llmSafety: resolveLLMSafetyOptions(body.config.llmSafety),
             defaultProvider: body.config.defaultProvider ?? '',
             logLevel: body.config.logLevel ?? 'info',
             providers: body.config.providers ?? [],
@@ -861,6 +879,7 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
             autoOptimize: body.config.autoOptimize ?? true,
             userConfirm: body.config.userConfirm ?? false,
             runtimeSync: body.config.runtimeSync ?? true,
+            llmSafety: resolveLLMSafetyOptions(body.config.llmSafety),
             defaultProvider: body.config.defaultProvider ?? '',
             logLevel: body.config.logLevel ?? 'info',
             durationMs: Date.now() - started,

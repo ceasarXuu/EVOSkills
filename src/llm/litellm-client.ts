@@ -8,6 +8,12 @@
 import { createChildLogger } from '../utils/logger.js';
 import type { LLMConfig, LLMInstance } from './factory.js';
 import { extractJsonObject } from '../utils/json-response.js';
+import {
+  getSharedLLMRequestGuard,
+  LLMRateLimitError,
+  LLMRequestGuard,
+  type LLMRequestGuardTicket,
+} from './request-guard.js';
 
 const logger = createChildLogger('litellm-client');
 
@@ -78,6 +84,7 @@ export class LiteLLMClient implements LLMInstance {
   apiKey: string;
   maxTokens: number;
   baseURL: string;
+  requestGuard: LLMRequestGuard;
 
   private totalPromptTokens = 0;
   private totalCompletionTokens = 0;
@@ -88,6 +95,8 @@ export class LiteLLMClient implements LLMInstance {
     this.apiKey = config.apiKey;
     this.maxTokens = config.maxTokens || 4000;
     this.baseURL = this.getBaseURL();
+    this.requestGuard = config.requestGuard ||
+      (config.safety ? new LLMRequestGuard(config.safety) : getSharedLLMRequestGuard());
   }
 
   /**
@@ -245,6 +254,27 @@ export class LiteLLMClient implements LLMInstance {
   ): Promise<LiteLLMResponse> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const estimatedTokens = this.estimateRequestTokens(body);
+    let ticket: LLMRequestGuardTicket | null = null;
+
+    try {
+      ticket = this.requestGuard.acquire({
+        provider: this.provider,
+        modelName: this.modelName,
+        estimatedTokens,
+      });
+    } catch (error) {
+      if (error instanceof LLMRateLimitError) {
+        logger.warn('LLM safety limit blocked request before provider call', {
+          provider: this.provider,
+          modelName: this.modelName,
+          reason: error.reason,
+          ...error.details,
+        });
+      }
+      clearTimeout(timeoutId);
+      throw error;
+    }
 
     try {
       const response = await fetch(`${this.baseURL}/chat/completions`, {
@@ -281,9 +311,13 @@ export class LiteLLMClient implements LLMInstance {
         );
       }
 
+      this.requestGuard.succeed(ticket, data.usage?.total_tokens ?? null);
       return data;
     } catch (error) {
       clearTimeout(timeoutId);
+      if (ticket) {
+        this.requestGuard.fail(ticket);
+      }
 
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error(`LLM request timed out after ${timeout}ms`);
@@ -291,6 +325,26 @@ export class LiteLLMClient implements LLMInstance {
 
       throw error;
     }
+  }
+
+  private estimateRequestTokens(body: unknown): number {
+    if (!body || typeof body !== 'object') {
+      return this.maxTokens;
+    }
+
+    const payload = body as Record<string, unknown>;
+    const messages = Array.isArray(payload.messages) ? payload.messages : [];
+    const promptChars = messages.reduce((sum, entry) => {
+      if (!entry || typeof entry !== 'object') return sum;
+      const content = (entry as Record<string, unknown>).content;
+      return sum + (typeof content === 'string' ? content.length : 0);
+    }, 0);
+    const promptTokens = Math.ceil(promptChars / 4);
+    const completionTokens = typeof payload.max_tokens === 'number' && Number.isFinite(payload.max_tokens)
+      ? Math.max(1, Math.floor(payload.max_tokens))
+      : this.maxTokens;
+
+    return Math.max(1, promptTokens + completionTokens);
   }
 
   /**

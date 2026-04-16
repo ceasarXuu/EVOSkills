@@ -296,4 +296,151 @@ describe('LiteLLMClient connectivity probe', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
+
+  it('blocks burst retries before they reach the provider when request rate exceeds the safety ceiling', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        model: 'deepseek-chat',
+        choices: [
+          {
+            index: 0,
+            finish_reason: 'stop',
+            message: {
+              role: 'assistant',
+              content: 'OK',
+            },
+          },
+        ],
+        usage: {
+          prompt_tokens: 5,
+          completion_tokens: 5,
+          total_tokens: 10,
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new LiteLLMClient({
+      provider: 'deepseek',
+      modelName: 'deepseek/deepseek-chat',
+      apiKey: 'test-key',
+      maxTokens: 32,
+      safety: {
+        maxRequestsPerWindow: 1,
+        maxConcurrentRequests: 1,
+        maxEstimatedTokensPerWindow: 500,
+        windowMs: 60_000,
+      },
+    } as any);
+
+    await expect(client.completion({ prompt: 'first', timeout: 1000 })).resolves.toBe('OK');
+    await expect(client.completion({ prompt: 'second', timeout: 1000 })).rejects.toThrow(
+      /rate limit|safety limit/i
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks overlapping calls when the in-flight safety ceiling is reached', async () => {
+    let releaseFirstRequest: (() => void) | null = null;
+    const fetchMock = vi.fn().mockImplementationOnce(async () => {
+      await new Promise<void>((resolve) => {
+        releaseFirstRequest = resolve;
+      });
+      return {
+        ok: true,
+        json: async () => ({
+          model: 'deepseek-chat',
+          choices: [
+            {
+              index: 0,
+              finish_reason: 'stop',
+              message: {
+                role: 'assistant',
+                content: 'slow-ok',
+              },
+            },
+          ],
+          usage: {
+            prompt_tokens: 5,
+            completion_tokens: 5,
+            total_tokens: 10,
+          },
+        }),
+      };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new LiteLLMClient({
+      provider: 'deepseek',
+      modelName: 'deepseek/deepseek-chat',
+      apiKey: 'test-key',
+      maxTokens: 32,
+      safety: {
+        maxRequestsPerWindow: 10,
+        maxConcurrentRequests: 1,
+        maxEstimatedTokensPerWindow: 500,
+        windowMs: 60_000,
+      },
+    } as any);
+
+    const firstCall = client.completion({ prompt: 'slow', timeout: 1000 });
+
+    await expect(client.completion({ prompt: 'blocked', timeout: 1000 })).rejects.toThrow(
+      /concurrent|rate limit|safety limit/i
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    releaseFirstRequest?.();
+    await expect(firstCall).resolves.toBe('slow-ok');
+  });
+
+  it('blocks requests when the rolling token safety budget would be exceeded', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        model: 'deepseek-chat',
+        choices: [
+          {
+            index: 0,
+            finish_reason: 'stop',
+            message: {
+              role: 'assistant',
+              content: 'budget-ok',
+            },
+          },
+        ],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 10,
+          total_tokens: 20,
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new LiteLLMClient({
+      provider: 'deepseek',
+      modelName: 'deepseek/deepseek-chat',
+      apiKey: 'test-key',
+      maxTokens: 40,
+      safety: {
+        maxRequestsPerWindow: 10,
+        maxConcurrentRequests: 1,
+        maxEstimatedTokensPerWindow: 60,
+        windowMs: 60_000,
+      },
+    } as any);
+
+    await expect(client.completion({ prompt: 'short', timeout: 1000 })).resolves.toBe('budget-ok');
+    await expect(
+      client.completion({
+        prompt: 'this follow-up prompt should be blocked because the estimated rolling token budget is too small',
+        timeout: 1000,
+      })
+    ).rejects.toThrow(/token|budget|rate limit|safety limit/i);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

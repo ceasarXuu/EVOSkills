@@ -322,4 +322,55 @@ describe('dashboard server sse bootstrap', () => {
       await dashboard.stop();
     }
   });
+
+  it('persists llm safety settings from the config endpoint payload', async () => {
+    const port = await getFreePort();
+    const { createDashboardServer } = await import('../../src/dashboard/server.js');
+    const dashboard = createDashboardServer(port, 'en');
+    await dashboard.start();
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/api/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          config: {
+            autoOptimize: true,
+            userConfirm: false,
+            runtimeSync: true,
+            defaultProvider: 'deepseek',
+            logLevel: 'info',
+            llmSafety: {
+              enabled: true,
+              windowMs: 45000,
+              maxRequestsPerWindow: 7,
+              maxConcurrentRequests: 1,
+              maxEstimatedTokensPerWindow: 16000,
+            },
+            providers: [
+              {
+                provider: 'deepseek',
+                modelName: 'deepseek/deepseek-chat',
+                apiKeyEnvVar: 'DEEPSEEK_API_KEY',
+              },
+            ],
+          },
+        }),
+      });
+
+      expect(response.ok).toBe(true);
+      expect(await response.json()).toEqual({ ok: true });
+      expect(mocks.writeDashboardConfig).toHaveBeenCalledWith(undefined, expect.objectContaining({
+        llmSafety: {
+          enabled: true,
+          windowMs: 45000,
+          maxRequestsPerWindow: 7,
+          maxConcurrentRequests: 1,
+          maxEstimatedTokensPerWindow: 16000,
+        },
+      }));
+    } finally {
+      await dashboard.stop();
+    }
+  });
 });

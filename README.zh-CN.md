@@ -283,6 +283,26 @@ auto_start = true
 log_level = "info"
 ```
 
+### LLM 安全闸门
+
+为了避免上层 bug 在短时间内疯狂重试并推高模型费用，`LiteLLMClient` 现在会在真正请求 provider 之前先经过一个进程内安全闸门。
+
+默认阈值：
+
+- `60s` 滚动窗口内最多 `12` 次请求
+- 最多 `2` 个并发中的请求
+- `60s` 滚动窗口内最多 `48,000` 预计 tokens
+
+可以通过环境变量覆盖：
+
+```bash
+ORNN_LLM_SAFETY_ENABLED=true
+ORNN_LLM_SAFETY_WINDOW_MS=60000
+ORNN_LLM_MAX_REQUESTS_PER_WINDOW=12
+ORNN_LLM_MAX_CONCURRENT_REQUESTS=2
+ORNN_LLM_MAX_ESTIMATED_TOKENS_PER_WINDOW=48000
+```
+
 ### 项目配置 (.ornn/config/settings.toml)
 
 ```toml

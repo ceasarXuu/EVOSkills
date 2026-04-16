@@ -355,6 +355,7 @@ describe('SkillCallAnalyzer', () => {
     expect(userMessage).toContain('助手输出: 开始排查。');
     expect(userMessage).toContain('工具调用: exec_command cmd=npm test; workdir=/tmp/project');
     expect(userMessage).toContain('工具结果: exec_command exit_code=0; stdout=PASS');
+    expect(userMessage).not.toContain('[2026-04-10T00:00:10.000Z]');
     expect(userMessage).not.toContain('max_output_tokens');
     expect(userMessage).not.toContain('yield_time_ms');
     expect(userMessage).not.toContain('YYYYY');

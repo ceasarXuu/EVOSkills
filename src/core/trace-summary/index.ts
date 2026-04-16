@@ -298,6 +298,6 @@ export function buildTraceTimelineText(
 ): string {
   return traces
     .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
-    .map((trace, index) => `${index + 1}. [${trace.timestamp}] ${summarizeTraceForTimeline(trace, lang, options)}`)
+    .map((trace, index) => `${index + 1}. ${summarizeTraceForTimeline(trace, lang, options)}`)
     .join('\n');
 }

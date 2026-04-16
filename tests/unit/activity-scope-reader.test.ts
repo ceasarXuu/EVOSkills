@@ -307,6 +307,7 @@ describe('activity scope reader', () => {
     expect(submitted?.traceText).toContain('助手输出: 先说明修复方案。');
     expect(submitted?.traceText).toContain('工具调用: exec_command cmd=npm test; workdir=/tmp/ornn-project');
     expect(submitted?.traceText).toContain('工具结果: exec_command exit_code=0; stdout=PASS');
+    expect(submitted?.traceText).not.toContain('[2026-04-16T00:00:00.000Z]');
     expect(submitted?.traceText).not.toContain('max_output_tokens');
     expect(submitted?.traceText).not.toContain('yield_time_ms');
     expect(submitted?.traceText).not.toContain('XXXXX');

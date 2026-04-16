@@ -721,6 +721,23 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
   .version-num { font-size: 11px; font-weight: 500; }
   .version-meta { font-size: 10px; color: var(--muted); margin-top: 3px; }
   .version-change { display: inline-block; font-size: 9px; padding: 1px 5px; border-radius: 8px; margin-top: 3px; background: rgba(88,166,255,.1); color: var(--blue); }
+  #eventModal .modal {
+    height: auto;
+    max-height: calc(100vh - 48px);
+  }
+  #eventModal .modal-body {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    overflow: hidden;
+  }
+  #eventModal .modal-content {
+    border-right: none;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  #eventModalContent {
+    min-height: 0;
+  }
 
   /* ─── Logs Card ───────────────────────────────────── */
   .log-panel {

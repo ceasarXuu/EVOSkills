@@ -1198,6 +1198,15 @@ describe('dashboard ui recovery', () => {
     expect(html).toContain('overflow: auto;');
   });
 
+  it('allows the scope detail modal itself to scroll when expanded traces exceed the viewport', () => {
+    const html = getDashboardHtml(47432, 'zh', 'test-build-id');
+    expect(html).toContain('#eventModal .modal');
+    expect(html).toContain('max-height: calc(100vh - 48px);');
+    expect(html).toContain('#eventModal .modal-content');
+    expect(html).toContain('overflow-y: auto;');
+    expect(html).toContain('min-height: 0;');
+  });
+
   it('renders clickable skill cells in scope activity rows that open the skill modal', () => {
     const { dashboard, getElement } = loadDashboardTestHarness({}, { lang: 'zh' });
     const projectPath = '/tmp/ornn-project';

@@ -177,7 +177,77 @@ describe('dashboard data reader snapshot version', () => {
 
     const snapshot = readProjectSnapshot(testDir);
 
-    expect(snapshot.decisionEvents).toHaveLength(150);
+    expect(snapshot.decisionEvents).toHaveLength(35);
     expect(snapshot.decisionEvents[0]?.id).toBe('evt-219');
+  });
+
+  it('keeps dashboard snapshots under the sse warning budget for dense projects', () => {
+    const shadowIndexPath = join(testDir, '.ornn', 'shadows', 'index.json');
+    const decisionEventsPath = join(testDir, '.ornn', 'state', 'decision-events.ndjson');
+    const tracePath = join(testDir, '.ornn', 'state', 'session-a.ndjson');
+
+    const skills = [];
+    for (let index = 0; index < 120; index += 1) {
+      skills.push({
+        skillId: `skill-${index}`,
+        runtime: 'codex',
+        version: 'v'.repeat(32),
+        status: 'active',
+        createdAt: '2026-04-12T00:00:00.000Z',
+        updatedAt: '2026-04-12T00:00:00.000Z',
+        traceCount: index,
+        skill_id: `skill-${index}`,
+        created_at: '2026-04-12T00:00:00.000Z',
+        last_optimized_at: '2026-04-12T00:00:00.000Z',
+        current_revision: 1,
+        analysisResult: {
+          summary: `summary-${index}`,
+          confidence: 0.8,
+          suggestions: ['a', 'b', 'c'],
+        },
+      });
+    }
+    writeFileSync(shadowIndexPath, JSON.stringify(skills), 'utf-8');
+
+    const events: string[] = [];
+    for (let index = 0; index < 220; index += 1) {
+      events.push(JSON.stringify({
+        id: `evt-${index}`,
+        timestamp: `2026-04-12T03:${String(Math.floor(index / 60)).padStart(2, '0')}:${String(index % 60).padStart(2, '0')}.000Z`,
+        tag: 'evaluation_result',
+        detail: `detail-${index}`.repeat(20),
+        reason: `reason-${index}`.repeat(15),
+        judgment: `judgment-${index}`.repeat(15),
+        inputSummary: `input-${index}`.repeat(8),
+        evidence: {
+          windowId: `scope-${index % 20}`,
+          rawEvidence: `raw-${index}`.repeat(12),
+        },
+        traceId: `trace-${index}`,
+        sessionId: 'session-a',
+        status: 'continue_collecting',
+      }));
+    }
+    writeFileSync(decisionEventsPath, events.join('\n') + '\n', 'utf-8');
+
+    const traces: string[] = [];
+    for (let index = 0; index < 90; index += 1) {
+      traces.push(JSON.stringify({
+        trace_id: `trace-${index}`,
+        runtime: 'codex',
+        session_id: 'session-a',
+        turn_id: `turn-${index}`,
+        event_type: 'tool_call',
+        timestamp: `2026-04-12T02:${String(Math.floor(index / 60)).padStart(2, '0')}:${String(index % 60).padStart(2, '0')}.000Z`,
+        status: 'success',
+        skill_refs: index < 10 ? ['skill-a'] : [],
+      }));
+    }
+    writeFileSync(tracePath, traces.join('\n') + '\n', 'utf-8');
+
+    const snapshot = readProjectSnapshot(testDir);
+    const snapshotBytes = Buffer.byteLength(JSON.stringify(snapshot), 'utf-8');
+
+    expect(snapshotBytes).toBeLessThan(96 * 1024);
   });
 });

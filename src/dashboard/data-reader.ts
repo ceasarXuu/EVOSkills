@@ -61,6 +61,19 @@ export interface SkillInfo extends ShadowEntry {
   effectiveVersion?: number | null;
 }
 
+export interface DashboardSkillInfo {
+  skillId: string;
+  runtime: 'codex' | 'claude' | 'opencode';
+  status: ShadowEntry['status'];
+  updatedAt: string;
+  traceCount: number;
+  analysisResult?: {
+    confidence: number;
+  };
+  versionsAvailable: number[];
+  effectiveVersion?: number | null;
+}
+
 export interface TraceEntry {
   trace_id: string;
   runtime: string;
@@ -81,7 +94,7 @@ export interface TraceStats {
 
 export interface ProjectData {
   daemon: DaemonStatus;
-  skills: SkillInfo[];
+  skills: DashboardSkillInfo[];
   traceStats: TraceStats;
   recentTraces: TraceEntry[];
   decisionEvents: DecisionEventRecord[];
@@ -118,9 +131,9 @@ interface CachedAgentUsageStats {
 }
 
 const agentUsageStatsCache = new Map<string, CachedAgentUsageStats>();
-const SNAPSHOT_RECENT_TRACE_LIMIT = 50;
-const SNAPSHOT_DECISION_EVENT_LIMIT = 150;
-const SNAPSHOT_SKILL_CONTEXT_LIMIT = 24;
+const SNAPSHOT_RECENT_TRACE_LIMIT = 30;
+const SNAPSHOT_DECISION_EVENT_LIMIT = 35;
+const SNAPSHOT_SKILL_CONTEXT_LIMIT = 12;
 const SNAPSHOT_SKILL_CONTEXT_SCAN_LINES = 4000;
 
 function getGlobalDaemonPidPath(): string {
@@ -370,6 +383,21 @@ export function readSkills(projectRoot: string): SkillInfo[] {
   }
 }
 
+function toDashboardSkillInfo(skill: SkillInfo): DashboardSkillInfo {
+  return {
+    skillId: skill.skillId,
+    runtime: (skill.runtime ?? 'codex') as 'codex' | 'claude' | 'opencode',
+    status: skill.status,
+    updatedAt: skill.updatedAt,
+    traceCount: skill.traceCount,
+    analysisResult: typeof skill.analysisResult?.confidence === 'number'
+      ? { confidence: skill.analysisResult.confidence }
+      : undefined,
+    versionsAvailable: skill.versionsAvailable,
+    effectiveVersion: skill.effectiveVersion ?? null,
+  };
+}
+
 // ─── Skill Content ────────────────────────────────────────────────────────────
 
 export function readSkillContent(
@@ -597,7 +625,7 @@ export function readProjectSnapshot(projectRoot: string): ProjectData {
   const taskEpisodes = readTaskEpisodeSnapshot(projectRoot);
   return {
     daemon: readDaemonStatus(projectRoot),
-    skills: readSkills(projectRoot),
+    skills: readSkills(projectRoot).map(toDashboardSkillInfo),
     traceStats: computeTraceStats(recentTraces),
     recentTraces: readRecentActivityTraces(projectRoot),
     decisionEvents,

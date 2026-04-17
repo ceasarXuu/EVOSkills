@@ -42,16 +42,16 @@ import { SkillVersionManager } from '../core/skill-version/index.js';
 import type { RuntimeType } from '../types/index.js';
 import { createSkillDeployer } from '../core/skill-deployer/index.js';
 import {
-  readDashboardConfig,
-  writeDashboardConfig,
   checkProvidersConnectivity,
+  readDashboardConfig,
   resolveDashboardPromptOverrides,
+  writeDashboardConfig,
 } from '../config/manager.js';
-import { getLiteLLMCatalog } from '../config/litellm-catalog.js';
-import { buildActivityScopeDetailFromData } from './activity-scope-reader.js';
 import { resolveLLMSafetyOptions } from '../llm/request-guard.js';
+import { buildActivityScopeDetailFromData } from './activity-scope-reader.js';
 import { pickProjectDirectory } from './native-project-picker.js';
 import { ensureMonitoringDaemon, ensureProjectInitialized } from './project-onboarding.js';
+import { handleGlobalConfigRoutes } from './routes/global-config-routes.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -611,132 +611,15 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
         return;
       }
 
-      // ── API: Provider catalog ──
-      if (path === '/api/providers/catalog' && method === 'GET') {
-        const started = Date.now();
-        try {
-          const providers = await getLiteLLMCatalog();
-          logger.info('Dashboard provider catalog loaded', {
-            providerCount: providers.length,
-            durationMs: Date.now() - started,
-          });
-          json(res, { providers, source: 'litellm' });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          logger.error('Failed to load LiteLLM catalog', {
-            error: message,
-            durationMs: Date.now() - started,
-          });
-          json(res, { error: message }, 503);
-        }
-        return;
-      }
-
-      // ── API: Global dashboard config ──
-      if (path === '/api/config' && method === 'GET') {
-        const started = Date.now();
-        const projectPath = url.searchParams.get('projectPath') || undefined;
-        const config = await readDashboardConfig(projectPath);
-        logger.info('Dashboard global config loaded', {
-          projectPath,
-          providerCount: config.providers.length,
-          durationMs: Date.now() - started,
-        });
-        json(res, { config });
-        return;
-      }
-
-      if (path === '/api/config' && method === 'POST') {
-        const started = Date.now();
-        const body = (await parseBody(req)) as {
-          config?: {
-            autoOptimize?: boolean;
-            userConfirm?: boolean;
-            runtimeSync?: boolean;
-            llmSafety?: {
-              enabled?: boolean;
-              windowMs?: number;
-              maxRequestsPerWindow?: number;
-              maxConcurrentRequests?: number;
-              maxEstimatedTokensPerWindow?: number;
-            };
-            promptOverrides?: {
-              skillCallAnalyzer?: string;
-              decisionExplainer?: string;
-              readinessProbe?: string;
-            };
-            defaultProvider?: string;
-            logLevel?: string;
-            providers?: Array<{
-              provider: string;
-              modelName: string;
-              apiKeyEnvVar: string;
-              apiKey?: string;
-            }>;
-          };
-        };
-        if (!body.config) {
-          json(res, { ok: false, error: 'config is required' }, 400);
-          return;
-        }
-        await writeDashboardConfig(undefined, {
-          autoOptimize: body.config.autoOptimize ?? true,
-          userConfirm: body.config.userConfirm ?? false,
-          runtimeSync: body.config.runtimeSync ?? true,
-          llmSafety: resolveLLMSafetyOptions(body.config.llmSafety),
-          promptOverrides: resolveDashboardPromptOverrides(body.config.promptOverrides),
-          defaultProvider: body.config.defaultProvider ?? '',
-          logLevel: body.config.logLevel ?? 'info',
-          providers: body.config.providers ?? [],
-        });
-        const normalizedPromptOverrides = resolveDashboardPromptOverrides(body.config.promptOverrides);
-        logger.info('Dashboard global config saved', {
-          providerCount: (body.config.providers ?? []).length,
-          autoOptimize: body.config.autoOptimize ?? true,
-          userConfirm: body.config.userConfirm ?? false,
-          runtimeSync: body.config.runtimeSync ?? true,
-          llmSafety: resolveLLMSafetyOptions(body.config.llmSafety),
-          promptOverrideCount: Object.values(normalizedPromptOverrides).filter((value) => value.length > 0).length,
-          defaultProvider: body.config.defaultProvider ?? '',
-          logLevel: body.config.logLevel ?? 'info',
-          durationMs: Date.now() - started,
-        });
-        json(res, { ok: true });
-        return;
-      }
-
-      if (path === '/api/config/providers/connectivity' && method === 'POST') {
-        const started = Date.now();
-        const body = (await parseBody(req)) as {
-          providers?: Array<{
-            provider: string;
-            modelName: string;
-            apiKeyEnvVar: string;
-            apiKey?: string;
-          }>;
-        };
-        const results = await checkProvidersConnectivity(undefined, body.providers);
-        const failedCount = results.filter((item) => !item.ok).length;
-        logger.info('Dashboard global provider connectivity checked', {
-          providerCount: results.length,
-          failedCount,
-          durationMs: Date.now() - started,
-        });
-        json(res, { results });
-        return;
-      }
-
-      if (path === '/api/provider-health' && method === 'GET') {
-        const started = Date.now();
-        const projectPath = url.searchParams.get('projectPath') || undefined;
-        const health = await getProviderHealthSummary(projectPath);
-        logger.info('Dashboard global provider health fetched', {
-          projectPath,
-          level: health.level,
-          code: health.code,
-          durationMs: Date.now() - started,
-        });
-        json(res, { health });
+      if (await handleGlobalConfigRoutes({
+        path,
+        method,
+        url,
+        json: (data, status = 200) => json(res, data, status),
+        parseBody: () => parseBody(req),
+        getProviderHealthSummary,
+        logger,
+      })) {
         return;
       }
 

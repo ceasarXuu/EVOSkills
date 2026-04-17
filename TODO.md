@@ -24,7 +24,7 @@
 - [ ] P1 `src/dashboard/ui.ts`
   当前顺序：
   1. `[x]` 抽出 `web/app-shell`
-  2. `[ ]` 抽出 `web/state`
+  2. `[x]` 抽出 `web/state`
   3. `[ ]` 抽出 `web/panels/*`
   4. `[ ]` 抽出 `web/render/*`
 - [ ] P1 `src/config/manager.ts`
@@ -66,7 +66,7 @@
   5. `[ ]` 保留 `ShadowManager` 作为 facade
 
 当前进行中：
-- [ ] `src/dashboard/ui.ts` 第 2 步：抽出 `web/state`
+- [ ] `src/dashboard/ui.ts` 第 3 步：抽出 `web/panels/*`
 
 ## 优先级总览
 

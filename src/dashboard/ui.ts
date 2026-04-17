@@ -8,10 +8,12 @@
 
 import { getI18n, type Language } from './i18n.js';
 import { renderDashboardAppShell } from './web/app-shell.js';
+import { renderDashboardStateSource } from './web/state.js';
 
 export function getDashboardHtml(_port: number, lang: Language = 'en', buildId = 'dev'): string {
   const t = getI18n(lang);
   const shortBuildId = buildId.slice(-8);
+  const dashboardStateSource = renderDashboardStateSource();
 
   const styleCss = /* css */ `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -936,6 +938,7 @@ const I18N = ${JSON.stringify({ en: getI18n('en'), zh: getI18n('zh') })};
 let currentLang = '${lang}';
 const DASHBOARD_BUILD_ID = '${buildId}';
 const DASHBOARD_BUILD_SHORT = DASHBOARD_BUILD_ID.slice(-8);
+${dashboardStateSource}
 
 function t(key) {
   return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.en && I18N.en[key]) || key;
@@ -1020,48 +1023,6 @@ async function switchLang(lang) {
   renderLogs();
   await persistDashboardLanguage(currentLang, state.selectedProjectId);
 }
-
-// ─── State ───────────────────────────────────────────────────────────────────
-const state = {
-  projects: [],
-  selectedProjectId: null,
-  projectData: {},
-  staleProjectData: {},
-  allLogs: [],
-  logFilter: 'ALL',
-  configByProject: {},
-  monitoringMutationByProject: {},
-  currentSkillId: null,
-  selectedRuntimeTab: 'all',
-  searchQuery: '',
-  sortBy: 'name',
-  sortOrder: 'asc',
-  selectedMainTab: 'overview',
-  currentSkillRuntime: 'codex',
-  currentSkillVersion: null,
-  currentSkillEffectiveVersion: null,
-  currentSkillVersions: [],
-  currentSkillVersionMeta: {},
-  currentSkillVersionContextKey: '',
-  activityLayer: 'business',
-  activityTagFilter: 'core_flow',
-  activityRowsByProject: {},
-  rawActivityRowsByProject: {},
-  activityScopeDetailsByProject: {},
-  activityColumnWidths: loadSavedActivityColumnWidths(),
-  lastCopiedActivityText: '',
-  providerHealthByProject: {},
-  providerCatalog: [],
-  providerCatalogLoading: false,
-  providerCatalogError: '',
-  configUiByProject: {},
-  configLoadingByProject: {},
-  configLoadErrorByProject: {},
-};
-
-const projectSnapshotLoads = {};
-
-const GLOBAL_CONFIG_SCOPE = '__global__';
 
 function getSkillVersionContextKey(encProject, encSkill, encRuntime) {
   return String(encProject) + '::' + String(encSkill) + '::' + String(encRuntime);
@@ -1286,46 +1247,6 @@ function connectSSE() {
   src.onerror = () => {
     setHeaderStatus('error');
     setTimeout(connectSSE, 3000);
-  };
-}
-
-function buildEmptyProjectData() {
-  return {
-    daemon: {
-      isRunning: false,
-      isPaused: false,
-      pid: null,
-      startedAt: null,
-      processedTraces: 0,
-      lastCheckpointAt: null,
-      retryQueueSize: 0,
-      monitoringState: 'active',
-      pausedAt: null,
-      optimizationStatus: {
-        currentState: 'idle',
-        currentSkillId: null,
-        lastOptimizationAt: null,
-        lastError: null,
-        queueSize: 0,
-      },
-    },
-    skills: [],
-    traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
-    recentTraces: [],
-    decisionEvents: [],
-    activityScopes: [],
-    agentUsage: {
-      callCount: 0,
-      promptTokens: 0,
-      completionTokens: 0,
-      totalTokens: 0,
-      durationMsTotal: 0,
-      avgDurationMs: 0,
-      lastCallAt: null,
-      byModel: {},
-      byScope: {},
-      bySkill: {},
-    },
   };
 }
 

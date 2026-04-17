@@ -49,12 +49,12 @@
   1. `[x]` 抽出 `trace-journal`
   2. `[x]` 抽出 `shadow-history`
   3. `[x]` 共用 `sqlite` 持久层接口
-- [ ] P2 `src/core/observer/codex-observer.ts`
+- [x] P2 `src/core/observer/codex-observer.ts`
   当前顺序：
-  1. `[ ]` 抽出 `session-file-reader`
-  2. `[ ]` 抽出 `session-reconciler`
-  3. `[ ]` 抽出 `event-preprocessor`
-  4. `[ ]` 抽出 `trace-emitter`
+  1. `[x]` 抽出 `session-file-reader`
+  2. `[x]` 抽出 `session-reconciler`
+  3. `[x]` 抽出 `event-preprocessor`
+  4. `[x]` 抽出 `trace-emitter`
 - [ ] P2 `src/daemon/index.ts`
   当前顺序：
   1. `[ ]` 抽出 `project-runtime-registry`
@@ -70,7 +70,7 @@
   5. `[ ]` 保留 `ShadowManager` 作为 facade
 
 当前进行中：
-- [ ] `src/core/observer/codex-observer.ts` 第 1 步：抽出 `session-file-reader`
+- [ ] `src/daemon/index.ts` 第 1 步：抽出 `project-runtime-registry`
 
 ## 优先级总览
 

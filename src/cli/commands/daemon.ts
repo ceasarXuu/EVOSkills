@@ -1,11 +1,9 @@
 import { Command } from 'commander';
 import { cliInfo } from '../../utils/cli-output.js';
-import { join, resolve } from 'node:path';
-import { existsSync, readFileSync } from 'node:fs';
-import { exec, spawn } from 'node:child_process';
+import { resolve } from 'node:path';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { Daemon } from '../../daemon/index.js';
-import { createDashboardServer } from '../../dashboard/server.js';
 import { listProjects } from '../../dashboard/projects-registry.js';
 import { printErrorAndExit } from '../../utils/error-helper.js';
 import {
@@ -19,6 +17,13 @@ import {
   normalizeDashboardLang,
 } from '../lib/daemon-helpers.js';
 import ora from 'ora';
+import {
+  openBrowser,
+  startDashboardServerOnAvailablePort,
+  type DashboardServerInstance,
+} from './daemon/dashboard-launcher.js';
+import { stopDaemonProcess } from './daemon/process-manager.js';
+import { readCheckpointStats, readOptimizationStats } from './daemon/status-reader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -32,7 +37,6 @@ interface DaemonOptions {
 }
 
 const DEFAULT_DASHBOARD_PORT = 47432;
-const MAX_PORT_ATTEMPTS = 10;
 
 function resolveLaunchContext(projectPath: string): string {
   return resolve(projectPath);
@@ -50,42 +54,6 @@ function getRegisteredProjectRootsOrThrow(): string[] {
     );
   }
   return projectRoots;
-}
-
-function openBrowser(url: string): void {
-  const platform = process.platform;
-  const cmd =
-    platform === 'darwin'
-      ? `open "${url}"`
-      : platform === 'win32'
-        ? `start "" "${url}"`
-        : `xdg-open "${url}"`;
-  exec(cmd, (err) => {
-    if (err) {
-      cliInfo(`Could not open browser automatically. Visit: ${url}`);
-    }
-  });
-}
-
-async function startDashboardServerOnAvailablePort(
-  startPort: number,
-  lang: 'en' | 'zh'
-): Promise<{ server: ReturnType<typeof createDashboardServer>; port: number }> {
-  for (let attempt = 0; attempt < MAX_PORT_ATTEMPTS; attempt++) {
-    const port = startPort + attempt;
-    if (port > 65535) break;
-
-    const server = createDashboardServer(port, lang);
-    try {
-      await server.start();
-      return { server, port };
-    } catch {
-      // Port in use, try next
-    }
-  }
-  throw new Error(
-    `Could not find an available port in range ${startPort}–${startPort + MAX_PORT_ATTEMPTS - 1}`
-  );
 }
 
 /**
@@ -158,7 +126,7 @@ export function createStartCommand(): Command {
           cliInfo(`Monitoring ${registeredProjects.length} registered project(s).`);
 
           // 启动 dashboard
-          let dashboardServer: ReturnType<typeof createDashboardServer> | null = null;
+          let dashboardServer: DashboardServerInstance | null = null;
           let dashboardPort: number | null = null;
 
           if (options.dashboard !== false) {
@@ -238,7 +206,7 @@ export function createStopCommand(): Command {
   stop
     .description('Stop the OrnnSkills daemon')
     .option('-p, --project <path>', 'Project root path', process.cwd())
-    .action((options: DaemonOptions) => {
+    .action(async (options: DaemonOptions) => {
       try {
         // 读取 PID
         const pid = readPidFile();
@@ -255,32 +223,19 @@ export function createStopCommand(): Command {
         }
 
         const spinner = ora(`Stopping daemon (PID: ${pid})...`).start();
+        const result = await stopDaemonProcess(pid, {
+          isProcessRunning,
+          sendSignal: (processId, signal) => {
+            process.kill(processId, signal);
+          },
+        });
 
-        // 发送 SIGTERM 信号
-        process.kill(pid, 'SIGTERM');
-
-        // 等待进程退出（最多 5 秒）
-        let attempts = 0;
-        const maxAttempts = 5;
-        const interval = setInterval(() => {
-          attempts++;
-          if (!isProcessRunning(pid) || attempts >= maxAttempts) {
-            clearInterval(interval);
-            if (!isProcessRunning(pid)) {
-              spinner.succeed('Daemon stopped');
-              removePidFile();
-            } else {
-              // 强制 kill
-              try {
-                process.kill(pid, 'SIGKILL');
-                spinner.succeed('Daemon stopped');
-              } catch {
-                spinner.fail('Failed to stop daemon');
-              }
-              removePidFile();
-            }
-          }
-        }, 1000);
+        if (result.stopped || result.forced) {
+          spinner.succeed('Daemon stopped');
+          removePidFile();
+        } else {
+          spinner.fail('Failed to stop daemon');
+        }
       } catch (error) {
         printErrorAndExit(error instanceof Error ? error.message : String(error), {
           operation: 'Stop daemon',
@@ -315,28 +270,14 @@ export function createRestartCommand(): Command {
         const existingPid = readPidFile();
         if (existingPid && isProcessRunning(existingPid)) {
           const spinner = ora(`Stopping daemon (PID: ${existingPid})...`).start();
-          process.kill(existingPid, 'SIGTERM');
-
-          let attempts = 0;
-          const maxAttempts = 5;
-          await new Promise<void>((resolve) => {
-            const interval = setInterval(() => {
-              attempts++;
-              if (!isProcessRunning(existingPid) || attempts >= maxAttempts) {
-                clearInterval(interval);
-                if (isProcessRunning(existingPid)) {
-                  try {
-                    process.kill(existingPid, 'SIGKILL');
-                  } catch {
-                    // ignore
-                  }
-                }
-                removePidFile();
-                spinner.succeed('Daemon stopped');
-                resolve();
-              }
-            }, 1000);
+          await stopDaemonProcess(existingPid, {
+            isProcessRunning,
+            sendSignal: (processId, signal) => {
+              process.kill(processId, signal);
+            },
           });
+          removePidFile();
+          spinner.succeed('Daemon stopped');
         } else if (existingPid) {
           removePidFile();
         }
@@ -377,61 +318,6 @@ function buildArgs(options: DaemonOptions): string[] {
   if (options.open === false) args.push('--no-open');
   if (options.background) args.push('--background');
   return args;
-}
-
-/**
- * 读取检查点文件获取统计信息
- */
-function readCheckpointStats(
-  projectRoot: string
-): { processedTraces: number; startedAt: string } | null {
-  const checkpointPath = join(projectRoot, '.ornn', 'state', 'daemon-checkpoint.json');
-  if (!existsSync(checkpointPath)) {
-    return null;
-  }
-
-  try {
-    const data = JSON.parse(readFileSync(checkpointPath, 'utf-8')) as Record<string, unknown>;
-    return {
-      processedTraces: (data.processedTraces as number) || 0,
-      startedAt:
-        (data.startedAt as string) || (data.started_at as string) || new Date().toISOString(),
-    };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 读取优化统计信息
- */
-function readOptimizationStats(projectRoot: string): {
-  currentState: string;
-  currentSkillId: string | null;
-  lastOptimizationAt: string | null;
-  lastError: string | null;
-  queueSize: number;
-} | null {
-  const checkpointPath = join(projectRoot, '.ornn', 'state', 'daemon-checkpoint.json');
-  if (!existsSync(checkpointPath)) {
-    return null;
-  }
-
-  try {
-    const data = JSON.parse(readFileSync(checkpointPath, 'utf-8')) as Record<string, unknown>;
-    if (data.optimizationStatus) {
-      return data.optimizationStatus as {
-        currentState: string;
-        currentSkillId: string | null;
-        lastOptimizationAt: string | null;
-        lastError: string | null;
-        queueSize: number;
-      };
-    }
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 /**

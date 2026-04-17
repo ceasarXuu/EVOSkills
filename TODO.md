@@ -32,7 +32,7 @@
   1. `[ ]` 抽出 `dashboard-config`
   2. `[ ]` 抽出 `env-file`
   3. `[ ]` 抽出 `provider-connectivity`
-  4. `[ ]` 抽出 `prompt-overrides`
+  4. `[x]` 抽出 `prompt-overrides`
 - [ ] P2 `src/storage/sqlite.ts`
   当前顺序：
   1. `[ ]` 抽出共享 DB adapter
@@ -66,7 +66,7 @@
   5. `[ ]` 保留 `ShadowManager` 作为 facade
 
 当前进行中：
-- [ ] `src/dashboard/ui.ts` 第 4 步：抽出 `web/render/*`（下一项：`render/skill-card`）
+- [ ] `src/config/manager.ts` 拆分中（下一项：`env-file`）
 
 ## 优先级总览
 

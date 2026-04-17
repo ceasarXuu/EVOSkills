@@ -11,6 +11,13 @@ import { parse } from "smol-toml";
 import { logger } from "../utils/logger.js";
 import { createLiteLLMClient } from "../llm/litellm-client.js";
 import { resolveLLMSafetyOptions, type LLMSafetyOptions } from "../llm/request-guard.js";
+import {
+  DEFAULT_DASHBOARD_PROMPT_OVERRIDES,
+  hasPromptOverrides,
+  normalizePromptOverridesFromConfig,
+  resolveDashboardPromptOverrides,
+  type DashboardPromptOverrides,
+} from "./prompt-overrides.js";
 
 export interface ProviderConfig {
   provider: string;
@@ -51,17 +58,11 @@ export interface OrnnConfig {
 }
 
 const DEFAULT_LOG_LEVEL = "info";
-export interface DashboardPromptOverrides {
-  skillCallAnalyzer: string;
-  decisionExplainer: string;
-  readinessProbe: string;
-}
-
-export const DEFAULT_DASHBOARD_PROMPT_OVERRIDES: DashboardPromptOverrides = {
-  skillCallAnalyzer: "",
-  decisionExplainer: "",
-  readinessProbe: "",
-};
+export {
+  DEFAULT_DASHBOARD_PROMPT_OVERRIDES,
+  resolveDashboardPromptOverrides,
+} from "./prompt-overrides.js";
+export type { DashboardPromptOverrides } from "./prompt-overrides.js";
 
 const GLOBAL_DASHBOARD_CONFIG_DIR = () => join(homedir(), ".ornn", "config");
 const GLOBAL_DASHBOARD_CONFIG_PATH = () => join(GLOBAL_DASHBOARD_CONFIG_DIR(), "settings.toml");
@@ -403,46 +404,6 @@ function normalizeProvidersFromConfig(config: OrnnConfig | null): ProviderConfig
       apiKeyEnvVar: p.api_key_env_var || p.apiKeyEnvVar,
     };
   });
-}
-
-export function resolveDashboardPromptOverrides(
-  promptOverrides?: Partial<DashboardPromptOverrides> | null
-): DashboardPromptOverrides {
-  const raw = promptOverrides && typeof promptOverrides === "object" ? promptOverrides : {};
-  return {
-    skillCallAnalyzer:
-      typeof raw.skillCallAnalyzer === "string" ? raw.skillCallAnalyzer.trim() : "",
-    decisionExplainer:
-      typeof raw.decisionExplainer === "string" ? raw.decisionExplainer.trim() : "",
-    readinessProbe:
-      typeof raw.readinessProbe === "string" ? raw.readinessProbe.trim() : "",
-  };
-}
-
-function normalizePromptOverridesFromConfig(config: OrnnConfig | null): DashboardPromptOverrides {
-  const raw = config?.prompt_overrides;
-  if (!raw || typeof raw !== "object") {
-    return { ...DEFAULT_DASHBOARD_PROMPT_OVERRIDES };
-  }
-
-  return resolveDashboardPromptOverrides({
-    skillCallAnalyzer:
-      typeof raw.skill_call_analyzer === "string"
-        ? raw.skill_call_analyzer
-        : raw.skillCallAnalyzer,
-    decisionExplainer:
-      typeof raw.decision_explainer === "string"
-        ? raw.decision_explainer
-        : raw.decisionExplainer,
-    readinessProbe:
-      typeof raw.readiness_probe === "string"
-        ? raw.readiness_probe
-        : raw.readinessProbe,
-  });
-}
-
-function hasPromptOverrides(promptOverrides: DashboardPromptOverrides): boolean {
-  return Object.values(promptOverrides).some((value) => value.trim().length > 0);
 }
 
 async function readLegacyProjectDashboardConfig(projectPath: string): Promise<DashboardConfig | null> {

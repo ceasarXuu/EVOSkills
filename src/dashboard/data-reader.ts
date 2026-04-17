@@ -8,18 +8,14 @@
 import {
   existsSync,
   readFileSync,
-  readdirSync,
   statSync,
-  openSync,
-  readSync,
-  closeSync,
 } from 'node:fs';
 import { basename, join } from 'node:path';
 import { homedir } from 'node:os';
 import type { DecisionEventRecord } from '../core/decision-events/index.js';
 import { normalizeAgentUsageModelId, type AgentUsageSummary } from '../core/agent-usage/index.js';
 import type { TaskEpisodeSnapshot } from '../core/task-episode/index.js';
-import type { AgentUsageRecord, Trace } from '../types/index.js';
+import type { AgentUsageRecord } from '../types/index.js';
 import {
   createRotatingLogCursor,
   readRecentRotatingLogEntries,
@@ -37,8 +33,20 @@ import {
   toDashboardSkillInfo,
   type DashboardSkillInfo,
 } from './readers/skills-reader.js';
+import { tailNdjson } from './readers/ndjson-tail.js';
+import {
+  countProcessedTraceIds,
+  listTraceNdjsonPaths,
+  readRecentActivityTraces,
+  readRecentTraces,
+  computeTraceStats,
+  type TraceEntry,
+  type TraceStats,
+} from './readers/trace-reader.js';
 export { readSkills, readSkillContent, readSkillVersion } from './readers/skills-reader.js';
 export type { SkillInfo, SkillVersionMeta, DashboardSkillInfo } from './readers/skills-reader.js';
+export { readRecentTraces, readTracesByIds, computeTraceStats } from './readers/trace-reader.js';
+export type { TraceEntry, TraceStats } from './readers/trace-reader.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -59,24 +67,6 @@ export interface DaemonStatus {
     lastError: string | null;
     queueSize: number;
   };
-}
-
-export interface TraceEntry {
-  trace_id: string;
-  runtime: string;
-  session_id: string;
-  turn_id: string;
-  event_type: string;
-  timestamp: string;
-  skill_refs: string[];
-  status: string;
-}
-
-export interface TraceStats {
-  total: number;
-  byRuntime: Record<string, number>;
-  byStatus: Record<string, number>;
-  byEventType: Record<string, number>;
 }
 
 export interface ProjectData {
@@ -125,46 +115,6 @@ const SNAPSHOT_SKILL_CONTEXT_SCAN_LINES = 4000;
 
 function getGlobalDaemonPidPath(): string {
   return join(homedir(), '.ornn', 'daemon.pid');
-}
-
-function listTraceNdjsonPaths(projectRoot: string): string[] {
-  const stateDir = join(projectRoot, '.ornn', 'state');
-  if (!existsSync(stateDir)) return [];
-
-  try {
-    return readdirSync(stateDir, { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ndjson'))
-      .map((entry) => entry.name)
-      .filter((name) => name !== 'decision-events.ndjson' && name !== 'agent-usage.ndjson')
-      .sort()
-      .map((name) => join(stateDir, name));
-  } catch {
-    return [];
-  }
-}
-
-function countProcessedTraceIds(projectRoot: string): number {
-  const traceIds = new Set<string>();
-  for (const filePath of listTraceNdjsonPaths(projectRoot)) {
-    let content = '';
-    try {
-      content = readFileSync(filePath, 'utf-8');
-    } catch {
-      continue;
-    }
-    for (const line of content.split(/\r?\n/)) {
-      if (!line.trim()) continue;
-      try {
-        const raw = JSON.parse(line) as { trace_id?: unknown };
-        if (typeof raw.trace_id === 'string' && raw.trace_id) {
-          traceIds.add(raw.trace_id);
-        }
-      } catch {
-        // ignore malformed rows
-      }
-    }
-  }
-  return traceIds.size;
 }
 
 // ─── Daemon Status ────────────────────────────────────────────────────────────
@@ -301,45 +251,6 @@ function backfillOptimizationStatus(
   return next;
 }
 
-// ─── Traces (NDJSON tail) ─────────────────────────────────────────────────────
-
-/**
- * 读取 NDJSON 文件的最后 N 行（tail 风格，避免大文件全量加载）
- */
-function tailNdjson(filePath: string, maxLines = 200): string[] {
-  if (!existsSync(filePath)) return [];
-
-  const CHUNK = 65536; // 64KB
-  const fd = openSync(filePath, 'r');
-  try {
-    const fileSize = statSync(filePath).size;
-    if (fileSize === 0) return [];
-
-    let pos = fileSize;
-    let lines: string[] = [];
-    let remainder = '';
-
-    while (pos > 0 && lines.length < maxLines) {
-      const readSize = Math.min(CHUNK, pos);
-      pos -= readSize;
-      const buf = Buffer.alloc(readSize);
-      readSync(fd, buf, 0, readSize, pos);
-      const chunk = buf.toString('utf-8') + remainder;
-      const parts = chunk.split('\n');
-      remainder = parts[0];
-      // parts[1..] are complete lines (reversed)
-      for (let i = parts.length - 1; i >= 1; i--) {
-        if (parts[i].trim()) lines.push(parts[i]);
-      }
-    }
-    if (remainder.trim()) lines.push(remainder);
-
-    return lines.slice(0, maxLines).reverse();
-  } finally {
-    closeSync(fd);
-  }
-}
-
 function readFileSignature(filePath: string): string {
   if (!existsSync(filePath)) return 'missing';
   try {
@@ -348,67 +259,6 @@ function readFileSignature(filePath: string): string {
   } catch {
     return 'error';
   }
-}
-
-function collectRecentTraceCandidates(projectRoot: string, maxLinesPerFile: number): TraceEntry[] {
-  const tracePaths = listTraceNdjsonPaths(projectRoot);
-  const traces = new Map<string, TraceEntry>();
-
-  for (const ndjsonPath of tracePaths) {
-    const lines = tailNdjson(ndjsonPath, maxLinesPerFile);
-    for (const line of lines) {
-      try {
-        const raw = JSON.parse(line) as Partial<TraceEntry> & { skill_refs?: string[] };
-        if (!raw.trace_id) continue;
-        traces.set(String(raw.trace_id), {
-          trace_id: String(raw.trace_id),
-          runtime: String(raw.runtime ?? 'unknown'),
-          session_id: String(raw.session_id ?? ''),
-          turn_id: String(raw.turn_id ?? ''),
-          event_type: String(raw.event_type ?? 'unknown'),
-          timestamp: String(raw.timestamp ?? ''),
-          skill_refs: Array.isArray(raw.skill_refs) ? raw.skill_refs : [],
-          status: String(raw.status ?? 'unknown'),
-        });
-      } catch {
-        // skip malformed lines
-      }
-    }
-  }
-
-  return [...traces.values()]
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-}
-
-export function readRecentTraces(projectRoot: string, limit = 50): TraceEntry[] {
-  return collectRecentTraceCandidates(projectRoot, Math.max(limit * 4, 200)).slice(0, limit);
-}
-
-function readRecentActivityTraces(projectRoot: string): TraceEntry[] {
-  const latestTraces = readRecentTraces(projectRoot, SNAPSHOT_RECENT_TRACE_LIMIT);
-  const existingIds = new Set(latestTraces.map((trace) => trace.trace_id));
-  const skillContext = collectRecentTraceCandidates(projectRoot, SNAPSHOT_SKILL_CONTEXT_SCAN_LINES)
-    .filter((trace) => trace.skill_refs.length > 0 && !existingIds.has(trace.trace_id))
-    .slice(0, SNAPSHOT_SKILL_CONTEXT_LIMIT);
-
-  if (skillContext.length === 0) return latestTraces;
-  return latestTraces
-    .concat(skillContext)
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-}
-
-export function computeTraceStats(traces: TraceEntry[]): TraceStats {
-  const byRuntime: Record<string, number> = {};
-  const byStatus: Record<string, number> = {};
-  const byEventType: Record<string, number> = {};
-
-  for (const t of traces) {
-    byRuntime[t.runtime] = (byRuntime[t.runtime] ?? 0) + 1;
-    byStatus[t.status] = (byStatus[t.status] ?? 0) + 1;
-    byEventType[t.event_type] = (byEventType[t.event_type] ?? 0) + 1;
-  }
-
-  return { total: traces.length, byRuntime, byStatus, byEventType };
 }
 
 // ─── Global Logs ──────────────────────────────────────────────────────────────
@@ -447,7 +297,12 @@ export function readProjectSnapshot(projectRoot: string): ProjectData {
     daemon: readDaemonStatus(projectRoot),
     skills: readSkills(projectRoot).map(toDashboardSkillInfo),
     traceStats: computeTraceStats(recentTraces),
-    recentTraces: readRecentActivityTraces(projectRoot),
+    recentTraces: readRecentActivityTraces(
+      projectRoot,
+      SNAPSHOT_RECENT_TRACE_LIMIT,
+      SNAPSHOT_SKILL_CONTEXT_LIMIT,
+      SNAPSHOT_SKILL_CONTEXT_SCAN_LINES
+    ),
     decisionEvents,
     activityScopes: buildActivityScopeSummariesFromData({
       projectName: basename(projectRoot),
@@ -673,64 +528,6 @@ export function readAgentUsageRecords(projectRoot: string, limit = 400): AgentUs
   return records
     .sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)))
     .slice(-limit);
-}
-
-function parseTraceRecord(line: string): Trace | null {
-  try {
-    const raw = JSON.parse(line) as Partial<Trace>;
-    if (!raw.trace_id || !raw.timestamp || !raw.runtime || !raw.session_id || !raw.turn_id || !raw.event_type || !raw.status) {
-      return null;
-    }
-    return {
-      trace_id: String(raw.trace_id),
-      runtime: raw.runtime,
-      session_id: String(raw.session_id),
-      turn_id: String(raw.turn_id),
-      event_type: raw.event_type,
-      timestamp: String(raw.timestamp),
-      user_input: typeof raw.user_input === 'string' ? raw.user_input : undefined,
-      assistant_output: typeof raw.assistant_output === 'string' ? raw.assistant_output : undefined,
-      tool_name: typeof raw.tool_name === 'string' ? raw.tool_name : undefined,
-      tool_args: raw.tool_args && typeof raw.tool_args === 'object' ? raw.tool_args : undefined,
-      tool_result: raw.tool_result && typeof raw.tool_result === 'object' ? raw.tool_result : undefined,
-      files_changed: Array.isArray(raw.files_changed) ? raw.files_changed.map((item) => String(item)) : undefined,
-      skill_refs: Array.isArray(raw.skill_refs) ? raw.skill_refs.map((item) => String(item)) : undefined,
-      status: raw.status,
-      metadata: raw.metadata && typeof raw.metadata === 'object' ? raw.metadata : undefined,
-    };
-  } catch {
-    return null;
-  }
-}
-
-export function readTracesByIds(projectRoot: string, traceIds: string[]): Trace[] {
-  const wanted = new Set(traceIds.filter(Boolean));
-  if (wanted.size === 0) return [];
-
-  const traces = new Map<string, Trace>();
-  for (const filePath of listTraceNdjsonPaths(projectRoot)) {
-    let content = '';
-    try {
-      content = readFileSync(filePath, 'utf-8');
-    } catch {
-      continue;
-    }
-
-    for (const line of content.split(/\r?\n/)) {
-      if (!line.trim()) continue;
-      const trace = parseTraceRecord(line);
-      if (!trace || !wanted.has(trace.trace_id)) continue;
-      traces.set(trace.trace_id, trace);
-      if (traces.size >= wanted.size) {
-        break;
-      }
-    }
-    if (traces.size >= wanted.size) {
-      break;
-    }
-  }
-
-  return [...traces.values()].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 }
 
 function emptyUsageBucket(): AgentUsageBucket {

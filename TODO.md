@@ -5,7 +5,7 @@
 - [ ] P1 `src/dashboard/data-reader.ts`
   当前顺序：
   1. `[x]` 抽出 `readers/skills-reader`
-  2. `[ ]` 抽出 `readers/trace-reader`
+  2. `[x]` 抽出 `readers/trace-reader`
   3. `[ ]` 抽出 `readers/decision-events-reader`
   4. `[ ]` 抽出 `readers/agent-usage-reader`
   5. `[ ]` 抽出 `readers/daemon-status-reader`
@@ -61,7 +61,7 @@
   5. `[ ]` 保留 `ShadowManager` 作为 facade
 
 当前进行中：
-- [ ] `src/dashboard/data-reader.ts` 第 2 步：抽出 `readers/trace-reader`
+- [ ] `src/dashboard/data-reader.ts` 第 3 步：抽出 `readers/decision-events-reader`
 
 ## 优先级总览
 

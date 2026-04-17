@@ -7,18 +7,13 @@
  */
 
 import { getI18n, type Language } from './i18n.js';
+import { renderDashboardAppShell } from './web/app-shell.js';
 
 export function getDashboardHtml(_port: number, lang: Language = 'en', buildId = 'dev'): string {
   const t = getI18n(lang);
   const shortBuildId = buildId.slice(-8);
 
-  return /* html */ `<!DOCTYPE html>
-<html lang="${lang}">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>OrnnSkills Dashboard</title>
-<style>
+  const styleCss = /* css */ `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
     --bg0: #0d1117;
@@ -933,120 +928,9 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
     border: 1px solid var(--border); background: var(--bg2); color: var(--text);
     cursor: pointer;
   }
-</style>
-</head>
-<body>
-<div class="app">
+`;
 
-  <!-- Header -->
-  <header class="header">
-    <div class="header-left">
-      <span class="header-logo">🔧 OrnnSkills</span>
-      <span class="header-version" id="appVersion">${t.headerVersion}</span>
-      <span class="header-version" id="appBuild">build #${shortBuildId}</span>
-    </div>
-    <div style="display:flex;align-items:center;gap:16px;">
-      <div class="lang-switcher">
-        <button class="lang-btn ${lang === 'en' ? 'active' : ''}" onclick="switchLang('en')">EN</button>
-        <button class="lang-btn ${lang === 'zh' ? 'active' : ''}" onclick="switchLang('zh')">中文</button>
-      </div>
-      <div class="header-status" id="headerStatus">
-        <span class="dot dot-gray"></span>
-        <span>${t.headerConnecting}</span>
-      </div>
-    </div>
-  </header>
-
-  <div class="main">
-    <!-- Sidebar: Project List -->
-    <aside class="sidebar">
-      <div class="sidebar-title">${t.sidebarProjects}</div>
-      <div class="sidebar-list" id="projectList"></div>
-      <div class="sidebar-add" onclick="openProjectPicker()">
-        <span>＋</span><span>${t.sidebarAddProject}</span>
-      </div>
-      <div class="add-form" id="addForm">
-        <input type="text" id="addPathInput" placeholder="${t.sidebarAddPlaceholder}" />
-        <div class="add-form-hint">${t.sidebarAddHint}</div>
-      </div>
-    </aside>
-
-    <!-- Main Panel -->
-    <main class="panel" id="mainPanel">
-      <div class="no-project">${t.mainSelectProject}</div>
-    </main>
-  </div>
-</div>
-
-<!-- Skill Detail Modal -->
-<div class="modal-overlay" id="skillModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">
-        <span id="modalSkillName"></span>
-        <span id="modalSkillStatus"></span>
-      </div>
-      <button class="modal-close" onclick="closeModal()">✕ ${t.modalClose}</button>
-    </div>
-    <div class="modal-body">
-      <div class="modal-content">
-        <textarea id="modalContent" class="modal-editor" spellcheck="false">${t.modalLoading}</textarea>
-        <div class="modal-actions">
-          <span id="modalSaveHint" class="modal-save-hint"></span>
-          <div class="modal-action-group">
-            <button id="modalApplyAllBtn" class="btn-secondary" onclick="openApplyToAllSkillModal()">${t.modalApplyAllButton}</button>
-            <button id="modalSaveBtn" class="btn-primary" onclick="saveCurrentSkill()">${t.modalSave}</button>
-          </div>
-        </div>
-      </div>
-      <div class="modal-history">
-        <h4>${t.modalVersionHistory}</h4>
-        <div id="versionList"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="applyAllSkillModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">
-        <span id="applyAllConfirmTitle">${t.modalApplyAllTitle}</span>
-      </div>
-      <button class="modal-close" onclick="closeApplyToAllSkillModal()">✕ ${t.modalClose}</button>
-    </div>
-    <div class="modal-body">
-      <div class="modal-content">
-        <div id="applyAllConfirmBody" class="confirm-copy"></div>
-        <div class="modal-actions">
-          <span></span>
-          <div class="modal-action-group">
-            <button id="applyAllCancelBtn" class="btn-secondary" onclick="closeApplyToAllSkillModal()">${t.modalApplyAllCancel}</button>
-            <button id="applyAllConfirmBtn" class="btn-primary" onclick="confirmApplyCurrentSkillToAll()">${t.modalApplyAllConfirm}</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="eventModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">
-        <span id="eventModalTitle">${t.activityDetailTitle}</span>
-      </div>
-      <button class="modal-close" onclick="closeEventModal()">✕ ${t.modalClose}</button>
-    </div>
-    <div class="modal-body" style="grid-template-columns: 1fr;">
-      <div class="modal-content" style="border-right:none;">
-        <div id="eventModalContent"><pre class="activity-detail-text">${t.activityDetailEmpty}</pre></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
+  const scriptSource = /* js */ `
 // ─── i18n ─────────────────────────────────────────────────────────────────────
 const I18N = ${JSON.stringify({ en: getI18n('en'), zh: getI18n('zh') })};
 let currentLang = '${lang}';
@@ -5049,7 +4933,31 @@ function timeAgo(iso) {
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 init();
-</script>
-</body>
-</html>`;
+`;
+
+  return renderDashboardAppShell({
+    lang,
+    shortBuildId,
+    styleCss,
+    scriptSource,
+    labels: {
+      headerVersion: t.headerVersion,
+      headerConnecting: t.headerConnecting,
+      sidebarProjects: t.sidebarProjects,
+      sidebarAddProject: t.sidebarAddProject,
+      sidebarAddPlaceholder: t.sidebarAddPlaceholder,
+      sidebarAddHint: t.sidebarAddHint,
+      mainSelectProject: t.mainSelectProject,
+      modalClose: t.modalClose,
+      modalLoading: t.modalLoading,
+      modalApplyAllButton: t.modalApplyAllButton,
+      modalSave: t.modalSave,
+      modalVersionHistory: t.modalVersionHistory,
+      modalApplyAllTitle: t.modalApplyAllTitle,
+      modalApplyAllCancel: t.modalApplyAllCancel,
+      modalApplyAllConfirm: t.modalApplyAllConfirm,
+      activityDetailTitle: t.activityDetailTitle,
+      activityDetailEmpty: t.activityDetailEmpty,
+    },
+  });
 }

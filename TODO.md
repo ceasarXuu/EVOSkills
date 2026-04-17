@@ -10,7 +10,7 @@
   4. `[x]` 抽出 `readers/agent-usage-reader`
   5. `[x]` 抽出 `readers/daemon-status-reader`
   6. `[x]` 保留 `data-reader.ts` 作为 facade
-- [ ] P1 `src/dashboard/server.ts`
+- [x] P1 `src/dashboard/server.ts`
   当前顺序：
   1. `[x]` 抽出 `routes/global-config-routes`
   2. `[x]` 抽出 `routes/project-config-routes`
@@ -23,7 +23,7 @@
   4. `[x]` 抽出 `services/skill-version`
 - [ ] P1 `src/dashboard/ui.ts`
   当前顺序：
-  1. `[ ]` 抽出 `web/app-shell`
+  1. `[x]` 抽出 `web/app-shell`
   2. `[ ]` 抽出 `web/state`
   3. `[ ]` 抽出 `web/panels/*`
   4. `[ ]` 抽出 `web/render/*`
@@ -66,7 +66,7 @@
   5. `[ ]` 保留 `ShadowManager` 作为 facade
 
 当前进行中：
-- [ ] `src/dashboard/ui.ts` 第 1 步：抽出 `web/app-shell`
+- [ ] `src/dashboard/ui.ts` 第 2 步：抽出 `web/state`
 
 ## 优先级总览
 

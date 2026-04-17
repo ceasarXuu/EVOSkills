@@ -14,25 +14,17 @@ import {
   setProjectMonitoringState,
   type RegisteredProject,
 } from './projects-registry.js';
-import { readProjectLanguage, writeProjectLanguage } from './language-state.js';
+import { writeProjectLanguage } from './language-state.js';
 import {
   readDaemonStatus,
   readSkills,
   readSkillContent,
   readSkillVersion,
-  readRecentTraces,
-  readRecentDecisionEvents,
-  readTaskEpisodeSnapshot,
-  readAgentUsageRecords,
-  readTracesByIds,
-  computeTraceStats,
-  readProjectSnapshot,
   readProjectSnapshotVersion,
   readGlobalLogs,
   readLogsSince,
   createGlobalLogCursor,
   type LogCursor,
-  type ProjectData,
 } from './data-reader.js';
 import { getDashboardHtml } from './ui.js';
 import type { Language } from './i18n.js';
@@ -45,11 +37,11 @@ import {
   checkProvidersConnectivity,
   readDashboardConfig,
 } from '../config/manager.js';
-import { buildActivityScopeDetailFromData } from './activity-scope-reader.js';
 import { pickProjectDirectory } from './native-project-picker.js';
 import { ensureMonitoringDaemon, ensureProjectInitialized } from './project-onboarding.js';
 import { handleGlobalConfigRoutes } from './routes/global-config-routes.js';
 import { handleProjectConfigRoutes } from './routes/project-config-routes.js';
+import { handleProjectReadRoutes } from './routes/project-read-routes.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -194,10 +186,6 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
         };
       }
     });
-  }
-
-  function getProjectSnapshot(projectPath: string): ProjectData {
-    return readProjectSnapshot(projectPath);
   }
 
   function buildProjectsSignature(projects: ProjectWithStatus[]): string {
@@ -695,23 +683,15 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
         const projectPath = decodeURIComponent(projectMatch[1]);
         const subPath = projectMatch[2] ?? '';
 
-        // GET /api/projects/:id/snapshot
-        if (subPath === '/snapshot' && method === 'GET') {
-          const snapshot = getProjectSnapshot(projectPath);
-          const snapshotBytes = Buffer.byteLength(JSON.stringify(snapshot), 'utf-8');
-          if (snapshotBytes > 128 * 1024) {
-            logger.warn('Dashboard snapshot payload is large', {
-              projectPath,
-              bytes: snapshotBytes,
-            });
-          }
-          json(res, snapshot);
-          return;
-        }
-
-        // GET /api/projects/:id/status
-        if (subPath === '/status' && method === 'GET') {
-          json(res, readDaemonStatus(projectPath));
+        if (await handleProjectReadRoutes({
+          subPath,
+          method,
+          projectPath,
+          currentLang,
+          json: (data, status = 200) => json(res, data, status),
+          notFound: () => notFound(res),
+          logger,
+        })) {
           return;
         }
 
@@ -1085,48 +1065,6 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
             return;
           }
           json(res, result);
-          return;
-        }
-
-        // GET /api/projects/:id/traces
-        if (subPath === '/traces' && method === 'GET') {
-          const traces = readRecentTraces(projectPath, 50);
-          json(res, { traces, stats: computeTraceStats(traces) });
-          return;
-        }
-
-        const activityScopeMatch = subPath.match(/^\/activity-scopes\/([^/]+)$/);
-        if (activityScopeMatch && method === 'GET') {
-          const scopeId = decodeURIComponent(activityScopeMatch[1]);
-          const snapshot = readTaskEpisodeSnapshot(projectPath);
-          const episode = snapshot.episodes.find((item) => item.episodeId === scopeId);
-          if (!episode) {
-            notFound(res);
-            return;
-          }
-
-          const lang = await readProjectLanguage(projectPath, currentLang);
-          const detail = buildActivityScopeDetailFromData({
-            lang,
-            projectName: projectPath.split('/').filter(Boolean).pop() || projectPath,
-            episode,
-            decisionEvents: readRecentDecisionEvents(projectPath, 800),
-            agentUsageRecords: readAgentUsageRecords(projectPath, 800),
-            traces: readTracesByIds(projectPath, episode.traceRefs),
-          });
-
-          if (!detail) {
-            notFound(res);
-            return;
-          }
-
-          logger.debug('Dashboard activity scope detail loaded', {
-            projectPath,
-            scopeId,
-            status: detail.status,
-            timelineLength: detail.timeline.length,
-          });
-          json(res, { detail });
           return;
         }
 

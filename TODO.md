@@ -14,7 +14,7 @@
   当前顺序：
   1. `[x]` 抽出 `routes/global-config-routes`
   2. `[x]` 抽出 `routes/project-config-routes`
-  3. `[ ]` 抽出 `routes/project-read-routes`
+  3. `[x]` 抽出 `routes/project-read-routes`
   4. `[ ]` 抽出 `routes/project-skill-routes`
   5. `[ ]` 抽出 `routes/project-version-routes`
   6. `[ ]` 收口 `server.ts` 剩余路由装配
@@ -66,7 +66,7 @@
   5. `[ ]` 保留 `ShadowManager` 作为 facade
 
 当前进行中：
-- [ ] `src/dashboard/server.ts` 第 1.3 步：抽出 `routes/project-read-routes`
+- [ ] `src/dashboard/server.ts` 第 1.4 步：抽出 `routes/project-skill-routes`
 
 ## 优先级总览
 

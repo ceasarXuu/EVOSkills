@@ -1,0 +1,101 @@
+type DashboardConfigPanelDeps = {
+  escHtml: (value: unknown) => string;
+  t: (key: string) => string;
+};
+
+type DashboardConfigPanelInput = {
+  deps: DashboardConfigPanelDeps;
+  connectivityHtml: string;
+  llmSafety: {
+    enabled: boolean;
+    windowMs: number;
+    maxRequestsPerWindow: number;
+    maxConcurrentRequests: number;
+    maxEstimatedTokensPerWindow: number;
+  };
+  loading: boolean;
+  loadError: string;
+  promptOverrides: {
+    skillCallAnalyzer: string;
+    decisionExplainer: string;
+    readinessProbe: string;
+  };
+  providerCatalogError: string;
+  providerCatalogLoading: boolean;
+  rowsHtml: string;
+  saveHint: string;
+};
+
+export function renderDashboardConfigPanel(input: DashboardConfigPanelInput): string {
+  const { deps } = input;
+
+  return `
+    ${input.providerCatalogLoading ? `<div class="config-help" style="margin-bottom:8px">${deps.t('configCatalogLoading')}</div>` : ''}
+    ${input.providerCatalogError ? `<div class="config-help" style="margin-bottom:8px;color:var(--red)">${deps.t('configCatalogErrorPrefix')} ${deps.escHtml(input.providerCatalogError)} <button class="btn-secondary" type="button" onclick="reloadProviderCatalog()">${deps.t('configRetry')}</button></div>` : ''}
+    ${input.loading ? `<div class="config-help" style="margin-bottom:8px">${deps.t('configLoading')}</div>` : ''}
+    ${input.loadError ? `<div class="config-help" style="margin-bottom:8px;color:var(--red)">${deps.t('configLoadErrorPrefix')} ${deps.escHtml(input.loadError)}</div>` : ''}
+    <div class="config-intro">${deps.t('configIntro')}</div>
+    <div class="config-field" style="margin-top:10px">
+      <label class="config-label">${deps.t('configProvidersLabel')}</label>
+      <div class="providers-editor" id="cfg_providers_rows">${input.rowsHtml}</div>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="btn-secondary" type="button" onclick="addProviderRow()">${deps.t('configAddProvider')}</button>
+      </div>
+      <div class="config-help">${deps.t('configProvidersHelp')}</div>
+      <div class="config-connectivity" id="cfg_connectivity">
+        ${input.connectivityHtml}
+      </div>
+    </div>
+    <div class="config-field" style="margin-top:14px">
+      <label class="config-label">${deps.t('configLlmSafetyLabel')}</label>
+      <div class="config-help">${deps.t('configLlmSafetyHelp')}</div>
+      <div class="providers-editor" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-top:8px">
+        <label class="config-check" style="align-items:flex-start;gap:10px">
+          <input id="cfg_llm_safety_enabled" type="checkbox" ${input.llmSafety.enabled ? 'checked' : ''} onchange="scheduleProjectConfigSave(150)" />
+          <span>${deps.t('configLlmSafetyEnabledLabel')}</span>
+        </label>
+        <label>
+          <div class="config-label">${deps.t('configLlmSafetyWindowLabel')}</div>
+          <input id="cfg_llm_safety_window_ms" class="config-input" type="number" min="1" step="1000" value="${deps.escHtml(String(input.llmSafety.windowMs))}" oninput="scheduleProjectConfigSave(500)" />
+        </label>
+        <label>
+          <div class="config-label">${deps.t('configLlmSafetyRequestsLabel')}</div>
+          <input id="cfg_llm_safety_max_requests" class="config-input" type="number" min="1" step="1" value="${deps.escHtml(String(input.llmSafety.maxRequestsPerWindow))}" oninput="scheduleProjectConfigSave(500)" />
+        </label>
+        <label>
+          <div class="config-label">${deps.t('configLlmSafetyConcurrentLabel')}</div>
+          <input id="cfg_llm_safety_max_concurrent" class="config-input" type="number" min="1" step="1" value="${deps.escHtml(String(input.llmSafety.maxConcurrentRequests))}" oninput="scheduleProjectConfigSave(500)" />
+        </label>
+        <label>
+          <div class="config-label">${deps.t('configLlmSafetyTokensLabel')}</div>
+          <input id="cfg_llm_safety_max_tokens" class="config-input" type="number" min="1" step="1000" value="${deps.escHtml(String(input.llmSafety.maxEstimatedTokensPerWindow))}" oninput="scheduleProjectConfigSave(500)" />
+        </label>
+      </div>
+    </div>
+    <div class="config-field" style="margin-top:14px">
+      <label class="config-label">${deps.t('configPromptOverridesLabel')}</label>
+      <div class="config-help">${deps.t('configPromptOverridesHelp')}</div>
+      <div style="display:grid;gap:10px;margin-top:8px">
+        <label>
+          <div class="config-label">${deps.t('configPromptSkillCallAnalyzerLabel')}</div>
+          <textarea id="cfg_prompt_skill_call_analyzer" class="config-textarea" rows="5" placeholder="${deps.escHtml(deps.t('configPromptSkillCallAnalyzerPlaceholder'))}" oninput="scheduleProjectConfigSave(500)">${deps.escHtml(input.promptOverrides.skillCallAnalyzer)}</textarea>
+        </label>
+        <label>
+          <div class="config-label">${deps.t('configPromptDecisionExplainerLabel')}</div>
+          <textarea id="cfg_prompt_decision_explainer" class="config-textarea" rows="4" placeholder="${deps.escHtml(deps.t('configPromptDecisionExplainerPlaceholder'))}" oninput="scheduleProjectConfigSave(500)">${deps.escHtml(input.promptOverrides.decisionExplainer)}</textarea>
+        </label>
+        <label>
+          <div class="config-label">${deps.t('configPromptReadinessProbeLabel')}</div>
+          <textarea id="cfg_prompt_readiness_probe" class="config-textarea" rows="4" placeholder="${deps.escHtml(deps.t('configPromptReadinessProbePlaceholder'))}" oninput="scheduleProjectConfigSave(500)">${deps.escHtml(input.promptOverrides.readinessProbe)}</textarea>
+        </label>
+      </div>
+    </div>
+    <div class="config-actions">
+      <span id="cfg_save_hint" class="config-label">${deps.escHtml(input.saveHint || '')}</span>
+    </div>
+  `;
+}
+
+export function renderDashboardConfigPanelSource(): string {
+  return renderDashboardConfigPanel.toString();
+}

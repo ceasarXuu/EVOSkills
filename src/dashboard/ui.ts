@@ -8,12 +8,14 @@
 
 import { getI18n, type Language } from './i18n.js';
 import { renderDashboardAppShell } from './web/app-shell.js';
+import { renderDashboardConfigPanelSource } from './web/panels/config-panel.js';
 import { renderDashboardCostPanelSource } from './web/panels/cost-panel.js';
 import { renderDashboardStateSource } from './web/state.js';
 
 export function getDashboardHtml(_port: number, lang: Language = 'en', buildId = 'dev'): string {
   const t = getI18n(lang);
   const shortBuildId = buildId.slice(-8);
+  const dashboardConfigPanelSource = renderDashboardConfigPanelSource();
   const dashboardCostPanelSource = renderDashboardCostPanelSource();
   const dashboardStateSource = renderDashboardStateSource();
 
@@ -941,6 +943,7 @@ let currentLang = '${lang}';
 const DASHBOARD_BUILD_ID = '${buildId}';
 const DASHBOARD_BUILD_SHORT = DASHBOARD_BUILD_ID.slice(-8);
 ${dashboardStateSource}
+${dashboardConfigPanelSource}
 ${dashboardCostPanelSource}
 
 function t(key) {
@@ -3462,71 +3465,21 @@ function renderConfigPanel(projectPath) {
     ? providers.map((row, index) => renderProviderRow(projectPath, row, index, activeProviderIndex)).join('')
     : \`<div class="config-help">\${t('configNoProviders')}</div>\`;
 
-  return \`
-    \${state.providerCatalogLoading ? \`<div class="config-help" style="margin-bottom:8px">\${t('configCatalogLoading')}</div>\` : ''}
-    \${state.providerCatalogError ? \`<div class="config-help" style="margin-bottom:8px;color:var(--red)">\${t('configCatalogErrorPrefix')} \${escHtml(state.providerCatalogError)} <button class="btn-secondary" type="button" onclick="reloadProviderCatalog()">\${t('configRetry')}</button></div>\` : ''}
-    \${loading ? \`<div class="config-help" style="margin-bottom:8px">\${t('configLoading')}</div>\` : ''}
-    \${loadError ? \`<div class="config-help" style="margin-bottom:8px;color:var(--red)">\${t('configLoadErrorPrefix')} \${escHtml(loadError)}</div>\` : ''}
-    <div class="config-intro">\${t('configIntro')}</div>
-    <div class="config-field" style="margin-top:10px">
-      <label class="config-label">\${t('configProvidersLabel')}</label>
-      <div class="providers-editor" id="cfg_providers_rows">\${rowsHtml}</div>
-      <div style="margin-top:8px;display:flex;gap:8px">
-        <button class="btn-secondary" type="button" onclick="addProviderRow()">\${t('configAddProvider')}</button>
-      </div>
-      <div class="config-help">\${t('configProvidersHelp')}</div>
-      <div class="config-connectivity" id="cfg_connectivity">
-        \${renderConnectivityResultsHtml(configUi.connectivityResults)}
-      </div>
-    </div>
-    <div class="config-field" style="margin-top:14px">
-      <label class="config-label">\${t('configLlmSafetyLabel')}</label>
-      <div class="config-help">\${t('configLlmSafetyHelp')}</div>
-      <div class="providers-editor" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-top:8px">
-        <label class="config-check" style="align-items:flex-start;gap:10px">
-          <input id="cfg_llm_safety_enabled" type="checkbox" \${llmSafety.enabled ? 'checked' : ''} onchange="scheduleProjectConfigSave(150)" />
-          <span>\${t('configLlmSafetyEnabledLabel')}</span>
-        </label>
-        <label>
-          <div class="config-label">\${t('configLlmSafetyWindowLabel')}</div>
-          <input id="cfg_llm_safety_window_ms" class="config-input" type="number" min="1" step="1000" value="\${escHtml(String(llmSafety.windowMs))}" oninput="scheduleProjectConfigSave(500)" />
-        </label>
-        <label>
-          <div class="config-label">\${t('configLlmSafetyRequestsLabel')}</div>
-          <input id="cfg_llm_safety_max_requests" class="config-input" type="number" min="1" step="1" value="\${escHtml(String(llmSafety.maxRequestsPerWindow))}" oninput="scheduleProjectConfigSave(500)" />
-        </label>
-        <label>
-          <div class="config-label">\${t('configLlmSafetyConcurrentLabel')}</div>
-          <input id="cfg_llm_safety_max_concurrent" class="config-input" type="number" min="1" step="1" value="\${escHtml(String(llmSafety.maxConcurrentRequests))}" oninput="scheduleProjectConfigSave(500)" />
-        </label>
-        <label>
-          <div class="config-label">\${t('configLlmSafetyTokensLabel')}</div>
-          <input id="cfg_llm_safety_max_tokens" class="config-input" type="number" min="1" step="1000" value="\${escHtml(String(llmSafety.maxEstimatedTokensPerWindow))}" oninput="scheduleProjectConfigSave(500)" />
-        </label>
-      </div>
-    </div>
-    <div class="config-field" style="margin-top:14px">
-      <label class="config-label">\${t('configPromptOverridesLabel')}</label>
-      <div class="config-help">\${t('configPromptOverridesHelp')}</div>
-      <div style="display:grid;gap:10px;margin-top:8px">
-        <label>
-          <div class="config-label">\${t('configPromptSkillCallAnalyzerLabel')}</div>
-          <textarea id="cfg_prompt_skill_call_analyzer" class="config-textarea" rows="5" placeholder="\${escHtml(t('configPromptSkillCallAnalyzerPlaceholder'))}" oninput="scheduleProjectConfigSave(500)">\${escHtml(promptOverrides.skillCallAnalyzer)}</textarea>
-        </label>
-        <label>
-          <div class="config-label">\${t('configPromptDecisionExplainerLabel')}</div>
-          <textarea id="cfg_prompt_decision_explainer" class="config-textarea" rows="4" placeholder="\${escHtml(t('configPromptDecisionExplainerPlaceholder'))}" oninput="scheduleProjectConfigSave(500)">\${escHtml(promptOverrides.decisionExplainer)}</textarea>
-        </label>
-        <label>
-          <div class="config-label">\${t('configPromptReadinessProbeLabel')}</div>
-          <textarea id="cfg_prompt_readiness_probe" class="config-textarea" rows="4" placeholder="\${escHtml(t('configPromptReadinessProbePlaceholder'))}" oninput="scheduleProjectConfigSave(500)">\${escHtml(promptOverrides.readinessProbe)}</textarea>
-        </label>
-      </div>
-    </div>
-    <div class="config-actions">
-      <span id="cfg_save_hint" class="config-label">\${escHtml(configUi.saveHint || '')}</span>
-    </div>
-  \`;
+  return renderDashboardConfigPanel({
+    deps: {
+      escHtml,
+      t,
+    },
+    connectivityHtml: renderConnectivityResultsHtml(configUi.connectivityResults),
+    llmSafety,
+    loading,
+    loadError,
+    promptOverrides,
+    providerCatalogError: state.providerCatalogError,
+    providerCatalogLoading: state.providerCatalogLoading,
+    rowsHtml,
+    saveHint: configUi.saveHint || '',
+  });
 }
 
 function retryLoadConfig() {

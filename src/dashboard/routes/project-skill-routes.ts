@@ -1,9 +1,8 @@
-import { createSkillDeployer } from '../../core/skill-deployer/index.js';
-import { createShadowRegistry } from '../../core/shadow-registry/index.js';
 import { SkillVersionManager } from '../../core/skill-version/index.js';
 import { listProjects } from '../projects-registry.js';
 import { readSkillContent, readSkills } from '../data-reader.js';
 import type { RuntimeType } from '../../types/index.js';
+import { resolveDashboardRuntime, saveSkillVersion } from '../services/skill-version-service.js';
 
 interface RouteLogger {
   info(message: string, meta?: Record<string, unknown>): void;
@@ -20,93 +19,6 @@ interface ProjectSkillRouteContext {
   parseBody: () => Promise<unknown>;
   notFound: () => void;
   logger: RouteLogger;
-}
-
-function resolveRuntime(runtimeFromBody?: unknown, runtimeFromQuery?: string | null): RuntimeType {
-  const runtimeCandidate =
-    typeof runtimeFromBody === 'string' && runtimeFromBody.length > 0 ? runtimeFromBody : runtimeFromQuery;
-  return runtimeCandidate === 'claude' || runtimeCandidate === 'opencode' || runtimeCandidate === 'codex'
-    ? runtimeCandidate
-    : 'codex';
-}
-
-function saveSkillVersion(
-  context: Pick<ProjectSkillRouteContext, 'logger'>,
-  params: {
-    projectPath: string;
-    skillId: string;
-    runtime: RuntimeType;
-    content: string;
-    reason: string;
-    logContext: string;
-  }
-) {
-  const { logger } = context;
-  const { projectPath, skillId, runtime, content, reason, logContext } = params;
-  const oldContent = readSkillContent(projectPath, skillId, runtime);
-  if (oldContent === null) {
-    return { ok: false as const, notFound: true as const };
-  }
-
-  const versionManager = new SkillVersionManager({
-    projectPath,
-    skillId,
-    runtime,
-  });
-  const currentEffectiveVersion = versionManager.getEffectiveVersion()?.version ?? null;
-  if (content === oldContent) {
-    return {
-      ok: true as const,
-      unchanged: true as const,
-      version: currentEffectiveVersion,
-    };
-  }
-
-  const shadowRegistry = createShadowRegistry(projectPath);
-  shadowRegistry.init();
-  const updated = shadowRegistry.updateContent(skillId, content, runtime);
-  if (!updated) {
-    return { ok: false as const, notFound: true as const };
-  }
-
-  const created = versionManager.createVersion(content, reason, []);
-  const deployer = createSkillDeployer({
-    runtime,
-    projectPath,
-  });
-  const deployResult = deployer.deploy(skillId, created);
-  if (!deployResult.success) {
-    logger.error(`${logContext} created version but failed to deploy latest`, {
-      projectPath,
-      skillId,
-      runtime,
-      version: created.version,
-      error: deployResult.error,
-    });
-    return {
-      ok: false as const,
-      version: created.version,
-      error: `Version created (v${created.version}) but deploy failed`,
-      detail: deployResult.error,
-    };
-  }
-
-  logger.info(logContext, {
-    projectPath,
-    skillId,
-    runtime,
-    version: created.version,
-    deployedPath: deployResult.deployedPath,
-  });
-
-  return {
-    ok: true as const,
-    unchanged: false as const,
-    version: created.version,
-    metadata: created.metadata,
-    deployedPath: deployResult.deployedPath,
-    created,
-  };
 }
 
 function listSameNamedSkillTargets(
@@ -146,7 +58,7 @@ export async function handleProjectSkillRoutes(context: ProjectSkillRouteContext
   const skillMatch = subPath.match(/^\/skills\/([^/]+)$/);
   if (skillMatch && method === 'GET') {
     const skillId = decodeURIComponent(skillMatch[1]);
-    const runtime = resolveRuntime(undefined, url.searchParams.get('runtime'));
+    const runtime = resolveDashboardRuntime(undefined, url.searchParams.get('runtime'));
     const content = readSkillContent(projectPath, skillId, runtime);
     const skills = readSkills(projectPath);
     const skill = skills.find((entry) => entry.skillId === skillId && (entry.runtime ?? 'codex') === runtime);
@@ -185,20 +97,18 @@ export async function handleProjectSkillRoutes(context: ProjectSkillRouteContext
       return true;
     }
 
-    const runtime = resolveRuntime(body.runtime, url.searchParams.get('runtime'));
+    const runtime = resolveDashboardRuntime(body.runtime, url.searchParams.get('runtime'));
     const reason =
       typeof body.reason === 'string' && body.reason.trim().length > 0 ? body.reason.trim() : 'Manual edit from dashboard';
-    const result = saveSkillVersion(
-      { logger },
-      {
-        projectPath,
-        skillId,
-        runtime,
-        content: body.content,
-        reason,
-        logContext: 'Dashboard saved skill edit and created version',
-      }
-    );
+    const result = saveSkillVersion({
+      projectPath,
+      skillId,
+      runtime,
+      content: body.content,
+      reason,
+      logContext: 'Dashboard saved skill edit and created version',
+      logger,
+    });
 
     if (!result.ok && result.notFound) {
       notFound();
@@ -243,20 +153,18 @@ export async function handleProjectSkillRoutes(context: ProjectSkillRouteContext
       return true;
     }
 
-    const runtime = resolveRuntime(body.runtime, url.searchParams.get('runtime'));
+    const runtime = resolveDashboardRuntime(body.runtime, url.searchParams.get('runtime'));
     const sourceReason =
       typeof body.reason === 'string' && body.reason.trim().length > 0 ? body.reason.trim() : 'Manual edit from dashboard';
-    const sourceResult = saveSkillVersion(
-      { logger },
-      {
-        projectPath,
-        skillId,
-        runtime,
-        content: body.content,
-        reason: sourceReason,
-        logContext: 'Dashboard bulk apply saved source skill version',
-      }
-    );
+    const sourceResult = saveSkillVersion({
+      projectPath,
+      skillId,
+      runtime,
+      content: body.content,
+      reason: sourceReason,
+      logContext: 'Dashboard bulk apply saved source skill version',
+      logger,
+    });
 
     if (!sourceResult.ok && sourceResult.notFound) {
       notFound();
@@ -299,17 +207,15 @@ export async function handleProjectSkillRoutes(context: ProjectSkillRouteContext
         continue;
       }
 
-      const targetResult = saveSkillVersion(
-        { logger },
-        {
-          projectPath: target.projectPath,
-          skillId,
-          runtime: target.runtime,
-          content: body.content,
-          reason: `Bulk apply from ${projectPath} (${runtime})`,
-          logContext: 'Dashboard bulk apply propagated skill version',
-        }
-      );
+      const targetResult = saveSkillVersion({
+        projectPath: target.projectPath,
+        skillId,
+        runtime: target.runtime,
+        content: body.content,
+        reason: `Bulk apply from ${projectPath} (${runtime})`,
+        logContext: 'Dashboard bulk apply propagated skill version',
+        logger,
+      });
 
       if (!targetResult.ok) {
         failedTargets++;

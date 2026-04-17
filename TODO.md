@@ -20,7 +20,7 @@
   6. `[x]` 收口 `server.ts` 剩余路由装配
   2. `[x]` 抽出 `sse/hub`
   3. `[x]` 抽出 `services/project-onboarding`
-  4. `[ ]` 抽出 `services/skill-version`
+  4. `[x]` 抽出 `services/skill-version`
 - [ ] P1 `src/dashboard/ui.ts`
   当前顺序：
   1. `[ ]` 抽出 `web/app-shell`
@@ -66,7 +66,7 @@
   5. `[ ]` 保留 `ShadowManager` 作为 facade
 
 当前进行中：
-- [ ] `src/dashboard/server.ts` 第 4 步：抽出 `services/skill-version`
+- [ ] `src/dashboard/ui.ts` 第 1 步：抽出 `web/app-shell`
 
 ## 优先级总览
 

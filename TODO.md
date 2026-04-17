@@ -44,11 +44,11 @@
   3. `[x]` 抽出 `session-repo`
   4. `[x]` 抽出 `origin-skill-repo`
   5. `[x]` 抽出 `trace-skill-mapping-repo`
-- [ ] P2 `src/core/journal/index.ts`
+- [x] P2 `src/core/journal/index.ts`
   当前顺序：
-  1. `[ ]` 抽出 `trace-journal`
-  2. `[ ]` 抽出 `shadow-history`
-  3. `[ ]` 共用 `sqlite` 持久层接口
+  1. `[x]` 抽出 `trace-journal`
+  2. `[x]` 抽出 `shadow-history`
+  3. `[x]` 共用 `sqlite` 持久层接口
 - [ ] P2 `src/core/observer/codex-observer.ts`
   当前顺序：
   1. `[ ]` 抽出 `session-file-reader`
@@ -70,7 +70,7 @@
   5. `[ ]` 保留 `ShadowManager` 作为 facade
 
 当前进行中：
-- [ ] `src/core/journal/index.ts` 第 1 步：抽出 `trace-journal`
+- [ ] `src/core/observer/codex-observer.ts` 第 1 步：抽出 `session-file-reader`
 
 ## 优先级总览
 

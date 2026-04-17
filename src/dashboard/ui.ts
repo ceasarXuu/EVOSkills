@@ -10,6 +10,7 @@ import { getI18n, type Language } from './i18n.js';
 import { renderDashboardAppShell } from './web/app-shell.js';
 import { renderDashboardConfigPanelSource } from './web/panels/config-panel.js';
 import { renderDashboardCostPanelSource } from './web/panels/cost-panel.js';
+import { renderDashboardLogsPanelSource } from './web/panels/logs-panel.js';
 import { renderDashboardStateSource } from './web/state.js';
 
 export function getDashboardHtml(_port: number, lang: Language = 'en', buildId = 'dev'): string {
@@ -17,6 +18,7 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
   const shortBuildId = buildId.slice(-8);
   const dashboardConfigPanelSource = renderDashboardConfigPanelSource();
   const dashboardCostPanelSource = renderDashboardCostPanelSource();
+  const dashboardLogsPanelSource = renderDashboardLogsPanelSource();
   const dashboardStateSource = renderDashboardStateSource();
 
   const styleCss = /* css */ `
@@ -945,6 +947,7 @@ const DASHBOARD_BUILD_SHORT = DASHBOARD_BUILD_ID.slice(-8);
 ${dashboardStateSource}
 ${dashboardConfigPanelSource}
 ${dashboardCostPanelSource}
+${dashboardLogsPanelSource}
 
 function t(key) {
   return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.en && I18N.en[key]) || key;
@@ -3329,20 +3332,7 @@ function renderMainPanel(projectPath) {
     </div>
     \` : ''}
 
-    \${state.selectedMainTab === 'logs' ? \`
-    <div class="log-panel">
-      <div class="log-header">
-        <span class="log-title">\${t('logTitle')}</span>
-        <select class="log-filter" id="logFilter" onchange="filterLogs()">
-          <option value="ALL" \${state.logFilter === 'ALL' ? 'selected' : ''}>\${t('logFilterAll')}</option>
-          <option value="INFO" \${state.logFilter === 'INFO' ? 'selected' : ''}>INFO</option>
-          <option value="WARN" \${state.logFilter === 'WARN' ? 'selected' : ''}>WARN</option>
-          <option value="ERROR" \${state.logFilter === 'ERROR' ? 'selected' : ''}>ERROR</option>
-        </select>
-      </div>
-      <div class="log-list" id="logList"></div>
-    </div>
-    \` : ''}
+    \${state.selectedMainTab === 'logs' ? renderDashboardLogsPanel({ deps: { t }, logFilter: state.logFilter }) : ''}
 
     \${state.selectedMainTab === 'config' ? \`
     <div class="card">

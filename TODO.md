@@ -37,13 +37,13 @@
   2. `[x]` 抽出 `env-file`
   3. `[x]` 抽出 `provider-connectivity`
   4. `[x]` 抽出 `prompt-overrides`
-- [ ] P2 `src/storage/sqlite.ts`
+- [x] P2 `src/storage/sqlite.ts`
   当前顺序：
   1. `[x]` 抽出共享 DB adapter
-  2. `[ ]` 抽出 `shadow-skill-repo`
-  3. `[ ]` 抽出 `session-repo`
-  4. `[ ]` 抽出 `origin-skill-repo`
-  5. `[ ]` 抽出 `trace-skill-mapping-repo`
+  2. `[x]` 抽出 `shadow-skill-repo`
+  3. `[x]` 抽出 `session-repo`
+  4. `[x]` 抽出 `origin-skill-repo`
+  5. `[x]` 抽出 `trace-skill-mapping-repo`
 - [ ] P2 `src/core/journal/index.ts`
   当前顺序：
   1. `[ ]` 抽出 `trace-journal`
@@ -70,7 +70,7 @@
   5. `[ ]` 保留 `ShadowManager` 作为 facade
 
 当前进行中：
-- [ ] `src/storage/sqlite.ts` 第 2 步：抽出 `shadow-skill-repo`
+- [ ] `src/core/journal/index.ts` 第 1 步：抽出 `trace-journal`
 
 ## 优先级总览
 

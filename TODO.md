@@ -27,11 +27,11 @@
   2. `[x]` 抽出 `web/state`
   3. `[x]` 抽出 `web/panels/*`（已完成 `panels/cost-panel`、`panels/config-panel`、`panels/logs-panel`、`panels/overview-panel`、`panels/skills-panel`、`panels/activity-panel`）
   4. `[ ]` 抽出 `web/render/*`
-- [ ] P1 `src/config/manager.ts`
+- [x] P1 `src/config/manager.ts`
   当前顺序：
   1. `[x]` 抽出 `dashboard-config`
   2. `[x]` 抽出 `env-file`
-  3. `[ ]` 抽出 `provider-connectivity`
+  3. `[x]` 抽出 `provider-connectivity`
   4. `[x]` 抽出 `prompt-overrides`
 - [ ] P2 `src/storage/sqlite.ts`
   当前顺序：
@@ -66,7 +66,7 @@
   5. `[ ]` 保留 `ShadowManager` 作为 facade
 
 当前进行中：
-- [ ] `src/config/manager.ts` 拆分中（下一项：`provider-connectivity`）
+- [ ] `src/dashboard/ui.ts` 第 4 步：抽出 `web/render/*`（下一项：`render/skill-card`）
 
 ## 优先级总览
 

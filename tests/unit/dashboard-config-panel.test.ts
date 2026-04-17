@@ -23,10 +23,20 @@ describe('dashboard config panel', () => {
       },
       loading: true,
       loadError: 'load failed',
+      promptDefaults: {
+        skillCallAnalyzer: 'builtin analyzer',
+        decisionExplainer: 'builtin explainer',
+        readinessProbe: 'builtin probe',
+      },
       promptOverrides: {
-        skillCallAnalyzer: 'analyzer prompt',
-        decisionExplainer: 'decision prompt',
-        readinessProbe: 'probe prompt',
+        skillCallAnalyzer: 'custom analyzer prompt',
+        decisionExplainer: 'custom decision prompt',
+        readinessProbe: 'custom probe prompt',
+      },
+      promptSources: {
+        skillCallAnalyzer: 'built_in',
+        decisionExplainer: 'custom',
+        readinessProbe: 'built_in',
       },
       providerCatalogError: 'catalog failed',
       providerCatalogLoading: true,
@@ -59,10 +69,20 @@ describe('dashboard config panel', () => {
       },
       loading: false,
       loadError: '',
+      promptDefaults: {
+        skillCallAnalyzer: 'builtin analyzer',
+        decisionExplainer: 'builtin explainer',
+        readinessProbe: 'builtin probe',
+      },
       promptOverrides: {
-        skillCallAnalyzer: 'analyzer prompt',
-        decisionExplainer: 'decision prompt',
-        readinessProbe: 'probe prompt',
+        skillCallAnalyzer: 'custom analyzer prompt',
+        decisionExplainer: 'custom decision prompt',
+        readinessProbe: 'custom probe prompt',
+      },
+      promptSources: {
+        skillCallAnalyzer: 'built_in',
+        decisionExplainer: 'custom',
+        readinessProbe: 'custom',
       },
       providerCatalogError: '',
       providerCatalogLoading: false,
@@ -72,11 +92,17 @@ describe('dashboard config panel', () => {
 
     expect(html).toContain('id="cfg_llm_safety_enabled" type="checkbox"');
     expect(html).not.toContain('id="cfg_llm_safety_enabled" type="checkbox" checked');
+    expect(html).toContain('class="config-prompt-grid"');
+    expect(html).toContain('id="cfg_prompt_skill_call_analyzer_source_built_in"');
+    expect(html).toContain('id="cfg_prompt_skill_call_analyzer_source_custom"');
+    expect(html).toContain('builtin analyzer');
     expect(html).toContain('id="cfg_prompt_skill_call_analyzer"');
-    expect(html).toContain('analyzer prompt');
+    expect(html).toContain('custom analyzer prompt');
+    expect(html).toContain('id="cfg_prompt_decision_explainer_source_custom"');
+    expect(html).toContain('checked');
     expect(html).toContain('id="cfg_prompt_decision_explainer"');
-    expect(html).toContain('decision prompt');
+    expect(html).toContain('custom decision prompt');
     expect(html).toContain('id="cfg_prompt_readiness_probe"');
-    expect(html).toContain('probe prompt');
+    expect(html).toContain('custom probe prompt');
   });
 });

@@ -6,7 +6,8 @@ import { readProjectLanguage } from '../../dashboard/language-state.js';
 import type { Language } from '../../dashboard/i18n.js';
 import { normalizeNarrativeArray, normalizeNarrativeString } from '../llm-localization/index.js';
 import { getReadinessProbeBaseSystemPrompt } from '../prompt-defaults.js';
-import { appendProjectPromptOverride } from '../prompt-overrides.js';
+import type { DashboardPromptSource } from '../../config/prompt-overrides.js';
+import { resolveConfiguredSystemPrompt } from '../prompt-overrides.js';
 import { buildTraceTimelineText } from '../trace-summary/index.js';
 import { extractJsonObject } from '../../utils/json-response.js';
 import type { Trace } from '../../types/index.js';
@@ -64,11 +65,17 @@ function buildPrompt(
   episode: TaskEpisode,
   traces: Trace[],
   lang: Language,
-  promptOverride: string
+  promptOverride: string,
+  promptSource?: DashboardPromptSource
 ): { systemPrompt: string; userPrompt: string } {
   const isZh = lang === 'zh';
   const baseSystemPrompt = getReadinessProbeBaseSystemPrompt(lang);
-  const systemPrompt = appendProjectPromptOverride(baseSystemPrompt, promptOverride, lang);
+  const systemPrompt = resolveConfiguredSystemPrompt(
+    baseSystemPrompt,
+    promptOverride,
+    promptSource,
+    lang
+  );
 
   const userPrompt = isZh
     ? [
@@ -197,13 +204,14 @@ export class ReadinessProbeAnalyzer {
     const fallback = buildFallbackProbeResult(episode, traces, lang);
     const config = await readDashboardConfig(projectPath);
     const activeProvider = config.providers[0];
+    const promptSource = config.promptSources?.readinessProbe;
     const promptOverride = config.promptOverrides?.readinessProbe || '';
 
     if (!activeProvider || !activeProvider.apiKey) {
       return fallback;
     }
 
-    if (promptOverride.trim()) {
+    if (promptSource === 'custom' && promptOverride.trim()) {
       logger.info('Applying readiness probe prompt override', {
         projectPath,
         episodeId: episode.episodeId,
@@ -217,7 +225,7 @@ export class ReadinessProbeAnalyzer {
       apiKey: activeProvider.apiKey,
       maxTokens: 900,
     });
-    const prompt = buildPrompt(episode, traces, lang, promptOverride);
+    const prompt = buildPrompt(episode, traces, lang, promptOverride, promptSource);
     const model = buildAgentUsageModelId(activeProvider.provider, activeProvider.modelName);
     const started = Date.now();
 

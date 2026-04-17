@@ -157,16 +157,21 @@ describe('decision explainer', () => {
     );
   });
 
-  it('appends configured prompt overrides to the decision explainer system prompt', async () => {
+  it('uses the configured custom prompt when the decision explainer source is custom', async () => {
     readDashboardConfigMock.mockResolvedValue({
       autoOptimize: true,
       userConfirm: false,
       runtimeSync: true,
       defaultProvider: 'deepseek',
       logLevel: 'info',
+      promptSources: {
+        skillCallAnalyzer: 'built_in',
+        decisionExplainer: 'custom',
+        readinessProbe: 'built_in',
+      },
       promptOverrides: {
         skillCallAnalyzer: '',
-        decisionExplainer: 'Team style: avoid bullets and keep the explanation dry.',
+        decisionExplainer: 'You are a custom explainer. Output one dry paragraph and nothing else.',
         readinessProbe: '',
       },
       providers: [
@@ -227,6 +232,8 @@ describe('decision explainer', () => {
       messages: Array<{ role: string; content: string }>;
     };
     const systemMessage = requestBody.messages.find((message) => message.role === 'system')?.content || '';
-    expect(systemMessage).toContain('Team style: avoid bullets and keep the explanation dry.');
+    expect(systemMessage).toBe(
+      'You are a custom explainer. Output one dry paragraph and nothing else.'
+    );
   });
 });

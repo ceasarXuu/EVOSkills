@@ -47,6 +47,7 @@ export class SkillCallAnalyzer {
     const lang = await readProjectLanguage(projectPath, 'en');
     const config = await readDashboardConfig(projectPath);
     const activeProvider = config.providers[0];
+    const promptSource = config.promptSources?.skillCallAnalyzer;
     const promptOverride = config.promptOverrides?.skillCallAnalyzer || '';
 
     if (!activeProvider || !activeProvider.apiKey) {
@@ -71,7 +72,7 @@ export class SkillCallAnalyzer {
       };
     }
 
-    if (promptOverride.trim()) {
+    if (promptSource === 'custom' && promptOverride.trim()) {
       logger.info('Applying skill call analyzer prompt override', {
         projectPath,
         windowId: window.windowId,
@@ -86,7 +87,13 @@ export class SkillCallAnalyzer {
       apiKey: activeProvider.apiKey,
       maxTokens: 1600,
     });
-    const prompt = buildSkillCallAnalyzerPrompt(window, skillContent, lang, promptOverride);
+    const prompt = buildSkillCallAnalyzerPrompt(
+      window,
+      skillContent,
+      lang,
+      promptOverride,
+      promptSource
+    );
     const model = buildAgentUsageModelId(activeProvider.provider, activeProvider.modelName);
     const started = Date.now();
 

@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   writeDashboardConfig: vi.fn(),
   checkProvidersConnectivity: vi.fn(),
   resolveDashboardPromptOverrides: vi.fn(),
+  resolveDashboardPromptSources: vi.fn(),
   getLiteLLMCatalog: vi.fn(),
   resolveLLMSafetyOptions: vi.fn(),
 }));
@@ -14,6 +15,7 @@ vi.mock('../../src/config/manager.js', () => ({
   writeDashboardConfig: mocks.writeDashboardConfig,
   checkProvidersConnectivity: mocks.checkProvidersConnectivity,
   resolveDashboardPromptOverrides: mocks.resolveDashboardPromptOverrides,
+  resolveDashboardPromptSources: mocks.resolveDashboardPromptSources,
 }));
 
 vi.mock('../../src/config/litellm-catalog.js', () => ({
@@ -31,6 +33,11 @@ describe('dashboard global config routes', () => {
       skillCallAnalyzer: typeof value?.skillCallAnalyzer === 'string' ? value.skillCallAnalyzer.trim() : '',
       decisionExplainer: typeof value?.decisionExplainer === 'string' ? value.decisionExplainer.trim() : '',
       readinessProbe: typeof value?.readinessProbe === 'string' ? value.readinessProbe.trim() : '',
+    }));
+    mocks.resolveDashboardPromptSources.mockImplementation((value) => ({
+      skillCallAnalyzer: value?.skillCallAnalyzer === 'custom' ? 'custom' : 'built_in',
+      decisionExplainer: value?.decisionExplainer === 'custom' ? 'custom' : 'built_in',
+      readinessProbe: value?.readinessProbe === 'custom' ? 'custom' : 'built_in',
     }));
     mocks.resolveLLMSafetyOptions.mockImplementation((value) => ({
       enabled: value?.enabled ?? true,
@@ -57,7 +64,7 @@ describe('dashboard global config routes', () => {
     expect(handled).toBe(false);
   });
 
-  it('handles GET /api/config and forwards projectPath from the query string', async () => {
+  it('handles GET /api/config as a global config endpoint', async () => {
     const { handleGlobalConfigRoutes } = await import('../../src/dashboard/routes/global-config-routes.js');
     const json = vi.fn();
     mocks.readDashboardConfig.mockResolvedValue({
@@ -75,7 +82,7 @@ describe('dashboard global config routes', () => {
     });
 
     expect(handled).toBe(true);
-    expect(mocks.readDashboardConfig).toHaveBeenCalledWith('/tmp/demo');
+    expect(mocks.readDashboardConfig).toHaveBeenCalledWith(undefined);
     expect(json).toHaveBeenCalledWith({
       config: {
         providers: [{ provider: 'openai', modelName: 'gpt-4.1', apiKeyEnvVar: 'OPENAI_API_KEY' }],
@@ -115,12 +122,18 @@ describe('dashboard global config routes', () => {
       maxEstimatedTokensPerWindow: 16000,
     };
     const normalizedPromptOverrides = {
-      skillCallAnalyzer: 'Return strict JSON.',
-      decisionExplainer: 'Stay concise.',
-      readinessProbe: 'Delay until stable evidence appears.',
+      skillCallAnalyzer: 'You are a strict analyzer.',
+      decisionExplainer: 'You are a concise explainer.',
+      readinessProbe: 'You are a cautious readiness probe.',
+    };
+    const normalizedPromptSources = {
+      skillCallAnalyzer: 'built_in',
+      decisionExplainer: 'custom',
+      readinessProbe: 'custom',
     };
     mocks.resolveLLMSafetyOptions.mockReturnValue(normalizedSafety);
     mocks.resolveDashboardPromptOverrides.mockReturnValue(normalizedPromptOverrides);
+    mocks.resolveDashboardPromptSources.mockReturnValue(normalizedPromptSources);
 
     const handled = await handleGlobalConfigRoutes({
       path: '/api/config',
@@ -135,10 +148,15 @@ describe('dashboard global config routes', () => {
           defaultProvider: 'deepseek',
           logLevel: 'info',
           llmSafety: { enabled: true, windowMs: 45000 },
+          promptSources: {
+            skillCallAnalyzer: 'built_in',
+            decisionExplainer: 'custom',
+            readinessProbe: 'custom',
+          },
           promptOverrides: {
-            skillCallAnalyzer: ' Return strict JSON. ',
-            decisionExplainer: 'Stay concise.',
-            readinessProbe: 'Delay until stable evidence appears.',
+            skillCallAnalyzer: ' You are a strict analyzer. ',
+            decisionExplainer: 'You are a concise explainer.',
+            readinessProbe: 'You are a cautious readiness probe.',
           },
           providers: [
             {
@@ -159,6 +177,7 @@ describe('dashboard global config routes', () => {
       userConfirm: false,
       runtimeSync: true,
       llmSafety: normalizedSafety,
+      promptSources: normalizedPromptSources,
       promptOverrides: normalizedPromptOverrides,
       defaultProvider: 'deepseek',
       logLevel: 'info',

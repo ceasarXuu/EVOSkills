@@ -2,6 +2,7 @@ import { getLiteLLMCatalog } from '../../config/litellm-catalog.js';
 import {
   checkProvidersConnectivity,
   readDashboardConfig,
+  resolveDashboardPromptSources,
   resolveDashboardPromptOverrides,
   writeDashboardConfig,
 } from '../../config/manager.js';
@@ -57,10 +58,8 @@ export async function handleGlobalConfigRoutes(
 
   if (path === '/api/config' && method === 'GET') {
     const started = Date.now();
-    const projectPath = url.searchParams.get('projectPath') || undefined;
-    const config = await readDashboardConfig(projectPath);
+    const config = await readDashboardConfig(undefined);
     logger.info('Dashboard global config loaded', {
-      projectPath,
       providerCount: config.providers.length,
       durationMs: Date.now() - started,
     });
@@ -81,6 +80,11 @@ export async function handleGlobalConfigRoutes(
           maxRequestsPerWindow?: number;
           maxConcurrentRequests?: number;
           maxEstimatedTokensPerWindow?: number;
+        };
+        promptSources?: {
+          skillCallAnalyzer?: 'built_in' | 'custom';
+          decisionExplainer?: 'built_in' | 'custom';
+          readinessProbe?: 'built_in' | 'custom';
         };
         promptOverrides?: {
           skillCallAnalyzer?: string;
@@ -104,12 +108,14 @@ export async function handleGlobalConfigRoutes(
     }
 
     const normalizedSafety = resolveLLMSafetyOptions(body.config.llmSafety);
+    const normalizedPromptSources = resolveDashboardPromptSources(body.config.promptSources);
     const normalizedPromptOverrides = resolveDashboardPromptOverrides(body.config.promptOverrides);
     await writeDashboardConfig(undefined, {
       autoOptimize: body.config.autoOptimize ?? true,
       userConfirm: body.config.userConfirm ?? false,
       runtimeSync: body.config.runtimeSync ?? true,
       llmSafety: normalizedSafety,
+      promptSources: normalizedPromptSources,
       promptOverrides: normalizedPromptOverrides,
       defaultProvider: body.config.defaultProvider ?? '',
       logLevel: body.config.logLevel ?? 'info',
@@ -121,6 +127,7 @@ export async function handleGlobalConfigRoutes(
       userConfirm: body.config.userConfirm ?? false,
       runtimeSync: body.config.runtimeSync ?? true,
       llmSafety: normalizedSafety,
+      promptSources: normalizedPromptSources,
       promptOverrideCount: Object.values(normalizedPromptOverrides).filter((value) => value.length > 0).length,
       defaultProvider: body.config.defaultProvider ?? '',
       logLevel: body.config.logLevel ?? 'info',

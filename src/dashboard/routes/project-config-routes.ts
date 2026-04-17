@@ -1,6 +1,7 @@
 import {
   checkProvidersConnectivity,
   readDashboardConfig,
+  resolveDashboardPromptSources,
   resolveDashboardPromptOverrides,
   writeDashboardConfig,
 } from '../../config/manager.js';
@@ -60,6 +61,11 @@ export async function handleProjectConfigRoutes(
           maxConcurrentRequests?: number;
           maxEstimatedTokensPerWindow?: number;
         };
+        promptSources?: {
+          skillCallAnalyzer?: 'built_in' | 'custom';
+          decisionExplainer?: 'built_in' | 'custom';
+          readinessProbe?: 'built_in' | 'custom';
+        };
         promptOverrides?: {
           skillCallAnalyzer?: string;
           decisionExplainer?: string;
@@ -82,12 +88,14 @@ export async function handleProjectConfigRoutes(
     }
 
     const normalizedSafety = resolveLLMSafetyOptions(body.config.llmSafety);
+    const normalizedPromptSources = resolveDashboardPromptSources(body.config.promptSources);
     const normalizedPromptOverrides = resolveDashboardPromptOverrides(body.config.promptOverrides);
     await writeDashboardConfig(undefined, {
       autoOptimize: body.config.autoOptimize ?? true,
       userConfirm: body.config.userConfirm ?? false,
       runtimeSync: body.config.runtimeSync ?? true,
       llmSafety: normalizedSafety,
+      promptSources: normalizedPromptSources,
       promptOverrides: normalizedPromptOverrides,
       defaultProvider: body.config.defaultProvider ?? '',
       logLevel: body.config.logLevel ?? 'info',
@@ -100,6 +108,7 @@ export async function handleProjectConfigRoutes(
       userConfirm: body.config.userConfirm ?? false,
       runtimeSync: body.config.runtimeSync ?? true,
       llmSafety: normalizedSafety,
+      promptSources: normalizedPromptSources,
       promptOverrideCount: Object.values(normalizedPromptOverrides).filter((value) => value.length > 0).length,
       defaultProvider: body.config.defaultProvider ?? '',
       logLevel: body.config.logLevel ?? 'info',

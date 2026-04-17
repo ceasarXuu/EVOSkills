@@ -24,10 +24,20 @@ type DashboardConfigPanelInput = {
   };
   loading: boolean;
   loadError: string;
+  promptDefaults?: {
+    skillCallAnalyzer: string;
+    decisionExplainer: string;
+    readinessProbe: string;
+  };
   promptOverrides: {
     skillCallAnalyzer: string;
     decisionExplainer: string;
     readinessProbe: string;
+  };
+  promptSources: {
+    skillCallAnalyzer: 'built_in' | 'custom';
+    decisionExplainer: 'built_in' | 'custom';
+    readinessProbe: 'built_in' | 'custom';
   };
   providerCatalogError: string;
   providerCatalogLoading: boolean;
@@ -59,24 +69,45 @@ function renderPromptEditor(
     placeholder: string;
     defaultPrompt: string;
     overrideValue: string;
+    source: 'built_in' | 'custom';
   }
 ): string {
   const { deps } = input;
+  const sourceFieldId = `${options.fieldId}_source`;
+  const builtInId = `${sourceFieldId}_built_in`;
+  const customId = `${sourceFieldId}_custom`;
+  const isBuiltIn = options.source !== 'custom';
 
   return `
-    <label>
+    <div class="config-prompt-editor">
       <div class="config-label">${options.label}</div>
-      <div class="config-help" style="margin-top:6px">${deps.t('configPromptBuiltInLabel')}</div>
-      <pre class="config-prompt-preview">${deps.escHtml(options.defaultPrompt)}</pre>
-      <div class="config-help" style="margin-top:8px">${deps.t('configPromptProjectOverrideLabel')}</div>
-      <textarea id="${options.fieldId}" class="config-textarea" rows="${options.rows}" placeholder="${deps.escHtml(options.placeholder)}" oninput="scheduleProjectConfigSave(500)">${deps.escHtml(options.overrideValue)}</textarea>
-    </label>
+      <div class="config-prompt-grid">
+        <label class="config-prompt-column">
+          <div class="config-prompt-heading">
+            <span class="config-check">
+              <input id="${builtInId}" type="radio" name="${sourceFieldId}" value="built_in" ${isBuiltIn ? 'checked' : ''} onchange="scheduleProjectConfigSave(150)" />
+              <span>${deps.t('configPromptBuiltInLabel')}</span>
+            </span>
+          </div>
+          <pre class="config-prompt-preview">${deps.escHtml(options.defaultPrompt)}</pre>
+        </label>
+        <label class="config-prompt-column">
+          <div class="config-prompt-heading">
+            <span class="config-check">
+              <input id="${customId}" type="radio" name="${sourceFieldId}" value="custom" ${!isBuiltIn ? 'checked' : ''} onchange="scheduleProjectConfigSave(150)" />
+              <span>${deps.t('configPromptCustomLabel')}</span>
+            </span>
+          </div>
+          <textarea id="${options.fieldId}" class="config-textarea" rows="${options.rows}" placeholder="${deps.escHtml(options.placeholder)}" oninput="scheduleProjectConfigSave(500)">${deps.escHtml(options.overrideValue)}</textarea>
+        </label>
+      </div>
+    </div>
   `;
 }
 
 export function renderDashboardConfigPanel(input: DashboardConfigPanelInput): string {
   const { deps } = input;
-  const promptDefaults = getRuntimePromptDefaults();
+  const promptDefaults = input.promptDefaults || getRuntimePromptDefaults();
   const runtimeLang = typeof currentLang !== 'undefined' ? currentLang || 'en' : 'en';
 
   console.debug('[dashboard] config prompt defaults ready', {
@@ -140,6 +171,7 @@ export function renderDashboardConfigPanel(input: DashboardConfigPanelInput): st
           placeholder: deps.t('configPromptSkillCallAnalyzerPlaceholder'),
           defaultPrompt: promptDefaults.skillCallAnalyzer,
           overrideValue: input.promptOverrides.skillCallAnalyzer,
+          source: input.promptSources.skillCallAnalyzer,
         })}
         ${renderPromptEditor(input, {
           label: deps.t('configPromptDecisionExplainerLabel'),
@@ -148,6 +180,7 @@ export function renderDashboardConfigPanel(input: DashboardConfigPanelInput): st
           placeholder: deps.t('configPromptDecisionExplainerPlaceholder'),
           defaultPrompt: promptDefaults.decisionExplainer,
           overrideValue: input.promptOverrides.decisionExplainer,
+          source: input.promptSources.decisionExplainer,
         })}
         ${renderPromptEditor(input, {
           label: deps.t('configPromptReadinessProbeLabel'),
@@ -156,6 +189,7 @@ export function renderDashboardConfigPanel(input: DashboardConfigPanelInput): st
           placeholder: deps.t('configPromptReadinessProbePlaceholder'),
           defaultPrompt: promptDefaults.readinessProbe,
           overrideValue: input.promptOverrides.readinessProbe,
+          source: input.promptSources.readinessProbe,
         })}
       </div>
     </div>

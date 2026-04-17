@@ -437,7 +437,7 @@ describe('SkillCallAnalyzer', () => {
     expect(systemMessage).toContain('当 decision=apply_optimization 时，evidence 至少提供 2 条');
   });
 
-  it('appends configured prompt overrides to the analyzer system prompt', async () => {
+  it('uses the configured custom prompt when the analyzer source is custom', async () => {
     readProjectLanguageMock.mockResolvedValue('en');
     readDashboardConfigMock.mockResolvedValue({
       autoOptimize: true,
@@ -445,8 +445,13 @@ describe('SkillCallAnalyzer', () => {
       runtimeSync: true,
       defaultProvider: 'openai',
       logLevel: 'info',
+      promptSources: {
+        skillCallAnalyzer: 'custom',
+        decisionExplainer: 'built_in',
+        readinessProbe: 'built_in',
+      },
       promptOverrides: {
-        skillCallAnalyzer: 'Project policy: prefer no_optimization unless evidence repeats.',
+        skillCallAnalyzer: 'You are a custom analyzer. Prefer no_optimization unless the same failure repeats.',
         decisionExplainer: '',
         readinessProbe: '',
       },
@@ -498,7 +503,9 @@ describe('SkillCallAnalyzer', () => {
       messages: Array<{ role: string; content: string }>;
     };
     const systemMessage = requestBody.messages.find((message) => message.role === 'system')?.content || '';
-    expect(systemMessage).toContain('Project policy: prefer no_optimization unless evidence repeats.');
+    expect(systemMessage).toBe(
+      'You are a custom analyzer. Prefer no_optimization unless the same failure repeats.'
+    );
   });
 
   it('recovers structured json from reasoning_content-only responses', async () => {

@@ -485,8 +485,8 @@ describe('dashboard ui recovery', () => {
 
     const fetchCalls = getFetchCalls();
     expect(fetchCalls).not.toContain('/api/providers/catalog');
-    expect(fetchCalls).toContain(`/api/provider-health?projectPath=${encodedPath}`);
-    expect(fetchCalls).toContain(`/api/config?projectPath=${encodedPath}`);
+    expect(fetchCalls).toContain('/api/provider-health');
+    expect(fetchCalls).toContain('/api/config');
   });
 
   it('refreshes only the selected project snapshot when sse reports changed projects', async () => {
@@ -657,7 +657,7 @@ describe('dashboard ui recovery', () => {
               bySkill: {},
             },
           },
-          [`/api/config?projectPath=${encodedPath}`]: {
+          '/api/config': {
             config: {
               autoOptimize: true,
               userConfirm: false,
@@ -3202,9 +3202,14 @@ describe('dashboard ui recovery', () => {
           maxEstimatedTokensPerWindow: 48000,
         },
         promptOverrides: {
-          skillCallAnalyzer: '当前窗口必须严格按团队规范判断。',
-          decisionExplainer: '输出必须控制在三句话内。',
-          readinessProbe: '优先等待关键失败信号。',
+          skillCallAnalyzer: '你是一个自定义 skill 分析器。',
+          decisionExplainer: '你是一个自定义决策解释器。',
+          readinessProbe: '你是一个自定义 readiness probe。',
+        },
+        promptSources: {
+          skillCallAnalyzer: 'custom',
+          decisionExplainer: 'built_in',
+          readinessProbe: 'custom',
         },
         defaultProvider: 'deepseek',
         logLevel: 'info',
@@ -3235,13 +3240,16 @@ describe('dashboard ui recovery', () => {
 
     dashboard.renderMainPanel(projectPath);
     const html = getElement('mainPanel').innerHTML;
-    expect(html).toContain('提示词覆写');
-    expect(html).toContain('cfg_prompt_skill_call_analyzer');
-    expect(html).toContain('cfg_prompt_decision_explainer');
-    expect(html).toContain('cfg_prompt_readiness_probe');
-    expect(html).toContain('当前窗口必须严格按团队规范判断。');
-    expect(html).toContain('输出必须控制在三句话内。');
-    expect(html).toContain('优先等待关键失败信号。');
+    expect(html).toContain('提示词配置');
+    expect(html).toContain('cfg_prompt_skill_call_analyzer_source_built_in');
+    expect(html).toContain('cfg_prompt_skill_call_analyzer_source_custom');
+    expect(html).toContain('cfg_prompt_decision_explainer_source_built_in');
+    expect(html).toContain('cfg_prompt_readiness_probe_source_custom');
+    expect(html).toContain('内置系统提示词');
+    expect(html).toContain('用户自定义提示词');
+    expect(html).toContain('你是一个自定义 skill 分析器。');
+    expect(html).toContain('你是一个自定义决策解释器。');
+    expect(html).toContain('你是一个自定义 readiness probe。');
   });
 
   it('renders built-in prompt previews when prompt overrides are blank', () => {
@@ -3267,6 +3275,11 @@ describe('dashboard ui recovery', () => {
           skillCallAnalyzer: '',
           decisionExplainer: '',
           readinessProbe: '',
+        },
+        promptSources: {
+          skillCallAnalyzer: 'built_in',
+          decisionExplainer: 'built_in',
+          readinessProbe: 'built_in',
         },
         defaultProvider: 'deepseek',
         logLevel: 'info',
@@ -3310,7 +3323,7 @@ describe('dashboard ui recovery', () => {
         lang: 'en',
         fetchMap: {
           '/api/config': { ok: true },
-          [`/api/provider-health?projectPath=${encodeURIComponent(projectPath)}`]: {
+          '/api/provider-health': {
             health: {
               level: 'ok',
               code: 'ok',
@@ -3342,6 +3355,11 @@ describe('dashboard ui recovery', () => {
           decisionExplainer: '',
           readinessProbe: '',
         },
+        promptSources: {
+          skillCallAnalyzer: 'built_in',
+          decisionExplainer: 'custom',
+          readinessProbe: 'custom',
+        },
         defaultProvider: '',
         logLevel: 'info',
         providers: [],
@@ -3353,9 +3371,12 @@ describe('dashboard ui recovery', () => {
     getElement('cfg_llm_safety_max_requests').value = '12';
     getElement('cfg_llm_safety_max_concurrent').value = '2';
     getElement('cfg_llm_safety_max_tokens').value = '48000';
-    getElement('cfg_prompt_skill_call_analyzer').value = 'Use the project rubric first.';
-    getElement('cfg_prompt_decision_explainer').value = 'Explain in one paragraph.';
-    getElement('cfg_prompt_readiness_probe').value = 'Prefer waiting for retries.';
+    getElement('cfg_prompt_skill_call_analyzer_source_built_in').checked = true;
+    getElement('cfg_prompt_decision_explainer_source_custom').checked = true;
+    getElement('cfg_prompt_readiness_probe_source_custom').checked = true;
+    getElement('cfg_prompt_skill_call_analyzer').value = 'You are a strict analyzer.';
+    getElement('cfg_prompt_decision_explainer').value = 'You are a concise explainer.';
+    getElement('cfg_prompt_readiness_probe').value = 'You are a cautious readiness probe.';
 
     await dashboard.saveProjectConfig();
 
@@ -3363,10 +3384,15 @@ describe('dashboard ui recovery', () => {
     expect(configRequest).toBeTruthy();
     expect(JSON.parse(String(configRequest?.init?.body))).toMatchObject({
       config: {
+        promptSources: {
+          skillCallAnalyzer: 'built_in',
+          decisionExplainer: 'custom',
+          readinessProbe: 'custom',
+        },
         promptOverrides: {
-          skillCallAnalyzer: 'Use the project rubric first.',
-          decisionExplainer: 'Explain in one paragraph.',
-          readinessProbe: 'Prefer waiting for retries.',
+          skillCallAnalyzer: 'You are a strict analyzer.',
+          decisionExplainer: 'You are a concise explainer.',
+          readinessProbe: 'You are a cautious readiness probe.',
         },
       },
     });
@@ -3380,7 +3406,7 @@ describe('dashboard ui recovery', () => {
         lang: 'en',
         fetchMap: {
           '/api/config': { ok: true },
-          [`/api/provider-health?projectPath=${encodeURIComponent(projectPath)}`]: {
+          '/api/provider-health': {
             health: {
               level: 'ok',
               code: 'ok',
@@ -3412,6 +3438,11 @@ describe('dashboard ui recovery', () => {
           decisionExplainer: '',
           readinessProbe: '',
         },
+        promptSources: {
+          skillCallAnalyzer: 'built_in',
+          decisionExplainer: 'built_in',
+          readinessProbe: 'built_in',
+        },
         defaultProvider: '',
         logLevel: 'info',
         providers: [],
@@ -3430,6 +3461,11 @@ describe('dashboard ui recovery', () => {
     expect(configRequest).toBeTruthy();
     expect(JSON.parse(String(configRequest?.init?.body))).toMatchObject({
       config: {
+        promptSources: {
+          skillCallAnalyzer: 'built_in',
+          decisionExplainer: 'built_in',
+          readinessProbe: 'built_in',
+        },
         promptOverrides: {
           skillCallAnalyzer: '',
           decisionExplainer: '',

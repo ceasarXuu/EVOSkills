@@ -68,6 +68,7 @@ export interface I18nStrings {
   configPromptOverridesLabel: string;
   configPromptOverridesHelp: string;
   configPromptBuiltInLabel: string;
+  configPromptCustomLabel: string;
   configPromptProjectOverrideLabel: string;
   configPromptSkillCallAnalyzerLabel: string;
   configPromptSkillCallAnalyzerPlaceholder: string;
@@ -459,11 +460,12 @@ const en: I18nStrings = {
   configLlmSafetyRequestsLabel: 'Max Requests / Window',
   configLlmSafetyConcurrentLabel: 'Max Concurrent Requests',
   configLlmSafetyTokensLabel: 'Max Estimated Tokens / Window',
-  configPromptOverridesLabel: 'Prompt Overrides',
+  configPromptOverridesLabel: 'Prompt Configuration',
   configPromptOverridesHelp:
-    'Built-in system prompts are shown below. The textarea only appends project-specific instructions.',
-  configPromptBuiltInLabel: 'Built-in Default',
-  configPromptProjectOverrideLabel: 'Project Override',
+    'Choose whether each analysis stage should use the built-in system prompt or your custom prompt.',
+  configPromptBuiltInLabel: 'Built-in System Prompt',
+  configPromptCustomLabel: 'User Custom Prompt',
+  configPromptProjectOverrideLabel: 'User Custom Prompt',
   configPromptSkillCallAnalyzerLabel: 'Skill Call Analyzer',
   configPromptSkillCallAnalyzerPlaceholder:
     'Extra decision policy for window triage, attribution, and apply_optimization thresholds.',
@@ -861,10 +863,11 @@ const zh: I18nStrings = {
   configLlmSafetyRequestsLabel: '窗口内最大请求数',
   configLlmSafetyConcurrentLabel: '最大并发请求数',
   configLlmSafetyTokensLabel: '窗口内最大预计 Tokens',
-  configPromptOverridesLabel: '提示词覆写',
-  configPromptOverridesHelp: '下面会先展示内置 system prompt，输入框只追加项目级附加规则。',
-  configPromptBuiltInLabel: '内置默认 Prompt',
-  configPromptProjectOverrideLabel: '项目级覆写',
+  configPromptOverridesLabel: '提示词配置',
+  configPromptOverridesHelp: '为每个分析阶段选择使用内置系统提示词，还是使用你自定义的提示词。',
+  configPromptBuiltInLabel: '内置系统提示词',
+  configPromptCustomLabel: '用户自定义提示词',
+  configPromptProjectOverrideLabel: '用户自定义提示词',
   configPromptSkillCallAnalyzerLabel: 'Skill 调用分析器',
   configPromptSkillCallAnalyzerPlaceholder:
     '补充窗口分诊、归因判断、apply_optimization 触发阈值等规则。',

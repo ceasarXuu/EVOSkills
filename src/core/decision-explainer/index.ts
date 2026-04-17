@@ -6,7 +6,8 @@ import { readProjectLanguage } from '../../dashboard/language-state.js';
 import type { Language } from '../../dashboard/i18n.js';
 import { normalizeNarrativeArray, normalizeNarrativeString } from '../llm-localization/index.js';
 import { getDecisionExplainerBaseSystemPrompt } from '../prompt-defaults.js';
-import { appendProjectPromptOverride } from '../prompt-overrides.js';
+import type { DashboardPromptSource } from '../../config/prompt-overrides.js';
+import { resolveConfiguredSystemPrompt } from '../prompt-overrides.js';
 import { buildTraceTimelineText } from '../trace-summary/index.js';
 import { extractJsonObject } from '../../utils/json-response.js';
 import type { DecisionEventEvidence, EvaluationResult, Trace } from '../../types/index.js';
@@ -52,11 +53,17 @@ function buildPrompt(
   traces: Trace[],
   evidence: DecisionEventEvidence | null | undefined,
   lang: Language,
-  promptOverride: string
+  promptOverride: string,
+  promptSource?: DashboardPromptSource
 ): { systemPrompt: string; userPrompt: string } {
   const isZh = lang === 'zh';
   const baseSystemPrompt = getDecisionExplainerBaseSystemPrompt(lang);
-  const systemPrompt = appendProjectPromptOverride(baseSystemPrompt, promptOverride, lang);
+  const systemPrompt = resolveConfiguredSystemPrompt(
+    baseSystemPrompt,
+    promptOverride,
+    promptSource,
+    lang
+  );
 
   const userPrompt = isZh
     ? [
@@ -178,13 +185,14 @@ export async function generateDecisionExplanation(
       : buildFallbackExplanation(skillId, evaluation);
   const config = await readDashboardConfig(projectPath);
   const activeProvider = config.providers[0];
+  const promptSource = config.promptSources?.decisionExplainer;
   const promptOverride = config.promptOverrides?.decisionExplainer || '';
 
   if (!activeProvider || !activeProvider.apiKey) {
     return fallback;
   }
 
-  if (promptOverride.trim()) {
+  if (promptSource === 'custom' && promptOverride.trim()) {
     logger.info('Applying decision explainer prompt override', {
       projectPath,
       skillId,
@@ -198,7 +206,7 @@ export async function generateDecisionExplanation(
     apiKey: activeProvider.apiKey,
     maxTokens: 1200,
   });
-  const prompt = buildPrompt(skillId, evaluation, traces, evidence, lang, promptOverride);
+  const prompt = buildPrompt(skillId, evaluation, traces, evidence, lang, promptOverride, promptSource);
   const model = buildAgentUsageModelId(activeProvider.provider, activeProvider.modelName);
   const started = Date.now();
 

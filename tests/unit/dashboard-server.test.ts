@@ -23,6 +23,11 @@ const mocks = vi.hoisted(() => ({
   readDashboardConfig: vi.fn(),
   writeDashboardConfig: vi.fn(),
   checkProvidersConnectivity: vi.fn(),
+  resolveDashboardPromptSources: vi.fn((value) => ({
+    skillCallAnalyzer: value?.skillCallAnalyzer === 'custom' ? 'custom' : 'built_in',
+    decisionExplainer: value?.decisionExplainer === 'custom' ? 'custom' : 'built_in',
+    readinessProbe: value?.readinessProbe === 'custom' ? 'custom' : 'built_in',
+  })),
   resolveDashboardPromptOverrides: vi.fn((value) => ({
     skillCallAnalyzer: typeof value?.skillCallAnalyzer === 'string' ? value.skillCallAnalyzer.trim() : '',
     decisionExplainer: typeof value?.decisionExplainer === 'string' ? value.decisionExplainer.trim() : '',
@@ -83,6 +88,7 @@ vi.mock('../../src/config/manager.js', () => ({
   readDashboardConfig: mocks.readDashboardConfig,
   writeDashboardConfig: mocks.writeDashboardConfig,
   checkProvidersConnectivity: mocks.checkProvidersConnectivity,
+  resolveDashboardPromptSources: mocks.resolveDashboardPromptSources,
   resolveDashboardPromptOverrides: mocks.resolveDashboardPromptOverrides,
 }));
 
@@ -862,9 +868,8 @@ describe('dashboard server sse bootstrap', () => {
     }
   });
 
-  it('passes projectPath query to global config and provider health endpoints for legacy fallback', async () => {
+  it('uses global config and provider health endpoints for shared fallback', async () => {
     const port = await getFreePort();
-    const projectPath = '/tmp/legacy-project';
     mocks.readDashboardConfig.mockResolvedValue({
       autoOptimize: true,
       userConfirm: false,
@@ -880,13 +885,13 @@ describe('dashboard server sse bootstrap', () => {
     await dashboard.start();
 
     try {
-      const configResponse = await fetch(`http://127.0.0.1:${port}/api/config?projectPath=${encodeURIComponent(projectPath)}`);
+      const configResponse = await fetch(`http://127.0.0.1:${port}/api/config`);
       expect(configResponse.ok).toBe(true);
-      expect(mocks.readDashboardConfig).toHaveBeenCalledWith(projectPath);
+      expect(mocks.readDashboardConfig).toHaveBeenCalledWith(undefined);
 
-      await fetch(`http://127.0.0.1:${port}/api/provider-health?projectPath=${encodeURIComponent(projectPath)}`);
-      expect(mocks.readDashboardConfig).toHaveBeenCalledWith(projectPath);
-      expect(mocks.checkProvidersConnectivity).toHaveBeenCalledWith(projectPath, expect.any(Array));
+      await fetch(`http://127.0.0.1:${port}/api/provider-health`);
+      expect(mocks.readDashboardConfig).toHaveBeenCalledWith(undefined);
+      expect(mocks.checkProvidersConnectivity).toHaveBeenCalledWith(undefined, expect.any(Array));
     } finally {
       await dashboard.stop();
     }
@@ -916,10 +921,15 @@ describe('dashboard server sse bootstrap', () => {
               maxConcurrentRequests: 1,
               maxEstimatedTokensPerWindow: 16000,
             },
+            promptSources: {
+              skillCallAnalyzer: 'built_in',
+              decisionExplainer: 'custom',
+              readinessProbe: 'custom',
+            },
             promptOverrides: {
-              skillCallAnalyzer: 'Return strict JSON.',
-              decisionExplainer: 'Stay concise.',
-              readinessProbe: 'Delay until stable evidence appears.',
+              skillCallAnalyzer: 'You are a strict analyzer.',
+              decisionExplainer: 'You are a concise explainer.',
+              readinessProbe: 'You are a cautious readiness probe.',
             },
             providers: [
               {
@@ -942,10 +952,15 @@ describe('dashboard server sse bootstrap', () => {
           maxConcurrentRequests: 1,
           maxEstimatedTokensPerWindow: 16000,
         },
+        promptSources: {
+          skillCallAnalyzer: 'built_in',
+          decisionExplainer: 'custom',
+          readinessProbe: 'custom',
+        },
         promptOverrides: {
-          skillCallAnalyzer: 'Return strict JSON.',
-          decisionExplainer: 'Stay concise.',
-          readinessProbe: 'Delay until stable evidence appears.',
+          skillCallAnalyzer: 'You are a strict analyzer.',
+          decisionExplainer: 'You are a concise explainer.',
+          readinessProbe: 'You are a cautious readiness probe.',
         },
       }));
     } finally {

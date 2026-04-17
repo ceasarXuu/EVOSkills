@@ -890,8 +890,30 @@ export function renderDashboardStylesSource(): string {
   }
   .config-input:focus, .config-select:focus, .config-textarea:focus { border-color: var(--blue); }
   .config-textarea { min-height: 220px; resize: vertical; }
+  .config-prompt-editor { display: flex; flex-direction: column; gap: 8px; }
+  .config-prompt-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .config-prompt-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .config-prompt-column {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+  .config-prompt-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
   .config-prompt-preview {
-    margin-top: 6px;
     padding: 10px;
     border: 1px solid var(--border);
     border-radius: 6px;
@@ -903,6 +925,7 @@ export function renderDashboardStylesSource(): string {
     white-space: pre-wrap;
     word-break: break-word;
     max-height: 240px;
+    min-height: 220px;
     overflow: auto;
   }
   .config-check { display: flex; align-items: center; gap: 8px; font-size: 11px; }

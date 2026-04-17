@@ -1,19 +1,15 @@
 import type { Language } from '../dashboard/i18n.js';
+import type { DashboardPromptSource } from '../config/prompt-overrides.js';
 
-export function appendProjectPromptOverride(
+export function resolveConfiguredSystemPrompt(
   basePrompt: string,
   promptOverride: string,
-  lang: Language
+  promptSource: DashboardPromptSource | undefined,
+  _lang: Language
 ): string {
   const trimmedOverride = String(promptOverride || '').trim();
-  if (!trimmedOverride) {
+  if (promptSource !== 'custom' || !trimmedOverride) {
     return basePrompt;
   }
-
-  return [
-    basePrompt,
-    '',
-    lang === 'zh' ? '## 项目级提示词覆写' : '## Project Prompt Override',
-    trimmedOverride,
-  ].join('\n');
+  return trimmedOverride;
 }

@@ -1,5 +1,6 @@
-import { appendProjectPromptOverride } from '../prompt-overrides.js';
+import type { DashboardPromptSource } from '../../config/prompt-overrides.js';
 import { getSkillCallAnalyzerBaseSystemPrompt } from '../prompt-defaults.js';
+import { resolveConfiguredSystemPrompt } from '../prompt-overrides.js';
 import { buildTraceTimelineText } from '../trace-summary/index.js';
 import type { Language } from '../../dashboard/i18n.js';
 import type { WindowAnalysisHint } from '../../types/index.js';
@@ -75,11 +76,17 @@ export function buildSkillCallAnalyzerPrompt(
   window: SkillCallWindow,
   skillContent: string,
   lang: Language,
-  promptOverride: string
+  promptOverride: string,
+  promptSource?: DashboardPromptSource
 ): { systemPrompt: string; userPrompt: string } {
   const isZh = lang === 'zh';
   const baseSystemPrompt = getSkillCallAnalyzerBaseSystemPrompt(lang);
-  const systemPrompt = appendProjectPromptOverride(baseSystemPrompt, promptOverride, lang);
+  const systemPrompt = resolveConfiguredSystemPrompt(
+    baseSystemPrompt,
+    promptOverride,
+    promptSource,
+    lang
+  );
   const timeline = buildTraceTimelineText(window.traces.slice(-60), lang).split('\n');
   const snapshot = buildWindowSnapshot(window, lang);
 

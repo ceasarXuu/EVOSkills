@@ -13,10 +13,14 @@ import {
   writeEnvVarToPath,
 } from "./env-file.js";
 import {
+  DEFAULT_DASHBOARD_PROMPT_SOURCES,
   DEFAULT_DASHBOARD_PROMPT_OVERRIDES,
-  hasPromptOverrides,
+  hasPromptConfiguration,
+  normalizePromptSourcesFromConfig,
   normalizePromptOverridesFromConfig,
+  resolveDashboardPromptSources,
   resolveDashboardPromptOverrides,
+  type DashboardPromptSources,
   type DashboardPromptOverrides,
 } from "./prompt-overrides.js";
 
@@ -51,10 +55,16 @@ export interface OrnnConfig {
   prompt_overrides?: {
     skill_call_analyzer?: string;
     skillCallAnalyzer?: string;
+    skill_call_analyzer_source?: "built_in" | "custom";
+    skillCallAnalyzerSource?: "built_in" | "custom";
     decision_explainer?: string;
     decisionExplainer?: string;
+    decision_explainer_source?: "built_in" | "custom";
+    decisionExplainerSource?: "built_in" | "custom";
     readiness_probe?: string;
     readinessProbe?: string;
+    readiness_probe_source?: "built_in" | "custom";
+    readinessProbeSource?: "built_in" | "custom";
   };
 }
 
@@ -71,6 +81,7 @@ export interface DashboardConfig {
   userConfirm: boolean;
   runtimeSync: boolean;
   llmSafety: LLMSafetyOptions;
+  promptSources: DashboardPromptSources;
   promptOverrides: DashboardPromptOverrides;
   defaultProvider: string;
   logLevel: string;
@@ -133,6 +144,7 @@ async function readLegacyProjectDashboardConfig(
       maxConcurrentRequests: config.llm_safety?.max_concurrent_requests,
       maxEstimatedTokensPerWindow: config.llm_safety?.max_estimated_tokens_per_window,
     }),
+    promptSources: normalizePromptSourcesFromConfig(config),
     promptOverrides: normalizePromptOverridesFromConfig(config),
     defaultProvider: config.llm?.default_provider ?? "",
     logLevel: config.ornn?.log_level ?? DEFAULT_LOG_LEVEL,
@@ -188,6 +200,16 @@ function mergeDashboardConfigs(
     changed = true;
   }
 
+  const promptSources = resolveDashboardPromptSources(globalConfig.promptSources);
+  for (const [key, value] of Object.entries(legacyConfig.promptSources) as Array<
+    [keyof DashboardPromptSources, "built_in" | "custom"]
+  >) {
+    if (promptSources[key] === "built_in" && value === "custom") {
+      promptSources[key] = "custom";
+      changed = true;
+    }
+  }
+
   const promptOverrides = resolveDashboardPromptOverrides(globalConfig.promptOverrides);
   for (const [key, value] of Object.entries(legacyConfig.promptOverrides) as Array<
     [keyof DashboardPromptOverrides, string]
@@ -206,6 +228,7 @@ function mergeDashboardConfigs(
     mergedConfig: {
       ...globalConfig,
       defaultProvider,
+      promptSources,
       promptOverrides,
       providers: mergedProviders,
     },
@@ -224,10 +247,12 @@ export function generateConfigContent(
   logLevel: string = DEFAULT_LOG_LEVEL,
   tracking: { autoOptimize?: boolean; userConfirm?: boolean; runtimeSync?: boolean } = {},
   llmSafety?: Partial<LLMSafetyOptions>,
-  promptOverrides: DashboardPromptOverrides = DEFAULT_DASHBOARD_PROMPT_OVERRIDES
+  promptOverrides: DashboardPromptOverrides = DEFAULT_DASHBOARD_PROMPT_OVERRIDES,
+  promptSources: DashboardPromptSources = DEFAULT_DASHBOARD_PROMPT_SOURCES
 ): string {
   const normalizedSafety = resolveLLMSafetyOptions(llmSafety);
   const normalizedPromptOverrides = resolveDashboardPromptOverrides(promptOverrides);
+  const normalizedPromptSources = resolveDashboardPromptSources(promptSources);
   let config = `[ornn]
 version = "0.1.9"
 log_level = "${logLevel}"
@@ -265,12 +290,15 @@ max_concurrent_requests = ${normalizedSafety.maxConcurrentRequests}
 max_estimated_tokens_per_window = ${normalizedSafety.maxEstimatedTokensPerWindow}
 `;
 
-  if (hasPromptOverrides(normalizedPromptOverrides)) {
+  if (hasPromptConfiguration(normalizedPromptOverrides, normalizedPromptSources)) {
     config += `
 [prompt_overrides]
 skill_call_analyzer = ${JSON.stringify(normalizedPromptOverrides.skillCallAnalyzer)}
+skill_call_analyzer_source = ${JSON.stringify(normalizedPromptSources.skillCallAnalyzer)}
 decision_explainer = ${JSON.stringify(normalizedPromptOverrides.decisionExplainer)}
+decision_explainer_source = ${JSON.stringify(normalizedPromptSources.decisionExplainer)}
 readiness_probe = ${JSON.stringify(normalizedPromptOverrides.readinessProbe)}
+readiness_probe_source = ${JSON.stringify(normalizedPromptSources.readinessProbe)}
 `;
   }
 
@@ -315,7 +343,8 @@ export async function writeConfig(
       maxConcurrentRequests: existingConfig?.llm_safety?.max_concurrent_requests,
       maxEstimatedTokensPerWindow: existingConfig?.llm_safety?.max_estimated_tokens_per_window,
     },
-    normalizePromptOverridesFromConfig(existingConfig)
+    normalizePromptOverridesFromConfig(existingConfig),
+    normalizePromptSourcesFromConfig(existingConfig)
   );
 
   await writeFile(configPath, content);
@@ -369,7 +398,8 @@ export async function setDefaultProvider(
       maxConcurrentRequests: config.llm_safety?.max_concurrent_requests,
       maxEstimatedTokensPerWindow: config.llm_safety?.max_estimated_tokens_per_window,
     },
-    normalizePromptOverridesFromConfig(config)
+    normalizePromptOverridesFromConfig(config),
+    normalizePromptSourcesFromConfig(config)
   );
 
   await writeFile(PROJECT_DASHBOARD_CONFIG_PATH(projectPath), content);
@@ -391,6 +421,7 @@ export async function readDashboardConfig(projectPath?: string): Promise<Dashboa
       maxConcurrentRequests: config?.llm_safety?.max_concurrent_requests,
       maxEstimatedTokensPerWindow: config?.llm_safety?.max_estimated_tokens_per_window,
     }),
+    promptSources: normalizePromptSourcesFromConfig(config),
     promptOverrides: normalizePromptOverridesFromConfig(config),
     defaultProvider: config?.llm?.default_provider ?? "",
     logLevel: config?.ornn?.log_level ?? DEFAULT_LOG_LEVEL,
@@ -462,7 +493,8 @@ export async function writeDashboardConfig(
       runtimeSync: payload.runtimeSync,
     },
     payload.llmSafety,
-    resolveDashboardPromptOverrides(payload.promptOverrides)
+    resolveDashboardPromptOverrides(payload.promptOverrides),
+    resolveDashboardPromptSources(payload.promptSources)
   );
   await writeFile(GLOBAL_DASHBOARD_CONFIG_PATH(), content, "utf-8");
 

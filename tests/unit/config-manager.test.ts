@@ -339,6 +339,11 @@ readiness_probe = "wait for strong signals"
       decisionExplainer: 'summarize for this team',
       readinessProbe: 'wait for strong signals',
     });
+    expect(config.promptSources).toEqual({
+      skillCallAnalyzer: 'built_in',
+      decisionExplainer: 'built_in',
+      readinessProbe: 'built_in',
+    });
     expect(config.providers).toHaveLength(2);
     expect(config.providers[0]?.apiKey).toBe('openai-secret');
     expect(config.providers[1]?.apiKey).toBe('deepseek-secret');
@@ -368,10 +373,15 @@ readiness_probe = "wait for strong signals"
         maxConcurrentRequests: 1,
         maxEstimatedTokensPerWindow: 12345,
       },
+      promptSources: {
+        skillCallAnalyzer: 'built_in',
+        decisionExplainer: 'custom',
+        readinessProbe: 'custom',
+      },
       promptOverrides: {
-        skillCallAnalyzer: 'return only json',
-        decisionExplainer: 'stay concise',
-        readinessProbe: 'wait for stable evidence',
+        skillCallAnalyzer: 'You are a strict analyzer.',
+        decisionExplainer: 'You are a concise explainer.',
+        readinessProbe: 'You are a cautious readiness probe.',
       },
       defaultProvider: 'deepseek',
       logLevel: 'warn',
@@ -403,9 +413,12 @@ readiness_probe = "wait for strong signals"
       max_estimated_tokens_per_window: 12345,
     });
     expect(rawConfig).toContain('[prompt_overrides]');
-    expect(rawConfig).toContain('skill_call_analyzer = "return only json"');
-    expect(rawConfig).toContain('decision_explainer = "stay concise"');
-    expect(rawConfig).toContain('readiness_probe = "wait for stable evidence"');
+    expect(rawConfig).toContain('skill_call_analyzer = "You are a strict analyzer."');
+    expect(rawConfig).toContain('skill_call_analyzer_source = "built_in"');
+    expect(rawConfig).toContain('decision_explainer = "You are a concise explainer."');
+    expect(rawConfig).toContain('decision_explainer_source = "custom"');
+    expect(rawConfig).toContain('readiness_probe = "You are a cautious readiness probe."');
+    expect(rawConfig).toContain('readiness_probe_source = "custom"');
     } finally {
       process.env.HOME = oldHome;
       vi.resetModules();

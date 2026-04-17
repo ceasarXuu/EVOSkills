@@ -42,16 +42,16 @@ const windowFixture: SkillCallWindow = {
 };
 
 describe('skill call analyzer helper modules', () => {
-  it('builds a zh prompt with localized snapshot lines and appended overrides', () => {
+  it('builds a zh prompt with localized snapshot lines and a custom source prompt', () => {
     const prompt = buildSkillCallAnalyzerPrompt(
       windowFixture,
       '# skill content',
       'zh',
-      '务必补充一句自定义提示。'
+      '务必补充一句自定义提示。',
+      'custom'
     );
 
-    expect(prompt.systemPrompt).toContain('你是 Ornn 的技能调用窗口分析器。');
-    expect(prompt.systemPrompt).toContain('务必补充一句自定义提示。');
+    expect(prompt.systemPrompt).toBe('务必补充一句自定义提示。');
     expect(prompt.userPrompt).toContain('显式 skill 提及次数: 1');
     expect(prompt.userPrompt).toContain('工具失败数: 1');
     expect(prompt.userPrompt).toContain('文件变更事件数: 1');

@@ -2,14 +2,14 @@
 
 ## 超长文件拆分 Checklist
 
-- [ ] P1 `src/dashboard/data-reader.ts`
+- [x] P1 `src/dashboard/data-reader.ts`
   当前顺序：
   1. `[x]` 抽出 `readers/skills-reader`
   2. `[x]` 抽出 `readers/trace-reader`
   3. `[x]` 抽出 `readers/decision-events-reader`
   4. `[x]` 抽出 `readers/agent-usage-reader`
-  5. `[ ]` 抽出 `readers/daemon-status-reader`
-  6. `[ ]` 保留 `data-reader.ts` 作为 facade
+  5. `[x]` 抽出 `readers/daemon-status-reader`
+  6. `[x]` 保留 `data-reader.ts` 作为 facade
 - [ ] P1 `src/dashboard/server.ts`
   当前顺序：
   1. `[ ]` 抽出 `routes/*`
@@ -61,7 +61,7 @@
   5. `[ ]` 保留 `ShadowManager` 作为 facade
 
 当前进行中：
-- [ ] `src/dashboard/data-reader.ts` 第 5 步：抽出 `readers/daemon-status-reader`
+- [ ] `src/dashboard/server.ts` 第 1 步：抽出 `routes/*`
 
 ## 优先级总览
 

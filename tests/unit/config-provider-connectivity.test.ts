@@ -4,17 +4,29 @@ import { checkProvidersConnectivity } from "../../src/config/provider-connectivi
 
 describe("provider connectivity module", () => {
   it("reports a missing api key when no value is available", async () => {
-    const result = await checkProvidersConnectivity(undefined, [
-      {
-        provider: "openai",
-        modelName: "openai/gpt-4o-mini",
-        apiKeyEnvVar: "OPENAI_API_KEY",
-      },
-    ]);
+    const previousApiKey = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = "ambient-openai-key";
+    delete process.env.OPENAI_API_KEY;
 
-    expect(result).toHaveLength(1);
-    expect(result[0]?.ok).toBe(false);
-    expect(result[0]?.message).toContain("Missing API key env var");
+    try {
+      const result = await checkProvidersConnectivity(undefined, [
+        {
+          provider: "openai",
+          modelName: "openai/gpt-4o-mini",
+          apiKeyEnvVar: "OPENAI_API_KEY",
+        },
+      ]);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.ok).toBe(false);
+      expect(result[0]?.message).toContain("Missing API key env var");
+    } finally {
+      if (previousApiKey === undefined) {
+        delete process.env.OPENAI_API_KEY;
+      } else {
+        process.env.OPENAI_API_KEY = previousApiKey;
+      }
+    }
   });
 
   it("uses the provider probe when an api key is supplied on the input provider", async () => {

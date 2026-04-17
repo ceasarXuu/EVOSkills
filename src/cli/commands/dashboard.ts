@@ -108,12 +108,14 @@ export function createDashboardCommand(): Command {
 
       // Graceful shutdown
       let shutdownRegistered = false;
-      const shutdown = async () => {
+      const shutdown = (): void => {
         if (shutdownRegistered) return;
         shutdownRegistered = true;
-        cliInfo('\nShutting down dashboard...');
-        await server.stop();
-        process.exit(0);
+        void (async () => {
+          cliInfo('\nShutting down dashboard...');
+          await server.stop();
+          process.exit(0);
+        })();
       };
       process.once('SIGINT', shutdown);
       process.once('SIGTERM', shutdown);

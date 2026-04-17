@@ -14,6 +14,7 @@ import { renderDashboardCostPanelSource } from './web/panels/cost-panel.js';
 import { renderDashboardLogsPanelSource } from './web/panels/logs-panel.js';
 import { renderDashboardOverviewPanelSource } from './web/panels/overview-panel.js';
 import { renderDashboardSkillsPanelSource } from './web/panels/skills-panel.js';
+import { renderDashboardSkillCardSource } from './web/render/skill-card.js';
 import { renderDashboardStateSource } from './web/state.js';
 
 export function getDashboardHtml(_port: number, lang: Language = 'en', buildId = 'dev'): string {
@@ -24,6 +25,7 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
   const dashboardCostPanelSource = renderDashboardCostPanelSource();
   const dashboardLogsPanelSource = renderDashboardLogsPanelSource();
   const dashboardOverviewPanelSource = renderDashboardOverviewPanelSource();
+  const dashboardSkillCardSource = renderDashboardSkillCardSource();
   const dashboardSkillsPanelSource = renderDashboardSkillsPanelSource();
   const dashboardStateSource = renderDashboardStateSource();
 
@@ -956,6 +958,7 @@ ${dashboardConfigPanelSource}
 ${dashboardCostPanelSource}
 ${dashboardLogsPanelSource}
 ${dashboardOverviewPanelSource}
+${dashboardSkillCardSource}
 ${dashboardSkillsPanelSource}
 
 function t(key) {
@@ -3912,10 +3915,13 @@ function toggleSort(sortBy) {
 }
 
 function renderSkillsEmptyState() {
-  if (!state.searchQuery) {
-    return '<div class="empty-state">' + t('skillsEmpty') + '</div>';
-  }
-  return '<div class="empty-state">' + t('skillsSearchEmptyPrefix') + ' "' + escHtml(state.searchQuery) + '"</div>';
+  return renderDashboardSkillsEmptyState({
+    searchQuery: state.searchQuery,
+    deps: {
+      escHtml,
+      t,
+    },
+  });
 }
 
 function updateSkillsList() {
@@ -3987,29 +3993,19 @@ function highlightText(text, query) {
 }
 
 function renderSkillCard(skill, projectPath) {
-  const statusCls = 'status-' + (skill.status || 'pending');
-  const versions = skill.versionsAvailable?.length ?? 0;
-  const runtime = skill.runtime || 'codex';
-  const effectiveVersion = skill.effectiveVersion ?? maxVersion(skill);
-  const highlightedName = highlightText(skill.skillId, state.searchQuery);
-  return \`<div class="skill-card" onclick="viewSkill('\${escJsStr(projectPath)}','\${escJsStr(skill.skillId)}','\${escJsStr(runtime)}')">
-    <div class="skill-top">
-      <div class="skill-name">
-        <span class="status-badge \${statusCls}">\${skill.status ?? 'pending'}</span>
-        <span>\${highlightedName}</span>
-      </div>
-      <div class="skill-actions">
-        \${versions > 0 ? \`<button class="btn-sm" onclick="viewSkill('\${escJsStr(projectPath)}','\${escJsStr(skill.skillId)}','\${escJsStr(runtime)}');event.stopPropagation()">\${t('skillHistory')} (\${versions})</button>\` : ''}
-      </div>
-    </div>
-    <div class="skill-meta">
-      <span>v\${effectiveVersion}</span>
-      <span>\${runtime}</span>
-      <span>\${skill.traceCount ?? 0} \${t('skillTraces')}</span>
-      \${skill.analysisResult?.confidence !== undefined ? \`<span>\${t('skillConfidence')}: \${(skill.analysisResult.confidence * 100).toFixed(0)}%</span>\` : ''}
-      \${skill.updatedAt ? \`<span>\${timeAgo(skill.updatedAt)}</span>\` : ''}
-    </div>
-  </div>\`;
+  return renderDashboardSkillCard({
+    skill,
+    projectPath,
+    searchQuery: state.searchQuery,
+    deps: {
+      escHtml,
+      escJsStr,
+      highlightText,
+      maxVersion,
+      t,
+      timeAgo,
+    },
+  });
 }
 
 function renderTraceBars(label, data, keys) {

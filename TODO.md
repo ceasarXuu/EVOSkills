@@ -26,7 +26,11 @@
   1. `[x]` 抽出 `web/app-shell`
   2. `[x]` 抽出 `web/state`
   3. `[x]` 抽出 `web/panels/*`（已完成 `panels/cost-panel`、`panels/config-panel`、`panels/logs-panel`、`panels/overview-panel`、`panels/skills-panel`、`panels/activity-panel`）
-  4. `[ ]` 抽出 `web/render/*`（已完成 `render/skill-card`、`render/trace-bars`、`render/state-badge`、`render/metric-rows`）
+  4. `[x]` 抽出 `web/render/*`（已完成 `render/skill-card`、`render/trace-bars`、`render/state-badge`、`render/metric-rows`、`render/cost-breakdown`、`render/activity-tables`）
+  5. `[ ]` 抽出 `web/styles`
+  6. `[ ]` 抽出 `web/activity/*`
+  7. `[ ]` 抽出 `web/config/*`
+  8. `[ ]` 收口 `ui.ts` 为 facade
 - [x] P1 `src/config/manager.ts`
   当前顺序：
   1. `[x]` 抽出 `dashboard-config`
@@ -66,7 +70,7 @@
   5. `[ ]` 保留 `ShadowManager` 作为 facade
 
 当前进行中：
-- [ ] `src/dashboard/ui.ts` 第 4 步：抽出 `web/render/*`（下一项：`render/cost-breakdown`）
+- [ ] `src/dashboard/ui.ts` 第 5 步：抽出 `web/styles`
 
 ## 优先级总览
 

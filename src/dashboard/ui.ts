@@ -14,6 +14,8 @@ import { renderDashboardCostPanelSource } from './web/panels/cost-panel.js';
 import { renderDashboardLogsPanelSource } from './web/panels/logs-panel.js';
 import { renderDashboardOverviewPanelSource } from './web/panels/overview-panel.js';
 import { renderDashboardSkillsPanelSource } from './web/panels/skills-panel.js';
+import { renderDashboardActivityTablesSource } from './web/render/activity-tables.js';
+import { renderDashboardCostBreakdownSource } from './web/render/cost-breakdown.js';
 import { renderDashboardMetricRowsSource } from './web/render/metric-rows.js';
 import { renderDashboardSkillCardSource } from './web/render/skill-card.js';
 import { renderDashboardStateBadgeSource } from './web/render/state-badge.js';
@@ -28,6 +30,8 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
   const dashboardCostPanelSource = renderDashboardCostPanelSource();
   const dashboardLogsPanelSource = renderDashboardLogsPanelSource();
   const dashboardOverviewPanelSource = renderDashboardOverviewPanelSource();
+  const dashboardActivityTablesSource = renderDashboardActivityTablesSource();
+  const dashboardCostBreakdownSource = renderDashboardCostBreakdownSource();
   const dashboardMetricRowsSource = renderDashboardMetricRowsSource();
   const dashboardSkillCardSource = renderDashboardSkillCardSource();
   const dashboardStateBadgeSource = renderDashboardStateBadgeSource();
@@ -964,6 +968,8 @@ ${dashboardConfigPanelSource}
 ${dashboardCostPanelSource}
 ${dashboardLogsPanelSource}
 ${dashboardOverviewPanelSource}
+${dashboardActivityTablesSource}
+${dashboardCostBreakdownSource}
 ${dashboardMetricRowsSource}
 ${dashboardSkillCardSource}
 ${dashboardStateBadgeSource}
@@ -2780,32 +2786,20 @@ function renderActivitySkillCell(projectPath, row) {
 
 function renderBusinessEvents(projectPath) {
   const events = buildActivityRows(projectPath);
-  return \`
-    <div class="activity-controls">
-      <div class="activity-left"></div>
-      <div style="font-size:10px;color:var(--muted)">\${events.length}</div>
-    </div>
-    \${events.length === 0 ? \`<div class="empty-state">\${t('activityEmpty')}</div>\` : \`<div class="trace-table-wrap">
-      <table class="activity-table">
-        <thead><tr>
-          <th style="\${getActivityColumnStyle('time', DEFAULT_ACTIVITY_TIME_COLUMN_WIDTH)}">\${t('traceTime')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'time')"></span></th>
-          <th style="\${getActivityColumnStyle('skill', 240)}">\${t('activitySkillLabel')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'skill')"></span></th>
-          <th style="\${getActivityColumnStyle('host', 110)}">\${t('traceRuntime')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'host')"></span></th>
-          <th style="\${getActivityColumnStyle('project', 180)}">\${t('activityProject')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'project')"></span></th>
-          <th style="\${getActivityColumnStyle('status', 140)}">\${t('traceStatus')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'status')"></span></th>
-        </tr></thead>
-        <tbody>
-          \${events.slice(0, 120).map((row) => \`<tr class="activity-scope-row" onclick="openActivityDetail('\${escJsStr(projectPath)}','\${escJsStr(row.id)}')">
-            <td style="color:var(--muted);\${getActivityColumnStyle('time', DEFAULT_ACTIVITY_TIME_COLUMN_WIDTH)}">\${formatEventTimestamp(row.timestamp)}</td>
-            <td style="\${getActivityColumnStyle('skill', 240)}">\${renderActivitySkillCell(projectPath, row)}</td>
-            <td style="\${getActivityColumnStyle('host', 110)}">\${escHtml(row.runtime || t('activityHostFallback'))}</td>
-            <td style="\${getActivityColumnStyle('project', 180)}">\${escHtml(row.projectName || getProjectName(projectPath))}</td>
-            <td style="\${getActivityColumnStyle('status', 140)}">\${renderScopeStatusBadge(row.rawStatus)}</td>
-          </tr>\`).join('')}
-        </tbody>
-      </table>
-    </div>\`}
-  \`;
+  return renderDashboardBusinessEvents({
+    events,
+    projectPath,
+    projectName: getProjectName(projectPath),
+    deps: {
+      escHtml,
+      escJsStr,
+      formatEventTimestamp,
+      getActivityColumnStyle,
+      renderActivitySkillCell,
+      renderScopeStatusBadge,
+      t,
+    },
+  });
 }
 
 function buildRawTraceRows(projectPath) {
@@ -2965,39 +2959,29 @@ function buildCostRows(recordMap, modelDetailsIndex, options) {
 }
 
 function renderCapabilityPills(detail) {
-  if (!detail) return '<span class="mono-compact">' + t('costCapabilityNone') + '</span>';
-  const pills = [];
-  if (detail.supportsReasoning) pills.push(t('costCapabilityReasoning'));
-  if (detail.supportsFunctionCalling) pills.push(t('costCapabilityFunctionCalling'));
-  if (detail.supportsPromptCaching) pills.push(t('costCapabilityPromptCaching'));
-  if (detail.supportsStructuredOutput) pills.push(t('costCapabilityStructuredOutput'));
-  if (detail.supportsVision) pills.push(t('costCapabilityVision'));
-  if (detail.supportsWebSearch) pills.push(t('costCapabilityWebSearch'));
-  if (pills.length === 0) return '<span class="mono-compact">' + t('costCapabilityNone') + '</span>';
-  return '<div class="capability-pills">' + pills.map((label) => '<span class="capability-pill">' + escHtml(label) + '</span>').join('') + '</div>';
+  return renderDashboardCapabilityPills({
+    detail,
+    deps: {
+      escHtml,
+      t,
+    },
+  });
 }
 
 function renderCostBreakdown(title, rows, emptyText, formatter, countLabel) {
-  const visibleRows = (rows || []).slice(0, 5);
-  const body = visibleRows.length > 0
-    ? visibleRows.map((row) =>
-      '<div class="scope-item">' +
-        '<div class="scope-item-top">' +
-          '<div class="scope-item-name">' + escHtml(row.key) + '</div>' +
-          '<div class="scope-item-value">' + escHtml(formatter(row)) + '</div>' +
-        '</div>' +
-        '<div class="scope-item-sub">' +
-          formatPlainNumber(row.bucket.callCount || 0) + ' ' + escHtml(t('costTableCallsSuffix')) +
-          ' · ' + formatUsageCompact(row.bucket.totalTokens || 0) + ' ' + escHtml(countLabel || t('costTableTokensSuffix')) +
-        '</div>' +
-      '</div>'
-    ).join('')
-    : '<div class="empty-state">' + escHtml(emptyText) + '</div>';
-
-  return '<div class="card">' +
-    '<div class="card-header"><span>' + escHtml(title) + '</span></div>' +
-    '<div class="card-body">' + body + '</div>' +
-  '</div>';
+  return renderDashboardCostBreakdown({
+    title,
+    rows,
+    emptyText,
+    formatter,
+    countLabel,
+    deps: {
+      escHtml,
+      formatPlainNumber,
+      formatUsageCompact,
+      t,
+    },
+  });
 }
 
 function formatUsageCompact(value) {
@@ -4014,36 +3998,20 @@ function renderTraceBars(label, data, keys) {
 function renderRecentTraces(traces) {
   const projectPath = state.selectedProjectId;
   const rows = projectPath ? buildRawTraceRows(projectPath) : [];
-  if (!rows.length) return '';
-  return \`<table class="activity-table">
-    <thead><tr>
-      <th style="\${getActivityColumnStyle('time', DEFAULT_ACTIVITY_TIME_COLUMN_WIDTH)}">\${t('traceTime')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'time')"></span></th>
-      <th style="\${getActivityColumnStyle('host', 96)}">\${t('traceRuntime')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'host')"></span></th>
-      <th style="\${getActivityColumnStyle('event', 128)}">\${t('traceEvent')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'event')"></span></th>
-      <th style="\${getActivityColumnStyle('status', 120)}">\${t('traceStatus')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'status')"></span></th>
-      <th style="\${getActivityColumnStyle('scope', 180)}">\${t('traceScope')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'scope')"></span></th>
-      <th style="width:120px;min-width:120px;">\${t('traceSession')}</th>
-      <th style="width:120px;min-width:120px;">\${t('traceId')}</th>
-      <th style="\${getActivityColumnStyle('detail', 520)}">\${t('traceDetail')}<span class="column-resizer" onmousedown="startActivityColumnResize(event,'detail')"></span></th>
-      <th style="width:120px;min-width:120px;">\${t('traceAction')}</th>
-    </tr></thead>
-    <tbody>\${rows.slice(0, 50).map((row) => \`<tr>
-      <td style="color:var(--muted);\${getActivityColumnStyle('time', DEFAULT_ACTIVITY_TIME_COLUMN_WIDTH)}">\${formatEventTimestamp(row.timestamp)}</td>
-      <td style="\${getActivityColumnStyle('host', 96)}">\${escHtml(row.runtime || t('activityHostFallback'))}</td>
-      <td style="\${getActivityColumnStyle('event', 128)}">\${escHtml(summarizeTraceEventType(row.rawTrace))}</td>
-      <td style="color:var(--muted);\${getActivityColumnStyle('status', 120)}">\${escHtml(row.status || t('activityStatusFallback'))}</td>
-      <td style="\${getActivityColumnStyle('scope', 180)}">\${escHtml(row.scopeId || t('activityScopeFallback'))}</td>
-      <td style="color:var(--muted);width:120px;min-width:120px;">\${escHtml((row.sessionId || '—').slice(0, 8))}</td>
-      <td style="color:var(--muted);width:120px;min-width:120px;">\${escHtml((row.traceId || '—').slice(0, 8))}</td>
-      <td style="\${getActivityColumnStyle('detail', 520)}"><div class="business-detail-preview">\${escHtml(row.detail || t('activityDetailFallback'))}</div></td>
-      <td style="width:120px;min-width:120px;">
-        <div class="business-detail-actions">
-          <button class="detail-copy-btn" onclick="copyActivityDetail('\${escJsStr(projectPath)}','\${escJsStr(row.id)}')">\${t('activityCopy')}</button>
-          <button class="detail-view-btn" onclick="openActivityDetail('\${escJsStr(projectPath)}','\${escJsStr(row.id)}')">\${t('activityViewDetails')}</button>
-        </div>
-      </td>
-    </tr>\`).join('')}</tbody>
-  </table>\`;
+  return projectPath
+    ? renderDashboardRecentTraces({
+      projectPath,
+      rows,
+      deps: {
+        escHtml,
+        escJsStr,
+        formatEventTimestamp,
+        getActivityColumnStyle,
+        summarizeTraceEventType,
+        t,
+      },
+    })
+    : '';
 }
 
 // ─── Skill Modal ──────────────────────────────────────────────────────────────

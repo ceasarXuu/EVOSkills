@@ -1,8 +1,10 @@
 export const GLOBAL_CONFIG_SCOPE = '__global__';
 const ACTIVITY_COLUMN_WIDTHS_TOKEN = '__DASHBOARD_ACTIVITY_COLUMN_WIDTHS__';
+const SKILL_MODAL_RUNTIME_TOKEN = '__DASHBOARD_SKILL_MODAL_RUNTIME__';
 
 export function createDashboardState<TActivityColumnWidths>(
-  loadSavedActivityColumnWidths: () => TActivityColumnWidths
+  loadSavedActivityColumnWidths: () => TActivityColumnWidths,
+  loadSavedSkillModalRuntime: () => 'codex' | 'claude' | 'opencode'
 ) {
   return {
     projects: [],
@@ -31,6 +33,7 @@ export function createDashboardState<TActivityColumnWidths>(
     rawActivityRowsByProject: {},
     activityScopeDetailsByProject: {},
     activityColumnWidths: loadSavedActivityColumnWidths(),
+    preferredSkillRuntime: loadSavedSkillModalRuntime(),
     lastCopiedActivityText: '',
     providerHealthByProject: {},
     providerCatalog: [],
@@ -39,6 +42,7 @@ export function createDashboardState<TActivityColumnWidths>(
     configUiByProject: {},
     configLoadingByProject: {},
     configLoadErrorByProject: {},
+    currentSkillAvailableRuntimes: [],
   };
 }
 
@@ -95,17 +99,35 @@ function formatScriptLiteral(value: unknown): string {
 
 export function renderDashboardStateSource(): string {
   const stateLiteral = formatScriptLiteral(
-    createDashboardState(() => ACTIVITY_COLUMN_WIDTHS_TOKEN)
+    createDashboardState(
+      () => ACTIVITY_COLUMN_WIDTHS_TOKEN,
+      () => SKILL_MODAL_RUNTIME_TOKEN as 'codex' | 'claude' | 'opencode'
+    )
   ).replace(
     `"${ACTIVITY_COLUMN_WIDTHS_TOKEN}"`,
     'loadSavedActivityColumnWidths()'
+  ).replace(
+    `"${SKILL_MODAL_RUNTIME_TOKEN}"`,
+    'loadSavedSkillModalRuntime()'
   );
   const projectSnapshotLoadsLiteral = formatScriptLiteral(createProjectSnapshotLoads());
   const emptyProjectDataLiteral = formatScriptLiteral(buildEmptyProjectData());
   const globalConfigScopeLiteral = JSON.stringify(GLOBAL_CONFIG_SCOPE);
+  const skillModalRuntimeStorageKeyLiteral = JSON.stringify('ornn-dashboard-skill-modal-runtime');
 
   return [
     `const GLOBAL_CONFIG_SCOPE = ${globalConfigScopeLiteral};`,
+    '',
+    `const SKILL_MODAL_RUNTIME_STORAGE_KEY = ${skillModalRuntimeStorageKeyLiteral};`,
+    '',
+    'function loadSavedSkillModalRuntime() {',
+    '  try {',
+    '    const saved = localStorage.getItem(SKILL_MODAL_RUNTIME_STORAGE_KEY);',
+    "    return saved === 'claude' || saved === 'opencode' || saved === 'codex' ? saved : 'codex';",
+    '  } catch {',
+    "    return 'codex';",
+    '  }',
+    '}',
     '',
     `const state = ${stateLiteral};`,
     '',

@@ -186,6 +186,17 @@ export function renderDashboardStylesSource(): string {
   .btn-sm:hover { border-color: var(--blue); color: var(--blue); }
   .skill-meta { font-size: 10px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; margin-top: auto; }
   .skill-meta span { display: flex; align-items: center; gap: 3px; }
+  .skill-runtime-list { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .skill-runtime-pill {
+    display: inline-flex; align-items: center; padding: 2px 8px;
+    border-radius: 999px; border: 1px solid var(--border);
+    font-size: 9px; color: var(--muted); background: rgba(139,148,158,.08);
+  }
+  .skill-runtime-pill.active {
+    border-color: rgba(88,166,255,.45);
+    color: var(--blue);
+    background: rgba(88,166,255,.12);
+  }
   .highlight { background: rgba(88,166,255,.3); padding: 0 2px; border-radius: 2px; }
 
   /* Search and Sort Controls */
@@ -677,6 +688,24 @@ export function renderDashboardStylesSource(): string {
     display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
   }
   .modal-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
+  .modal-header-actions { display: flex; align-items: center; gap: 10px; }
+  .modal-runtime-select {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10px; color: var(--muted);
+  }
+  .modal-runtime-select select {
+    min-width: 120px;
+    font-family: var(--font);
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--bg0);
+    color: var(--text);
+    outline: none;
+  }
+  .modal-runtime-select select:focus { border-color: var(--blue); }
+  .modal-runtime-select select:disabled { opacity: .7; cursor: not-allowed; }
   .modal-close {
     font-family: var(--font); font-size: 12px; padding: 3px 10px; border-radius: 4px;
     border: 1px solid var(--border); background: none; color: var(--muted);

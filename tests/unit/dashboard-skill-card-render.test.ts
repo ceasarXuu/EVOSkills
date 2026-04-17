@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 describe('dashboard skill card render', () => {
-  it('renders highlighted skill cards with runtime, versions, and confidence metadata', async () => {
+  it('renders highlighted grouped skill cards with runtime pills, versions, and confidence metadata', async () => {
     const { renderDashboardSkillCard } = await import('../../src/dashboard/web/render/skill-card.js');
 
     const html = renderDashboardSkillCard({
@@ -9,6 +9,10 @@ describe('dashboard skill card render', () => {
         skillId: 'test-driven-development',
         status: 'optimized',
         runtime: 'claude',
+        runtimeMembers: [
+          { runtime: 'codex' },
+          { runtime: 'claude' },
+        ],
         traceCount: 12,
         effectiveVersion: 4,
         versionsAvailable: [{ version: 3 }, { version: 4 }],
@@ -36,7 +40,10 @@ describe('dashboard skill card render', () => {
     expect(html).toContain('<mark>driven</mark>');
     expect(html).toContain('skillHistory');
     expect(html).toContain('v4');
-    expect(html).toContain('<span>claude</span>');
+    expect(html).toContain('skill-runtime-pill');
+    expect(html).toContain('skill-runtime-pill active');
+    expect(html).toContain('>codex<');
+    expect(html).toContain('>claude<');
     expect(html).toContain('12 skillTraces');
     expect(html).toContain('skillConfidence: 86%');
     expect(html).toContain('just now');

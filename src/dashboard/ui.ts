@@ -241,6 +241,7 @@ init();
       sidebarAddHint: t.sidebarAddHint,
       mainSelectProject: t.mainSelectProject,
       modalClose: t.modalClose,
+      modalHostLabel: t.traceRuntime,
       modalLoading: t.modalLoading,
       modalApplyAllButton: t.modalApplyAllButton,
       modalSave: t.modalSave,

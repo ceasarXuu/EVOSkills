@@ -17,6 +17,7 @@ describe('dashboard app shell', () => {
         sidebarAddHint: '选择一个项目目录',
         mainSelectProject: '请选择项目',
         modalClose: '关闭',
+        modalHostLabel: '宿主',
         modalLoading: '加载中',
         modalApplyAllButton: '应用到全部',
         modalSave: '保存',
@@ -36,6 +37,8 @@ describe('dashboard app shell', () => {
     expect(html).toContain('连接中…');
     expect(html).toContain('id="projectList"');
     expect(html).toContain('id="skillModal"');
+    expect(html).toContain('id="modalRuntimeSelect"');
+    expect(html.indexOf('id="modalRuntimeSelect"')).toBeLessThan(html.indexOf('onclick="closeModal()"'));
     expect(html).toContain('console.log("dashboard test")');
   });
 });

@@ -1,15 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 
 describe('dashboard web state', () => {
-  it('creates the initial dashboard state with the saved activity widths', async () => {
+  it('creates the initial dashboard state with the saved activity widths and preferred modal runtime', async () => {
     const { createDashboardState, createProjectSnapshotLoads, GLOBAL_CONFIG_SCOPE } = await import('../../src/dashboard/web/state.js');
 
-    const state = createDashboardState(() => ({ skill: 240 }));
+    const state = createDashboardState(() => ({ skill: 240 }), () => 'claude');
     const loads = createProjectSnapshotLoads();
 
     expect(state.selectedProjectId).toBeNull();
     expect(state.selectedMainTab).toBe('overview');
     expect(state.currentSkillRuntime).toBe('codex');
+    expect(state.preferredSkillRuntime).toBe('claude');
     expect(state.providerCatalog).toEqual([]);
     expect(state.activityColumnWidths).toEqual({ skill: 240 });
     expect(GLOBAL_CONFIG_SCOPE).toBe('__global__');
@@ -66,6 +67,7 @@ describe('dashboard web state', () => {
     expect(source).toContain('__global__');
     expect(source).toContain('const state = {');
     expect(source).toContain('activityColumnWidths: loadSavedActivityColumnWidths()');
+    expect(source).toContain('preferredSkillRuntime: loadSavedSkillModalRuntime()');
     expect(source).toContain('const projectSnapshotLoads = {};');
     expect(source).toContain('function buildEmptyProjectData() {');
   });

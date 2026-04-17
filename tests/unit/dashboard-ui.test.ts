@@ -286,7 +286,7 @@ function loadDashboardTestHarness(
   const script = scriptMatch[1]
     .replace(/\binit\(\);\s*$/, '')
     .concat(
-      '\n;globalThis.__dashboardTest = { state, init, switchLang, selectProject, selectMainTab, renderMainPanel, safeRenderMainPanel, renderSidebar, buildActivityRows, copyActivityDetail, openActivityDetail, renderCostPanel, viewSkill, loadVersion, handleUpdate, openApplyToAllSkillModal, closeApplyToAllSkillModal, confirmApplyCurrentSkillToAll, triggerProjectPicker: openProjectPicker, toggleProjectMonitoring, saveProjectConfig };'
+      '\n;globalThis.__dashboardTest = { state, init, switchLang, selectProject, selectMainTab, renderMainPanel, safeRenderMainPanel, renderSidebar, buildActivityRows, copyActivityDetail, openActivityDetail, renderCostPanel, viewSkill, switchSkillRuntime, loadVersion, handleUpdate, openApplyToAllSkillModal, closeApplyToAllSkillModal, confirmApplyCurrentSkillToAll, triggerProjectPicker: openProjectPicker, toggleProjectMonitoring, saveProjectConfig };'
     );
 
   vm.runInNewContext(script, runtime);
@@ -307,6 +307,7 @@ function loadDashboardTestHarness(
         openActivityDetail: (projectPath: string, rowId: string) => Promise<void>;
         renderCostPanel: (projectPath: string) => string;
         viewSkill: (projectPath: string, skillId: string, runtime?: string) => Promise<void>;
+        switchSkillRuntime: (runtime: string) => Promise<void>;
         loadVersion: (encProject: string, encSkill: string, encRuntime: string, version: number) => Promise<void>;
         handleUpdate: (data: Record<string, unknown>) => Promise<void> | void;
         openApplyToAllSkillModal: () => void;
@@ -322,6 +323,9 @@ function loadDashboardTestHarness(
     },
     getCopiedText() {
       return copiedText;
+    },
+    getStorageItem(key: string) {
+      return localStorageData.has(key) ? localStorageData.get(key)! : null;
     },
     getFetchCalls() {
       return fetchCalls.map((call) => call.url);
@@ -1842,6 +1846,180 @@ describe('dashboard ui recovery', () => {
     expect(getElement('vmeta_1').innerHTML).toContain('Bootstrap source sync');
     expect(getElement('vmeta_2').innerHTML).toContain('Manual edit from dashboard');
     expect(getElement('vmeta_3').innerHTML).toContain('Manual edit from dashboard');
+  });
+
+  it('merges same-named skills into one card while keeping host pills visible', () => {
+    const { dashboard, getElement } = loadDashboardTestHarness({}, { lang: 'zh' });
+    const projectPath = '/tmp/ornn-project';
+
+    getElement('mainPanel');
+    dashboard.state.selectedProjectId = projectPath;
+    dashboard.state.selectedMainTab = 'skills';
+    dashboard.state.selectedRuntimeTab = 'all';
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {
+          isRunning: true,
+          pid: 1,
+          startedAt: '2026-04-10T00:00:00.000Z',
+          processedTraces: 2,
+          lastCheckpointAt: null,
+          retryQueueSize: 0,
+          optimizationStatus: { currentState: 'idle', currentSkillId: null, lastOptimizationAt: null, lastError: null, queueSize: 0 },
+        },
+        skills: [
+          {
+            skillId: 'test-driven-development',
+            runtime: 'codex',
+            status: 'optimized',
+            updatedAt: '2026-04-17T12:00:00.000Z',
+            traceCount: 5,
+            versionsAvailable: [1, 2],
+            effectiveVersion: 2,
+          },
+          {
+            skillId: 'test-driven-development',
+            runtime: 'claude',
+            status: 'active',
+            updatedAt: '2026-04-18T12:00:00.000Z',
+            traceCount: 7,
+            versionsAvailable: [1, 2, 3],
+            effectiveVersion: 3,
+          },
+          {
+            skillId: 'frontend-design',
+            runtime: 'opencode',
+            status: 'active',
+            updatedAt: '2026-04-18T08:00:00.000Z',
+            traceCount: 2,
+            versionsAvailable: [1],
+            effectiveVersion: 1,
+          },
+        ],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+        decisionEvents: [],
+        activityScopes: [],
+        agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+      },
+    };
+
+    dashboard.renderMainPanel(projectPath);
+
+    const html = getElement('mainPanel').innerHTML;
+    expect(html.match(/class="skill-card"/g)).toHaveLength(2);
+    expect(html).toContain('test-driven-development');
+    expect(html).toContain('skill-runtime-pill');
+    expect(html).toContain('>codex<');
+    expect(html).toContain('>claude<');
+  });
+
+  it('uses the persisted host by default and keeps the dropdown choice across reloads', async () => {
+    const projectPath = '/tmp/ornn-project';
+    const skillId = 'test-driven-development';
+    const encodedProject = encodeURIComponent(projectPath);
+    const encodedSkill = encodeURIComponent(skillId);
+    const claudeEndpoint = `/api/projects/${encodedProject}/skills/${encodedSkill}?runtime=claude`;
+    const codexEndpoint = `/api/projects/${encodedProject}/skills/${encodedSkill}?runtime=codex`;
+    const projectSnapshot = {
+      daemon: {
+        isRunning: true,
+        pid: 1,
+        startedAt: '2026-04-10T00:00:00.000Z',
+        processedTraces: 2,
+        lastCheckpointAt: null,
+        retryQueueSize: 0,
+        optimizationStatus: { currentState: 'idle', currentSkillId: null, lastOptimizationAt: null, lastError: null, queueSize: 0 },
+      },
+      skills: [
+        {
+          skillId,
+          runtime: 'codex',
+          status: 'active',
+          updatedAt: '2026-04-17T12:00:00.000Z',
+          traceCount: 5,
+          versionsAvailable: [1, 2],
+          effectiveVersion: 2,
+        },
+        {
+          skillId,
+          runtime: 'claude',
+          status: 'optimized',
+          updatedAt: '2026-04-18T12:00:00.000Z',
+          traceCount: 7,
+          versionsAvailable: [1, 2, 3],
+          effectiveVersion: 3,
+        },
+      ],
+      traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+      recentTraces: [],
+      decisionEvents: [],
+      activityScopes: [],
+      agentUsage: { callCount: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, durationMsTotal: 0, avgDurationMs: 0, lastCallAt: null, byModel: {}, byScope: {}, bySkill: {} },
+    };
+    const fetchMap = {
+      [claudeEndpoint]: {
+        content: '# claude body',
+        versions: [1, 2, 3],
+        effectiveVersion: 3,
+      },
+      [codexEndpoint]: {
+        content: '# codex body',
+        versions: [1, 2],
+        effectiveVersion: 2,
+      },
+    };
+
+    const firstHarness = loadDashboardTestHarness({
+      'ornn-dashboard-skill-modal-runtime': 'claude',
+    }, { lang: 'zh', fetchMap });
+    const { dashboard, getElement, getFetchCalls, getStorageItem } = firstHarness;
+
+    dashboard.state.selectedProjectId = projectPath;
+    dashboard.state.projectData = { [projectPath]: projectSnapshot };
+    getElement('skillModal');
+    getElement('modalSkillName');
+    getElement('modalSkillStatus');
+    getElement('modalRuntimeSelect');
+    getElement('modalSaveHint');
+    getElement('modalSaveBtn');
+    getElement('modalApplyAllBtn');
+    getElement('modalContent');
+    getElement('versionList');
+
+    await dashboard.viewSkill(projectPath, skillId);
+
+    expect(getFetchCalls()).toContain(claudeEndpoint);
+    expect(getElement('modalRuntimeSelect').innerHTML).toContain('Codex');
+    expect(getElement('modalRuntimeSelect').innerHTML).toContain('Claude');
+    expect(getElement('modalRuntimeSelect').value).toBe('claude');
+
+    await dashboard.switchSkillRuntime('codex');
+
+    expect(getFetchCalls()).toContain(codexEndpoint);
+    expect(getStorageItem('ornn-dashboard-skill-modal-runtime')).toBe('codex');
+    expect(getElement('modalRuntimeSelect').value).toBe('codex');
+
+    const secondHarness = loadDashboardTestHarness({
+      'ornn-dashboard-skill-modal-runtime': String(getStorageItem('ornn-dashboard-skill-modal-runtime')),
+    }, { lang: 'zh', fetchMap });
+    const nextDashboard = secondHarness.dashboard;
+    nextDashboard.state.selectedProjectId = projectPath;
+    nextDashboard.state.projectData = { [projectPath]: projectSnapshot };
+    secondHarness.getElement('skillModal');
+    secondHarness.getElement('modalSkillName');
+    secondHarness.getElement('modalSkillStatus');
+    secondHarness.getElement('modalRuntimeSelect');
+    secondHarness.getElement('modalSaveHint');
+    secondHarness.getElement('modalSaveBtn');
+    secondHarness.getElement('modalApplyAllBtn');
+    secondHarness.getElement('modalContent');
+    secondHarness.getElement('versionList');
+
+    await nextDashboard.viewSkill(projectPath, skillId);
+
+    expect(secondHarness.getFetchCalls()).toContain(codexEndpoint);
+    expect(secondHarness.getElement('modalRuntimeSelect').value).toBe('codex');
   });
 
   it('moves the selected history state to the clicked version card', async () => {

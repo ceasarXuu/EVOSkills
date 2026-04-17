@@ -9,6 +9,7 @@ interface DashboardAppShellLabels {
   sidebarAddHint: string;
   mainSelectProject: string;
   modalClose: string;
+  modalHostLabel: string;
   modalLoading: string;
   modalApplyAllButton: string;
   modalSave: string;
@@ -92,7 +93,15 @@ ${styleCss}
         <span id="modalSkillName"></span>
         <span id="modalSkillStatus"></span>
       </div>
-      <button class="modal-close" onclick="closeModal()">✕ ${labels.modalClose}</button>
+      <div class="modal-header-actions">
+        <label class="modal-runtime-select" for="modalRuntimeSelect">
+          <span>${labels.modalHostLabel}</span>
+          <select id="modalRuntimeSelect" onchange="switchSkillRuntime(this.value)">
+            <option value="codex">Codex</option>
+          </select>
+        </label>
+        <button class="modal-close" onclick="closeModal()">✕ ${labels.modalClose}</button>
+      </div>
     </div>
     <div class="modal-body">
       <div class="modal-content">

@@ -3357,6 +3357,10 @@ describe('dashboard ui recovery', () => {
     expect(html).toContain('skillLibraryInlineDetailContainer');
     expect(html).toContain('skillInlineContent');
     expect(html).toContain('skill-instance-item');
+    expect(html).toContain('skill-nav-item project-item active');
+    expect(html).toContain('class="project-top"');
+    expect(html).toContain('class="project-path"');
+    expect(html).toContain('class="project-meta"');
   });
 
   it('loads skill library details into the inline editor instead of opening the modal', async () => {

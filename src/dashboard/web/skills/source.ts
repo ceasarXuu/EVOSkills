@@ -353,29 +353,62 @@ function renderSkillLibraryInstances(familyId, instances) {
   }).join('');
 }
 
+function getSkillFamilyStatusDotClass(status) {
+  const normalizedStatus = String(status || '').toLowerCase();
+  if (normalizedStatus === 'error') return 'dot-red';
+  if (normalizedStatus === 'optimizing') return 'dot-yellow';
+  if (normalizedStatus === 'analyzing') return 'dot-blue';
+  if (normalizedStatus === 'idle' || normalizedStatus === 'active') return 'dot-green';
+  return 'dot-gray';
+}
+
+function formatSkillFamilyRuntimeSummary(family) {
+  const runtimes = (Array.isArray(family && family.runtimes) ? family.runtimes : [])
+    .map(function(runtime) {
+      return normalizeSkillRuntime(runtime);
+    })
+    .sort(function(a, b) {
+      return runtimeSortValue(a) - runtimeSortValue(b);
+    })
+    .map(function(runtime) {
+      return getRuntimeLabel(runtime);
+    });
+
+  if (runtimes.length === 0) return 'No runtimes';
+  if (runtimes.length === 1) return runtimes[0];
+  return runtimes[0] + ' +' + String(runtimes.length - 1);
+}
+
 function renderFamilyCard(family) {
   const activeCls = family && family.familyId === state.selectedSkillFamilyId ? ' active' : '';
-  const runtimes = Array.isArray(family && family.runtimes) ? family.runtimes : [];
-  const runtimePills = runtimes.map(function(runtime) {
-    return '<span class="skill-runtime-pill">' + escHtml(getRuntimeLabel(runtime)) + '</span>';
-  }).join('');
   const usage = family && family.usage ? family.usage : { observedCalls: 0 };
+  const status = String((family && family.status) || 'idle');
+  const dotClass = getSkillFamilyStatusDotClass(status);
+  const runtimeSummary = formatSkillFamilyRuntimeSummary(family);
+  const metaParts = [
+    escHtml(String(family.instanceCount || 0)) + ' ' + t('sidebarSkills'),
+    escHtml(String(family.projectCount || 0)) + ' projects',
+    escHtml(String(usage.observedCalls || 0)) + ' ' + t('skillTraces'),
+    escHtml(runtimeSummary),
+  ];
 
-  return '<button class="skill-nav-item' + activeCls + '" type="button" onclick="selectSkillFamily(\\'' + escJsStr(family.familyId) + '\\')">' +
-    '<div class="skill-nav-top">' +
-      '<div class="skill-name">' +
-        '<span class="status-badge status-' + escHtml(family.status || 'idle') + '">' + escHtml(family.status || 'idle') + '</span>' +
+  if (family && family.lastUsedAt) {
+    metaParts.push(timeAgo(family.lastUsedAt));
+  }
+  if (family && family.hasDivergedContent) {
+    metaParts.push('forked');
+  }
+
+  return '<button class="skill-nav-item project-item' + activeCls + '" type="button" onclick="selectSkillFamily(\\'' + escJsStr(family.familyId) + '\\')">' +
+    '<div class="project-top">' +
+      '<div class="project-name skill-name">' +
+        '<span class="dot ' + dotClass + '"></span>' +
         '<span>' + highlightText(family.familyName || '', state.searchQuery) + '</span>' +
       '</div>' +
+      '<span class="skill-nav-badge">' + escHtml(String(family.instanceCount || 0)) + '</span>' +
     '</div>' +
-    '<div class="skill-nav-meta">' +
-      '<span>' + escHtml(String(family.instanceCount || 0)) + ' ' + t('sidebarSkills') + '</span>' +
-      '<span>' + escHtml(String(family.projectCount || 0)) + ' projects</span>' +
-      '<span>' + escHtml(String(usage.observedCalls || 0)) + ' ' + t('skillTraces') + '</span>' +
-      (family && family.lastUsedAt ? '<span>' + timeAgo(family.lastUsedAt) + '</span>' : '') +
-      (family && family.hasDivergedContent ? '<span>forked</span>' : '') +
-    '</div>' +
-    '<div class="skill-runtime-list">' + runtimePills + '</div>' +
+    '<div class="project-path" title="' + escHtml(family.familyId || '') + '">' + escHtml(family.familyId || family.familyName || '') + '</div>' +
+    '<div class="project-meta">' + metaParts.join(' · ') + '</div>' +
   '</button>';
 }
 
@@ -554,6 +587,7 @@ async function loadSkillFamilyDetail(familyId, force = false) {
 function selectSkillFamily(familyId) {
   state.selectedSkillFamilyId = familyId;
   if (!familyId) return;
+  console.info('[dashboard] selected skill library family', { familyId: familyId });
   if (!state.skillFamilyDetailsById[familyId] || !state.skillFamilyInstancesById[familyId]) {
     void loadSkillFamilyDetail(familyId, true);
     if (isSkillLibraryViewActive()) {

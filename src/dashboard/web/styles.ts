@@ -46,6 +46,7 @@ export function renderDashboardStylesSource(): string {
   .header-status { display: flex; align-items: center; gap: 6px; font-size: 11px; }
   .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
   .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot-blue { background: var(--blue); box-shadow: 0 0 6px rgba(88,166,255,.45); }
   .dot-red { background: var(--red); }
   .dot-yellow { background: var(--yellow); animation: pulse 1.5s infinite; }
   .dot-gray { background: var(--muted); }
@@ -68,17 +69,29 @@ export function renderDashboardStylesSource(): string {
     flex-shrink: 0;
   }
   .sidebar-list { flex: 1; overflow-y: auto; }
-  .project-item {
-    padding: 8px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 3px;
-    border-left: 2px solid transparent; transition: background .1s;
+  .project-item, .skill-nav-item {
+    width: 100%;
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    border: 1px solid transparent;
+    border-left: 2px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+    text-align: left;
+    font-family: var(--font);
+    transition: background .1s, border-color .15s, transform .15s;
   }
-  .project-item:hover { background: var(--bg2); }
-  .project-item.active { background: var(--bg2); border-left-color: var(--blue); }
-  .project-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .project-item:hover, .skill-nav-item:hover { background: var(--bg2); border-color: rgba(88,166,255,.18); }
+  .project-item.active, .skill-nav-item.active { background: var(--bg2); border-left-color: var(--blue); border-color: rgba(88,166,255,.38); }
+  .project-top, .skill-nav-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .project-name { font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; }
   .project-name span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .project-path { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .project-meta { font-size: 10px; color: var(--muted); }
+  .project-path, .skill-nav-path { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .project-meta, .skill-nav-meta { font-size: 10px; color: var(--muted); }
   .project-monitor-btn {
     font-family: var(--font); font-size: 10px; line-height: 1;
     padding: 4px 8px; border-radius: 999px;
@@ -267,30 +280,28 @@ export function renderDashboardStylesSource(): string {
   .skill-library-nav-card .card-body { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
   .skill-library-nav-list { display: flex; flex-direction: column; gap: 8px; }
   .skill-nav-item {
-    width: 100%;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: linear-gradient(180deg, rgba(33,38,45,.96), rgba(22,27,34,.92));
-    color: var(--text);
-    text-align: left;
-    padding: 12px;
-    cursor: pointer;
-    transition: border-color .15s, transform .15s, background .15s;
+    gap: 5px;
   }
-  .skill-nav-item:hover { border-color: rgba(88,166,255,.55); transform: translateX(2px); }
+  .skill-nav-item:hover { transform: translateX(2px); }
   .skill-nav-item.active {
-    border-color: rgba(88,166,255,.75);
-    background: linear-gradient(180deg, rgba(33,38,45,1), rgba(19,38,64,.94));
-    box-shadow: inset 0 0 0 1px rgba(88,166,255,.18);
+    box-shadow: inset 0 0 0 1px rgba(88,166,255,.14);
   }
-  .skill-nav-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
   .skill-nav-meta {
-    margin-top: 10px;
+    line-height: 1.5;
+  }
+  .skill-nav-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid rgba(88,166,255,.25);
+    background: rgba(88,166,255,.08);
+    color: var(--blue);
     font-size: 10px;
-    color: var(--muted);
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
+    line-height: 1;
+    flex-shrink: 0;
   }
   .skill-inline-card { min-height: 0; }
   .skill-inline-card-header {

@@ -7,6 +7,8 @@ describe('renderDashboardStylesSource', () => {
 
     expect(css).toContain('.app { display: grid;');
     expect(css).toContain('.project-item.active');
+    expect(css).toContain('.project-item, .skill-nav-item');
+    expect(css).toContain('.project-top, .skill-nav-top');
     expect(css).toContain('.activity-table { width: 100%;');
     expect(css).toContain('.provider-row {');
     expect(css).toContain('.header-center');

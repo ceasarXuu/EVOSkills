@@ -3449,12 +3449,13 @@ describe('dashboard ui recovery', () => {
     expect(html).toContain('skillLibraryInlineDetailContainer');
     expect(html).toContain('skillInlineContent');
     expect(html).toContain('skill-instance-item');
+    expect(html).toContain('skill-library-page-toolbar');
     expect(html).toContain('skill-library-sidebar-shell');
-    expect(html).toContain('skill-library-toolbar');
     expect(html).toContain('skill-nav-item project-item active');
     expect(html).toContain('class="project-top"');
     expect(html).toContain('class="project-path"');
     expect(html).toContain('class="project-meta"');
+    expect(html).not.toContain('skill-library-toolbar skill-library-runtime-bar');
     expect(html).not.toContain('card skill-library-nav-card');
   });
 

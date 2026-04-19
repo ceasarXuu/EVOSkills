@@ -309,6 +309,31 @@ export function renderDashboardStylesSource(): string {
     gap: 8px;
   }
   .skill-library-count { color: var(--muted); font-size: 10px; }
+  .skill-library-page-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--bg1);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .skill-library-page-toolbar-main,
+  .skill-library-page-toolbar-secondary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .skill-library-page-toolbar-main .runtime-tabs,
+  .skill-library-page-toolbar-secondary .sort-controls {
+    flex-wrap: wrap;
+  }
+  .skill-library-page-toolbar-secondary .search-box {
+    flex: 1;
+    min-width: min(100%, 260px);
+  }
   .skill-library-toolbar {
     padding: 8px 12px;
     border-bottom: 1px solid var(--border);
@@ -330,15 +355,10 @@ export function renderDashboardStylesSource(): string {
   .skill-library-nav-card .card-body { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
   .skill-library-nav-list { display: flex; flex-direction: column; gap: 0; }
   .skill-nav-item {
-    gap: 4px;
-    border-width: 1px 0 1px 2px;
-    border-radius: 0;
-    padding: 10px 12px;
+    gap: 3px;
+    padding: 8px 12px;
   }
-  .skill-nav-item:hover { transform: none; background: rgba(33,38,45,.88); }
-  .skill-nav-item.active {
-    box-shadow: inset 0 0 0 1px rgba(88,166,255,.14);
-  }
+  .skill-nav-item:hover { transform: none; }
   .skill-nav-meta {
     line-height: 1.5;
   }
@@ -440,6 +460,18 @@ export function renderDashboardStylesSource(): string {
   }
   .skill-inline-history { background: var(--bg1); }
   @media (max-width: 980px) {
+    .skill-library-page-toolbar {
+      padding: 12px;
+    }
+    .skill-library-page-toolbar-main,
+    .skill-library-page-toolbar-secondary {
+      align-items: stretch;
+    }
+    .skill-library-page-toolbar-main .runtime-tabs,
+    .skill-library-page-toolbar-secondary .sort-controls,
+    .skill-library-page-toolbar-secondary .search-box {
+      width: 100%;
+    }
     .skill-library-layout { grid-template-columns: 1fr; min-height: 0; }
     .skill-library-sidebar { border-right: none; border-bottom: 1px solid var(--border); }
     .skill-library-detail { padding: 12px; }

@@ -229,6 +229,477 @@ V2.0 的 `Skills` 页需要明确分成两个工作区:
 - 如果一开始就把 `variant` 升格为强对象，复杂度会显著增加，建议后置
 - 如果直接重写 daemon 写路径而不先做 projector，回归面会过大，不适合作为第一步
 
+### 0.11 详细实施顺序
+
+以下顺序是建议的默认执行顺序，除非遇到阻塞，不应打乱:
+
+1. 先冻结对象模型与接口契约
+2. 再补新 schema 和 projector
+3. 再补 family / instance / revision / usage 的读模型
+4. 再开放新 API
+5. 再切换 `Skills` 页的读路径与视图
+6. 最后才迁移安装、卸载、迁移、回滚等写路径
+
+硬约束:
+
+- 在 projector 可稳定产出 family + instance 之前，不改 `Skills` 页主视图
+- 在新 API 稳定前，不让前端直接读取底层 legacy 结构拼接新视图
+- 在 instance 级 mutation API 准备好之前，不移除旧 skill 级操作接口
+- 在新旧统计可对齐之前，不删除旧 `project -> skills` 读模型
+
+### 0.12 逐阶段工作分解
+
+#### Phase 0 术语与契约冻结
+
+目标:
+
+- 统一文档、类型、接口命名
+- 明确 `family / instance / revision / release / usage` 的边界
+
+主要改动模块:
+
+- `docs/PRD.md`
+- `docs/ENGINEERING_PLAN.md`
+- `AGENTS.md`
+- `src/types/index.ts` 或新建 `src/domain/skill-domain.ts`
+
+交付物:
+
+- 新对象模型类型定义
+- ID 规则说明
+- legacy -> new mapping 表
+
+验证:
+
+- 文档评审通过
+- 代码中新增命名不再继续使用面向用户的 `shadow skill`
+
+建议提交:
+
+- `docs(product): freeze skill domain terminology`
+- `refactor(types): add skill domain model types`
+
+#### Phase 1 新 schema 与 projector 骨架
+
+目标:
+
+- 在不改旧写路径的前提下，为新读模型准备落盘结构和投影入口
+
+主要改动模块:
+
+- `src/storage/sqlite/sqlite-schema.ts`
+- `src/storage/sqlite.ts`
+- 新建 `src/core/skill-domain/`
+- 新建 `src/core/skill-domain/projector.ts`
+- 新建 `src/core/skill-domain/repos/`
+
+交付物:
+
+- 新表结构或等价 state 文件
+- projector 空实现与调度入口
+- schema migration 逻辑
+
+验证:
+
+- 新库初始化成功
+- 旧库升级成功
+- 重复执行 migration 不报错
+- projector 空跑不影响现有功能
+
+建议提交:
+
+- `refactor(storage): add skill domain schema`
+- `feat(domain): scaffold skill domain projector`
+
+#### Phase 2 instance / revision 投影
+
+目标:
+
+- 先把“装在哪、当前在哪个修订”解释清楚
+
+主要改动模块:
+
+- `src/dashboard/readers/skills-reader.ts`
+- `src/core/skill-domain/projector.ts`
+- 新建 `src/core/skill-domain/instance-projector.ts`
+- 新建 `src/core/skill-domain/revision-projector.ts`
+- 读取 `.ornn/shadows`、`.ornn/skills/*/versions` 的工具模块
+
+交付物:
+
+- 从 legacy skill 数据生成 `skill_instances`
+- 从 snapshots / versions / metadata 生成 `skill_revisions`
+- current/effective revision 解释器
+
+验证:
+
+- 同项目同名不同宿主实例不再冲突
+- revision 链连续
+- effective revision 与当前 dashboard 显示一致
+- projector 多次运行结果幂等
+
+建议提交:
+
+- `feat(domain): project skill instances from legacy state`
+- `feat(domain): project revision timeline from snapshots`
+
+#### Phase 3 family 归并与 usage 汇总
+
+目标:
+
+- 把“同一个 skill 家族”以及“有没有被使用”两件事做成稳定读模型
+
+主要改动模块:
+
+- 新建 `src/core/skill-domain/family-resolver.ts`
+- 新建 `src/core/skill-domain/usage-rollup.ts`
+- `src/dashboard/readers/trace-reader.ts`
+- `src/dashboard/readers/agent-usage-reader.ts`
+- `src/storage/sqlite/sqlite-trace-skill-mapping-repo.ts`
+
+交付物:
+
+- family 归并规则
+- `identity_method` 和 `confidence`
+- usage facts -> usage rollups
+- `installedAt / firstSeenAt / lastSeenAt / lastUsedAt`
+- `observed_calls / analyzed_touches / optimized_count`
+
+验证:
+
+- fixture 中跨项目同名 skill 正确归并
+- 误归并样例保留中低置信度
+- legacy skill 没有可靠安装时间时不伪造 `installedAt`
+- usage 汇总和原始 traces / agent usage 结果可抽样对账
+
+建议提交:
+
+- `feat(domain): resolve skill families`
+- `feat(domain): roll up skill usage summaries`
+
+#### Phase 4 新 API 与 snapshot 结构
+
+目标:
+
+- 为前端切视图提供稳定 API，不让前端直接拼 legacy 数据
+
+主要改动模块:
+
+- `src/dashboard/server.ts`
+- 新建 `src/dashboard/routes/skill-family-routes.ts`
+- 新建 `src/dashboard/routes/project-skill-instance-routes.ts`
+- `src/dashboard/data-reader.ts`
+- 新建 family / instance / detail reader
+
+交付物:
+
+- `GET /api/skills/families`
+- `GET /api/skills/families/:familyId`
+- `GET /api/skills/families/:familyId/instances`
+- `GET /api/projects/:projectId/skill-groups`
+- `GET /api/projects/:projectId/skill-instances`
+- 新版 dashboard snapshot 或 family 专用读接口
+
+验证:
+
+- 新旧 API 并存
+- family 列表、详情、project groups 返回结构完整
+- project 级实例总数与 legacy skills 统计可对齐
+
+建议提交:
+
+- `feat(api): add skill family routes`
+- `feat(api): add project skill instance routes`
+
+#### Phase 5 dashboard state 与路由切换
+
+目标:
+
+- 让前端状态管理能同时承载 `技能库` 和 `项目工作台`
+
+主要改动模块:
+
+- `src/dashboard/web/state.ts`
+- `src/dashboard/web/main-panel/source.ts`
+- `src/dashboard/ui.ts`
+- `src/dashboard/i18n.ts`
+
+交付物:
+
+- 新 state 字段，例如 `selectedSkillsView`
+- 项目导航显示规则收口
+- 主 tab / sub view 路由收口
+
+验证:
+
+- `主页` 和 `配置` 不显示项目导航
+- `Skills -> 技能库` 不依赖选中项目
+- `Skills -> 项目工作台` 仍保留项目导航
+- 切换视图不丢失搜索与选择状态
+
+建议提交:
+
+- `refactor(dashboard): split skills views in state model`
+
+#### Phase 6 技能库视图
+
+目标:
+
+- 落地默认 `Skill 视角`
+
+主要改动模块:
+
+- 新建 `src/dashboard/web/family/`
+- `src/dashboard/web/panels/skills-panel.ts`
+- `src/dashboard/web/render/skill-card.ts`
+- `src/dashboard/web/styles.ts`
+
+交付物:
+
+- family 列表
+- family 过滤器、排序器
+- family 卡片或表格
+- 活跃状态、调用数、项目数、宿主数、分叉状态
+
+验证:
+
+- 不选项目也能完整使用
+- 同一个 family 只显示一次
+- family 总数、项目数、宿主数正确
+- 过滤和排序行为稳定
+
+建议提交:
+
+- `feat(dashboard): add skill family library view`
+
+#### Phase 7 family 详情与下钻
+
+目标:
+
+- 让用户从“skill 整体价值”继续下钻到实例与修订
+
+主要改动模块:
+
+- 新建 `src/dashboard/web/family/detail.ts`
+- 新建 `src/dashboard/web/panels/family-detail-panel.ts`
+- 相关详情 API reader
+
+交付物:
+
+- family 概况
+- 实例分布
+- 修订概况
+- usage 明细
+- 下一步建议动作
+
+验证:
+
+- 能从 family 详情看到全部实例
+- 能看出分叉实例
+- 能从实例继续跳到项目上下文
+
+建议提交:
+
+- `feat(dashboard): add family detail drilldown`
+
+#### Phase 8 项目工作台重构
+
+目标:
+
+- 保留并升级当前“项目 -> 同名卡片 -> 不同宿主实例”的工作方式
+
+主要改动模块:
+
+- `src/dashboard/web/skills/source.ts`
+- `src/dashboard/web/panels/skills-panel.ts`
+- `src/dashboard/web/main-panel/source.ts`
+- `src/dashboard/web/render/skill-card.ts`
+
+交付物:
+
+- 项目内 family 组视图
+- 组内宿主实例列表
+- 实例状态、宿主、修订、最近使用
+
+验证:
+
+- 旧项目工作流不退化
+- 同名不同宿主实例展示清晰
+- 从项目实例可回跳到 family 详情
+
+建议提交:
+
+- `refactor(dashboard): upgrade project skill workbench`
+
+#### Phase 9 写路径迁移
+
+目标:
+
+- 把高风险操作从“按 skill 名猜目标”升级成“按 instance 精确命中目标”
+
+主要改动模块:
+
+- `src/dashboard/routes/project-skill-routes.ts`
+- `src/dashboard/routes/project-version-routes.ts`
+- `src/core/skill-version/`
+- 迁移、卸载、回滚、启停服务模块
+
+交付物:
+
+- 基于 `instance_id` 的编辑、回滚、迁移、启停 API
+- family 级与 instance 级操作边界
+- 高风险操作预览能力
+
+验证:
+
+- 不会误伤同名其他实例
+- 回滚、迁移、禁用都精确作用于单实例
+- 旧 API 可临时兼容并给出明确 deprecation 路径
+
+建议提交:
+
+- `refactor(api): target instance-based skill mutations`
+
+#### Phase 10 清理与收尾
+
+目标:
+
+- 把 legacy 语义收回内部，防止之后继续渗出到 UI
+
+主要改动模块:
+
+- 全量 dashboard 文案
+- legacy reader / formatter / helper
+- `docs/PROGRESS.md`
+
+交付物:
+
+- 旧术语清理
+- dead code 删除
+- 文档收尾
+
+验证:
+
+- 主界面不再以 `shadow skill` 为主要表达
+- 新对象模型与 UI 术语完全一致
+
+建议提交:
+
+- `cleanup(dashboard): remove legacy shadow-first semantics`
+
+### 0.13 验证矩阵
+
+每个阶段至少执行 4 类验证:
+
+1. `类型与单元测试`
+   - 新对象模型、归并规则、usage 汇总、ID 规则
+2. `迁移与幂等验证`
+   - schema migration
+   - projector 重跑
+   - 旧数据升级
+3. `API 回归`
+   - 新旧接口并存
+   - 返回结构稳定
+4. `dashboard 手工验证`
+   - 重点看视角切换、详情下钻、实例操作目标是否正确
+
+建议新增或补齐的测试文件:
+
+- `tests/unit/skill-domain-family-resolver.test.ts`
+- `tests/unit/skill-domain-instance-projector.test.ts`
+- `tests/unit/skill-domain-revision-projector.test.ts`
+- `tests/unit/skill-domain-usage-rollup.test.ts`
+- `tests/unit/dashboard-skill-family-routes.test.ts`
+- `tests/unit/dashboard-project-skill-instance-routes.test.ts`
+- `tests/unit/dashboard-skills-dual-view.test.ts`
+
+手工验证场景基线:
+
+1. 无项目，仅打开 `Skills -> 技能库`
+2. 单项目、单宿主、单实例
+3. 单项目、同名多宿主实例
+4. 多项目、同名实例聚合为一个 family
+5. 同名但内容已分叉
+6. legacy skill 无安装时间
+7. 针对某个实例的编辑、回滚、迁移
+
+### 0.14 阶段验收门槛
+
+#### Gate A: 模型读通
+
+通过条件:
+
+- 能稳定回答“一个 family 有几个实例”
+- 能稳定回答“每个实例当前在哪个 revision”
+- projector 重跑无重复数据
+
+#### Gate B: 技能库可用
+
+通过条件:
+
+- 不选项目也能完整使用 `Skills`
+- family 列表数据完整
+- 项目导航不会错误出现在技能库
+
+#### Gate C: 双视角打通
+
+通过条件:
+
+- family 详情可下钻到实例
+- 项目工作台可跳回 family 详情
+- 用户在两个视角中不会丢失上下文
+
+#### Gate D: 写路径安全
+
+通过条件:
+
+- 所有高风险操作都能精确命中实例
+- 所有高风险操作都具备预览、日志或回滚路径
+- 不存在同名 skill 误伤其他实例的情况
+
+#### Gate E: 语义收口
+
+通过条件:
+
+- UI 主文案不再依赖 legacy 术语
+- family / instance / revision 的语义在前端、API、文档中保持一致
+
+### 0.15 回滚与应急策略
+
+每个阶段都必须具备“只回退本阶段”的能力。
+
+推荐策略:
+
+- schema 迁移前自动创建 SQLite 备份
+- projector 采用可重建读模型，不直接覆盖 legacy 原始数据
+- 新 API 与旧 API 并存至少一个阶段
+- 新视图 behind flag 或至少 behind state switch，允许快速退回旧 Skills 视图
+- mutation API 迁移阶段保留旧入口，并在日志中记录调用来源
+
+应急处理顺序:
+
+1. 先回退 dashboard 到旧视图
+2. 再切回旧 API
+3. 必要时清空新读模型表并从 legacy 数据重建
+4. 仅在极端情况下才回退 schema 版本
+
+### 0.16 推荐 PR 切分
+
+建议按以下主题小步提交，而不是堆成一个巨型重构:
+
+1. `refactor(types): add skill domain model contracts`
+2. `refactor(storage): add skill domain schema`
+3. `feat(domain): scaffold projector and repos`
+4. `feat(domain): project instances and revisions`
+5. `feat(domain): resolve families and usage rollups`
+6. `feat(api): add family and instance read routes`
+7. `refactor(dashboard): split skills views in state`
+8. `feat(dashboard): add family library view`
+9. `feat(dashboard): add family detail drilldown`
+10. `refactor(dashboard): upgrade project workbench`
+11. `refactor(api): migrate skill mutations to instance targets`
+12. `cleanup(dashboard): remove legacy shadow-first semantics`
+
 ## 1. 技术栈选型
 
 ### 1.1 核心技术栈

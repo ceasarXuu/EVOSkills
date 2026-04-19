@@ -21,6 +21,7 @@ export function createDashboardState<TActivityColumnWidths>(
     sortBy: 'name',
     sortOrder: 'asc',
     selectedMainTab: 'home',
+    selectedSkillsSubTab: 'project_overview',
     currentSkillRuntime: 'codex',
     currentSkillVersion: null,
     currentSkillEffectiveVersion: null,

@@ -68,9 +68,9 @@ ${styleCss}
     <div class="workspace-tabs" id="workspaceTabs"></div>
   </div>
 
-  <div class="main">
+  <div class="main" id="workspaceMain">
     <!-- Sidebar: Project List -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="projectSidebar">
       <div class="sidebar-title">${labels.sidebarProjects}</div>
       <div class="sidebar-list" id="projectList"></div>
       <div class="sidebar-add" onclick="openProjectPicker()">

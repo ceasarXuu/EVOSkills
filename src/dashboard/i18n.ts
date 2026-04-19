@@ -40,6 +40,18 @@ export interface I18nStrings {
   mainTabCost: string;
   mainTabLogs: string;
   mainTabConfig: string;
+  homeGlobalCopy: string;
+  homeGlobalProjects: string;
+  homeGlobalMonitoring: string;
+  homeGlobalSkills: string;
+  homeGlobalCalls: string;
+  homeGlobalProjectListTitle: string;
+  homeGlobalProjectListEmpty: string;
+  projectOverviewTitle: string;
+  projectOverviewCopy: string;
+  skillsSubtabProjectOverview: string;
+  skillsSubtabLibrary: string;
+  skillsLibraryTitle: string;
   activityEmpty: string;
   logsEmpty: string;
   configTitle: string;
@@ -430,6 +442,20 @@ const en: I18nStrings = {
   mainTabCost: 'Cost',
   mainTabLogs: 'Logs',
   mainTabConfig: 'Config',
+  homeGlobalCopy:
+    'Global dashboard for cross-project usage, health, and footprint. Project navigation lives inside the Skills workspace.',
+  homeGlobalProjects: 'Projects',
+  homeGlobalMonitoring: 'Monitored Projects',
+  homeGlobalSkills: 'Discovered Skills',
+  homeGlobalCalls: 'Observed Agent Calls',
+  homeGlobalProjectListTitle: 'Project Snapshot',
+  homeGlobalProjectListEmpty: 'No registered projects yet.',
+  projectOverviewTitle: 'Project Overview',
+  projectOverviewCopy:
+    'Project-level usage, activity, cost, and logs. This is the former project home and now lives under Skills.',
+  skillsSubtabProjectOverview: 'Project Overview',
+  skillsSubtabLibrary: 'Skill Manager',
+  skillsLibraryTitle: 'Skill Manager',
   activityEmpty: 'No trace activity yet.',
   logsEmpty: 'No logs yet.',
   configTitle: 'Ornn Config',
@@ -837,6 +863,18 @@ const zh: I18nStrings = {
   mainTabCost: '成本',
   mainTabLogs: '日志',
   mainTabConfig: '配置',
+  homeGlobalCopy: '跨项目总览页，优先回答整体使用情况、运行健康度和技能资产规模；项目导航只放在技能工作台里。',
+  homeGlobalProjects: '项目总数',
+  homeGlobalMonitoring: '监控中项目',
+  homeGlobalSkills: '已发现技能',
+  homeGlobalCalls: '已观测 Agent 调用',
+  homeGlobalProjectListTitle: '项目快照',
+  homeGlobalProjectListEmpty: '还没有已注册项目。',
+  projectOverviewTitle: '项目总览',
+  projectOverviewCopy: '项目级使用现场，聚合总览、活动、成本和日志；这里就是原来的项目主页。',
+  skillsSubtabProjectOverview: '项目总览',
+  skillsSubtabLibrary: '技能管理',
+  skillsLibraryTitle: '技能管理',
   activityEmpty: '暂无追踪活动。',
   logsEmpty: '暂无日志。',
   configTitle: 'Ornn 配置',

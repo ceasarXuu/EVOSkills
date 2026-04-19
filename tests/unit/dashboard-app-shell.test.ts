@@ -35,6 +35,8 @@ describe('dashboard app shell', () => {
     expect(html).toContain('build #abcd1234');
     expect(html).toContain('body { background: #000; }');
     expect(html).toContain('连接中…');
+    expect(html).toContain('id="workspaceMain"');
+    expect(html).toContain('id="projectSidebar"');
     expect(html).toContain('id="projectList"');
     expect(html).toContain('id="workspaceTabs"');
     expect(html).toContain('id="skillModal"');

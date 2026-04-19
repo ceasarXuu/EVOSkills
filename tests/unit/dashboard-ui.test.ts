@@ -377,6 +377,69 @@ describe('dashboard ui recovery', () => {
     expect(html).not.toContain("selectMainTab('logs')");
   });
 
+  it('keeps project navigation inside the skills workspace and exposes project overview as a child tab', async () => {
+    const projectPath = '/tmp/ornn-project';
+    const encodedPath = encodeURIComponent(projectPath);
+    const { dashboard, getElement } = loadDashboardTestHarness(
+      {},
+      {
+        fetchMap: {
+          '/api/projects': {
+            projects: [{ path: projectPath, name: 'OrnnSkills', isRunning: true, skillCount: 1 }],
+          },
+          [`/api/projects/${encodedPath}/snapshot`]: {
+            daemon: {
+              isRunning: true,
+              pid: 1,
+              startedAt: '2026-04-10T00:00:00.000Z',
+              processedTraces: 1,
+              lastCheckpointAt: null,
+              retryQueueSize: 0,
+              optimizationStatus: {
+                currentState: 'idle',
+                currentSkillId: null,
+                lastOptimizationAt: null,
+                lastError: null,
+                queueSize: 0,
+              },
+            },
+            skills: [],
+            traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+            recentTraces: [],
+            decisionEvents: [],
+            agentUsage: {
+              callCount: 0,
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0,
+              durationMsTotal: 0,
+              avgDurationMs: 0,
+              lastCallAt: null,
+              byModel: {},
+              byScope: {},
+              bySkill: {},
+            },
+          },
+        },
+      }
+    );
+
+    getElement('projectSidebar');
+    getElement('mainPanel');
+    await dashboard.init();
+
+    expect(getElement('projectSidebar').style.display).toBe('none');
+    expect(getElement('mainPanel').innerHTML).not.toContain("selectSkillsSubTab(");
+
+    dashboard.selectMainTab('skills');
+
+    expect(getElement('projectSidebar').style.display).toBe('flex');
+    const html = getElement('mainPanel').innerHTML;
+    expect(html).toContain("selectSkillsSubTab('project_overview')");
+    expect(html).toContain("selectSkillsSubTab('skill_library')");
+    expect(html).toMatch(/项目总览|Project Overview/);
+  });
+
   it('uses host terminology consistently in localized dashboard copy', () => {
     const zhHtml = getDashboardHtml(47432, 'zh', 'test-build-id');
     expect(zhHtml).toContain('宿主');
@@ -391,10 +454,10 @@ describe('dashboard ui recovery', () => {
     expect(enHtml).toContain('client errors have been queued for reporting');
   });
 
-  it('warms the provider catalog during initial overview bootstrap without touching config-only dependencies', async () => {
+  it('keeps global home bootstrap free of project-only dependencies until entering skills', async () => {
     const projectPath = '/tmp/ornn-project';
     const encodedPath = encodeURIComponent(projectPath);
-    const { dashboard, getFetchCalls } = loadDashboardTestHarness(
+    const { dashboard, getFetchCalls, clearFetchCalls } = loadDashboardTestHarness(
       {},
       {
         fetchMap: {
@@ -440,9 +503,19 @@ describe('dashboard ui recovery', () => {
 
     await dashboard.init();
 
-    const fetchCalls = getFetchCalls();
+    let fetchCalls = getFetchCalls();
     expect(fetchCalls).toContain('/api/projects');
     expect(fetchCalls).toContain(`/api/projects/${encodedPath}/snapshot`);
+    expect(fetchCalls).not.toContain('/api/providers/catalog');
+    expect(fetchCalls.some((url) => url.includes('/provider-health'))).toBe(false);
+    expect(fetchCalls.some((url) => url.endsWith('/config'))).toBe(false);
+
+    clearFetchCalls();
+    dashboard.selectMainTab('skills');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    fetchCalls = getFetchCalls();
     expect(fetchCalls).toContain('/api/providers/catalog');
     expect(fetchCalls.some((url) => url.includes('/provider-health'))).toBe(false);
     expect(fetchCalls.some((url) => url.endsWith('/config'))).toBe(false);
@@ -503,7 +576,7 @@ describe('dashboard ui recovery', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const fetchCalls = getFetchCalls();
-    expect(fetchCalls).not.toContain('/api/providers/catalog');
+    expect(fetchCalls).toContain('/api/providers/catalog');
     expect(fetchCalls).toContain('/api/provider-health');
     expect(fetchCalls).toContain('/api/config');
   });
@@ -2178,6 +2251,7 @@ describe('dashboard ui recovery', () => {
     getElement('mainPanel');
     dashboard.state.selectedProjectId = projectPath;
     dashboard.state.selectedMainTab = 'skills';
+    dashboard.state.selectedSkillsSubTab = 'skill_library';
     dashboard.state.selectedRuntimeTab = 'all';
     dashboard.state.projectData = {
       [projectPath]: {
@@ -2944,6 +3018,7 @@ describe('dashboard ui recovery', () => {
     };
 
     dashboard.state.selectedMainTab = 'skills';
+    dashboard.state.selectedSkillsSubTab = 'skill_library';
     dashboard.renderMainPanel(projectPath);
     let html = getElement('mainPanel').innerHTML;
     expect(html).toContain('全部');

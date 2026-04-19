@@ -240,14 +240,14 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
 
       try {
       // ── Dashboard HTML ──
-      if (path === '/' && method === 'GET') {
+      if (path === '/' && (method === 'GET' || method === 'HEAD')) {
         const detectedLang = detectLangFromAcceptLanguage(req.headers['accept-language']);
         currentLang = normalizeLanguage(detectedLang);
         logger.debug('Resolved dashboard language from request', {
+          requestMethod: method,
           acceptLanguage: req.headers['accept-language'],
           resolvedLang: currentLang,
         });
-        const html = getDashboardHtml(port, currentLang, buildId);
         res.writeHead(200, {
           'Content-Type': 'text/html; charset=utf-8',
           'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
@@ -255,6 +255,11 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
           Expires: '0',
           'X-Dashboard-Build': buildId,
         });
+        if (method === 'HEAD') {
+          res.end();
+          return;
+        }
+        const html = getDashboardHtml(port, currentLang, buildId);
         res.end(html);
         return;
       }

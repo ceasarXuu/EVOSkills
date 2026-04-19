@@ -967,4 +967,20 @@ describe('dashboard server sse bootstrap', () => {
       await dashboard.stop();
     }
   });
+
+  it('serves the dashboard shell for HEAD / requests used by embedded browsers', async () => {
+    const port = await getFreePort();
+    const { createDashboardServer } = await import('../../src/dashboard/server.js');
+    const dashboard = createDashboardServer(port, 'zh');
+    await dashboard.start();
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/`, { method: 'HEAD' });
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toContain('text/html');
+    } finally {
+      await dashboard.stop();
+    }
+  });
 });

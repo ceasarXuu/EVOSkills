@@ -1,6 +1,11 @@
 import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
-import { getDashboardHtml } from '../../src/dashboard/ui.js';
+import {
+  getDashboardHtml,
+  getDashboardInlineBootScript,
+  getDashboardScriptSource,
+  getDashboardStyleCss,
+} from '../../src/dashboard/ui.js';
 
 type FakeElement = {
   id?: string;
@@ -88,17 +93,14 @@ function loadDashboardTestHarness(
       ok: boolean;
       status?: number;
       statusText?: string;
+      headers?: {
+        get: (name: string) => string | null;
+      };
       json: () => Promise<unknown>;
     }>;
   } = {}
 ) {
   const lang = options.lang || 'zh';
-  const html = getDashboardHtml(47432, lang, 'test-build-id');
-  const scriptMatch = html.match(/<script>([\s\S]*)<\/script>/);
-  if (!scriptMatch) {
-    throw new Error('Dashboard script not found');
-  }
-
   const elements = new Map<string, FakeElement>();
   const selectorMap = new Map<string, FakeElement>();
   const localStorageData = new Map<string, string>(Object.entries(storageSeed));
@@ -270,6 +272,9 @@ function loadDashboardTestHarness(
         ok: true,
         status: 200,
         statusText: 'OK',
+        headers: {
+          get: () => null,
+        },
         json: async () => json,
       };
     },
@@ -294,10 +299,10 @@ function loadDashboardTestHarness(
   };
   runtime.globalThis = runtime;
 
-  const script = scriptMatch[1]
+  const script = `${getDashboardInlineBootScript(lang, 'test-build-id')}\n${getDashboardScriptSource()}`
     .replace(/\binit\(\);\s*$/, '')
     .concat(
-      '\n;globalThis.__dashboardTest = { state, init, switchLang, selectProject, selectMainTab, renderMainPanel, safeRenderMainPanel, renderSidebar, buildActivityRows, copyActivityDetail, openActivityDetail, renderCostPanel, viewSkill, switchSkillRuntime, loadVersion, handleUpdate, openApplyToAllSkillModal, closeApplyToAllSkillModal, confirmApplyCurrentSkillToAll, saveCurrentSkill, triggerProjectPicker: openProjectPicker, toggleProjectMonitoring, saveProjectConfig };'
+      '\n;globalThis.__dashboardTest = { state, init, fetchJsonWithTimeout, switchLang, selectProject, selectMainTab, renderMainPanel, safeRenderMainPanel, renderSidebar, buildActivityRows, copyActivityDetail, openActivityDetail, renderCostPanel, viewSkill, switchSkillRuntime, loadVersion, handleUpdate, openApplyToAllSkillModal, closeApplyToAllSkillModal, confirmApplyCurrentSkillToAll, saveCurrentSkill, triggerProjectPicker: openProjectPicker, toggleProjectMonitoring, saveProjectConfig };'
     );
 
   vm.runInNewContext(script, runtime);
@@ -308,6 +313,11 @@ function loadDashboardTestHarness(
         __dashboardTest: {
           state: Record<string, any>;
           init: () => Promise<void>;
+          fetchJsonWithTimeout: (
+            url: string,
+            timeoutMs?: number,
+            options?: Record<string, unknown>
+          ) => Promise<unknown>;
           switchLang: (lang: string) => Promise<void>;
           selectProject: (projectPath: string) => Promise<void>;
           selectMainTab: (tab: string) => void;
@@ -447,16 +457,22 @@ describe('dashboard ui recovery', () => {
 
   it('uses host terminology consistently in localized dashboard copy', () => {
     const zhHtml = getDashboardHtml(47432, 'zh', 'test-build-id');
+    const styleCss = getDashboardStyleCss();
+    const scriptSource = getDashboardScriptSource();
     expect(zhHtml).toContain('宿主');
+    expect(zhHtml).toContain('/assets/dashboard.');
+    expect(zhHtml).not.toContain('<style>');
     expect(zhHtml).not.toContain('客户端运行时错误');
-    expect(zhHtml).toContain('客户端错误已经进入上报队列');
-    expect(zhHtml).toContain('max-width: 100%;');
-    expect(zhHtml).not.toContain('max-width: 30ch;');
+    expect(scriptSource).toContain('客户端错误已经进入上报队列');
+    expect(styleCss).toContain('max-width: 100%;');
+    expect(styleCss).not.toContain('max-width: 30ch;');
 
     const enHtml = getDashboardHtml(47432, 'en', 'test-build-id');
+    const enBootstrap = getDashboardInlineBootScript('en', 'test-build-id');
     expect(enHtml).toContain('Host');
     expect(enHtml).not.toContain('client runtime errors');
-    expect(enHtml).toContain('client errors have been queued for reporting');
+    expect(scriptSource).toContain('client errors have been queued for reporting');
+    expect(enBootstrap).toContain('"lang":"en"');
   });
 
   it('keeps skill-library bootstrap free of project-only dependencies until entering project', async () => {
@@ -1987,19 +2003,19 @@ describe('dashboard ui recovery', () => {
   });
 
   it('limits expanded scope trace blocks with internal scrolling', () => {
-    const html = getDashboardHtml(47432, 'zh', 'test-build-id');
-    expect(html).toContain('.activity-scope-traces pre');
-    expect(html).toContain('max-height: 320px;');
-    expect(html).toContain('overflow: auto;');
+    const styleCss = getDashboardStyleCss();
+    expect(styleCss).toContain('.activity-scope-traces pre');
+    expect(styleCss).toContain('max-height: 320px;');
+    expect(styleCss).toContain('overflow: auto;');
   });
 
   it('allows the scope detail modal itself to scroll when expanded traces exceed the viewport', () => {
-    const html = getDashboardHtml(47432, 'zh', 'test-build-id');
-    expect(html).toContain('#eventModal .modal');
-    expect(html).toContain('max-height: calc(100vh - 48px);');
-    expect(html).toContain('#eventModal .modal-content');
-    expect(html).toContain('overflow-y: auto;');
-    expect(html).toContain('min-height: 0;');
+    const styleCss = getDashboardStyleCss();
+    expect(styleCss).toContain('#eventModal .modal');
+    expect(styleCss).toContain('max-height: calc(100vh - 48px);');
+    expect(styleCss).toContain('#eventModal .modal-content');
+    expect(styleCss).toContain('overflow-y: auto;');
+    expect(styleCss).toContain('min-height: 0;');
   });
 
   it('renders clickable skill cells in scope activity rows that open the skill modal', () => {
@@ -2699,14 +2715,79 @@ describe('dashboard ui recovery', () => {
 
   it('renders an apply-to-all button and one-off confirmation copy in the skill modal', () => {
     const zhHtml = getDashboardHtml(47432, 'zh', 'test-build-id');
+    const scriptSource = getDashboardScriptSource();
     expect(zhHtml).toContain('应用到所有同名技能');
-    expect(zhHtml).toContain('这是一次性的手动操作');
-    expect(zhHtml).toContain('不会持续监听或自动同步后续变更');
+    expect(scriptSource).toContain('这是一次性的手动操作');
+    expect(scriptSource).toContain('不会持续监听或自动同步后续变更');
 
     const enHtml = getDashboardHtml(47432, 'en', 'test-build-id');
     expect(enHtml).toContain('Apply to all same-named skills');
-    expect(enHtml).toContain('This is a one-time manual action');
-    expect(enHtml).toContain('It will not keep syncing future changes');
+    expect(scriptSource).toContain('This is a one-time manual action');
+    expect(scriptSource).toContain('It will not keep syncing future changes');
+  });
+
+  it('revalidates cached json with If-None-Match and reuses the previous payload on 304', async () => {
+    let familiesRequests = 0;
+    let secondRequestHeaders: Record<string, unknown> | undefined;
+    const { dashboard } = loadDashboardTestHarness(
+      {},
+      {
+        fetchImpl: async (url, init) => {
+          if (url === '/api/skills/families') {
+            familiesRequests += 1;
+            if (familiesRequests === 1) {
+              return {
+                ok: true,
+                status: 200,
+                statusText: 'OK',
+                headers: {
+                  get(name: string) {
+                    return String(name).toLowerCase() === 'etag' ? '"families-v1"' : null;
+                  },
+                },
+                json: async () => ({
+                  families: [{ familyId: 'family-1', familyName: 'cached-family' }],
+                }),
+              };
+            }
+
+            secondRequestHeaders = (init?.headers || {}) as Record<string, unknown>;
+            return {
+              ok: false,
+              status: 304,
+              statusText: 'Not Modified',
+              headers: {
+                get(name: string) {
+                  return String(name).toLowerCase() === 'etag' ? '"families-v1"' : null;
+                },
+              },
+              json: async () => ({ families: [] }),
+            };
+          }
+
+          return {
+            ok: true,
+            status: 200,
+            statusText: 'OK',
+            headers: {
+              get: () => null,
+            },
+            json: async () => ({ projects: [], lines: [], buildId: 'test-build-id' }),
+          };
+        },
+      }
+    );
+
+    const firstPayload = await dashboard.fetchJsonWithTimeout('/api/skills/families', 1000);
+    const secondPayload = await dashboard.fetchJsonWithTimeout('/api/skills/families', 1000);
+
+    expect(firstPayload).toEqual({
+      families: [{ familyId: 'family-1', familyName: 'cached-family' }],
+    });
+    expect(secondPayload).toEqual(firstPayload);
+    expect(secondRequestHeaders).toEqual(
+      expect.objectContaining({ 'If-None-Match': '"families-v1"' })
+    );
   });
 
   it('opens the apply-to-all confirmation and posts the current editor content', async () => {

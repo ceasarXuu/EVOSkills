@@ -87,6 +87,23 @@ export function aggregateSkillFamilies(projectPaths: string[]): SkillFamily[] {
   return resolveSkillFamilies(projectPaths.map((projectPath) => projectSkillDomain(projectPath)));
 }
 
+export function readAggregateSkillFamiliesSignature(projectPaths: string[]): string {
+  if (projectPaths.length === 0) {
+    return 'empty';
+  }
+  return projectPaths
+    .map((projectPath) => {
+      const projection = projectSkillDomain(projectPath);
+      return `${projectPath}:${projection.sourceSignature}`;
+    })
+    .join('|');
+}
+
+export function readSkillFamilySignature(projectPaths: string[], familyId: string): string {
+  const familiesSignature = readAggregateSkillFamiliesSignature(projectPaths);
+  return `${familiesSignature}::${familyId}`;
+}
+
 export function readSkillFamilyById(projectPaths: string[], familyId: string): SkillFamily | null {
   return readSkillFamilyByIdFromProjections(projectPaths.map((projectPath) => projectSkillDomain(projectPath)), familyId);
 }

@@ -59,11 +59,85 @@ const DASHBOARD_RUNTIME_INIT_ERROR_STATE_OPTIMIZED = `    if (hasDashboardBootst
       }
     }`;
 
+const DASHBOARD_RUNTIME_FETCH_JSON_SNIPPET = `async function fetchJsonWithTimeout(url, timeoutMs = 8000, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    if (!response.ok) {
+      throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+    }
+    return await response.json();
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out after ' + timeoutMs + 'ms');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}`;
+
+const DASHBOARD_RUNTIME_FETCH_JSON_OPTIMIZED = `async function fetchJsonWithTimeout(url, timeoutMs = 8000, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const requestMethod = String(options && options.method ? options.method : 'GET').toUpperCase();
+  const requestUrl = String(url);
+  const cacheStore = globalThis.__DASHBOARD_HTTP_CACHE__ || (globalThis.__DASHBOARD_HTTP_CACHE__ = {});
+  const originalHeaders =
+    options && options.headers && typeof options.headers === 'object' && !Array.isArray(options.headers)
+      ? { ...options.headers }
+      : {};
+  const cachedEntry = requestMethod === 'GET' ? cacheStore[requestUrl] : null;
+  if (requestMethod === 'GET' && cachedEntry && !originalHeaders['If-None-Match'] && !originalHeaders['if-none-match']) {
+    originalHeaders['If-None-Match'] = cachedEntry.etag;
+  }
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: originalHeaders,
+      signal: controller.signal,
+    });
+    if (response.status === 304) {
+      if (cachedEntry) {
+        return cachedEntry.data;
+      }
+      throw new Error('HTTP 304: Not Modified');
+    }
+    if (!response.ok) {
+      throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+    }
+    const data = await response.json();
+    const etag = response.headers && typeof response.headers.get === 'function'
+      ? response.headers.get('etag') || response.headers.get('ETag')
+      : null;
+    if (requestMethod === 'GET') {
+      if (etag) {
+        cacheStore[requestUrl] = { etag: etag, data: data };
+      } else {
+        delete cacheStore[requestUrl];
+      }
+    }
+    return data;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out after ' + timeoutMs + 'ms');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}`;
+
 export function renderDashboardRuntimeSource(): string {
   return DASHBOARD_RUNTIME_SOURCE.replace(
     DASHBOARD_RUNTIME_SNAPSHOT_REFRESH_SNIPPET,
     DASHBOARD_RUNTIME_SNAPSHOT_REFRESH_OPTIMIZED
   )
+    .replace(
+      DASHBOARD_RUNTIME_FETCH_JSON_SNIPPET,
+      DASHBOARD_RUNTIME_FETCH_JSON_OPTIMIZED
+    )
     .replace(
       DASHBOARD_RUNTIME_INIT_SELECT_FIRST_PROJECT_SNIPPET,
       DASHBOARD_RUNTIME_INIT_SELECT_PREFERRED_PROJECT

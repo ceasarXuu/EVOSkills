@@ -2,15 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   aggregateSkillFamilies: vi.fn(),
+  readAggregateSkillFamiliesSignature: vi.fn(),
   readSkillFamilyById: vi.fn(),
   readSkillFamilyInstances: vi.fn(),
+  readSkillFamilySignature: vi.fn(),
   listProjects: vi.fn(),
 }));
 
 vi.mock('../../src/core/skill-domain/projector.js', () => ({
   aggregateSkillFamilies: mocks.aggregateSkillFamilies,
+  readAggregateSkillFamiliesSignature: mocks.readAggregateSkillFamiliesSignature,
   readSkillFamilyById: mocks.readSkillFamilyById,
   readSkillFamilyInstances: mocks.readSkillFamilyInstances,
+  readSkillFamilySignature: mocks.readSkillFamilySignature,
 }));
 
 vi.mock('../../src/dashboard/projects-registry.js', () => ({
@@ -29,54 +33,66 @@ describe('dashboard skill family routes', () => {
   it('handles GET /api/skills/families', async () => {
     const { handleSkillFamilyRoutes } = await import('../../src/dashboard/routes/skill-family-routes.js');
     const json = vi.fn();
+    const jsonWithEtag = vi.fn();
     const families = [{ familyId: 'family-1', familyName: 'demo-skill' }];
     mocks.aggregateSkillFamilies.mockReturnValue(families);
+    mocks.readAggregateSkillFamiliesSignature.mockReturnValue('families-v1');
 
     const handled = await handleSkillFamilyRoutes({
       path: '/api/skills/families',
       method: 'GET',
       json,
+      jsonWithEtag,
       notFound: vi.fn(),
     });
 
     expect(handled).toBe(true);
     expect(mocks.aggregateSkillFamilies).toHaveBeenCalledWith(['/tmp/a', '/tmp/b']);
-    expect(json).toHaveBeenCalledWith({ families });
+    expect(mocks.readAggregateSkillFamiliesSignature).toHaveBeenCalledWith(['/tmp/a', '/tmp/b']);
+    expect(jsonWithEtag).toHaveBeenCalledWith({ families }, 'families-v1');
   });
 
   it('handles GET /api/skills/families/:familyId', async () => {
     const { handleSkillFamilyRoutes } = await import('../../src/dashboard/routes/skill-family-routes.js');
     const json = vi.fn();
+    const jsonWithEtag = vi.fn();
     const family = { familyId: 'family-1', familyName: 'demo-skill' };
     mocks.readSkillFamilyById.mockReturnValue(family);
+    mocks.readSkillFamilySignature.mockReturnValue('family-1-v1');
 
     const handled = await handleSkillFamilyRoutes({
       path: '/api/skills/families/family-1',
       method: 'GET',
       json,
+      jsonWithEtag,
       notFound: vi.fn(),
     });
 
     expect(handled).toBe(true);
     expect(mocks.readSkillFamilyById).toHaveBeenCalledWith(['/tmp/a', '/tmp/b'], 'family-1');
-    expect(json).toHaveBeenCalledWith({ family });
+    expect(mocks.readSkillFamilySignature).toHaveBeenCalledWith(['/tmp/a', '/tmp/b'], 'family-1');
+    expect(jsonWithEtag).toHaveBeenCalledWith({ family }, 'family-1-v1');
   });
 
   it('handles GET /api/skills/families/:familyId/instances', async () => {
     const { handleSkillFamilyRoutes } = await import('../../src/dashboard/routes/skill-family-routes.js');
     const json = vi.fn();
+    const jsonWithEtag = vi.fn();
     const instances = [{ instanceId: 'instance-1', familyId: 'family-1' }];
     mocks.readSkillFamilyInstances.mockReturnValue(instances);
+    mocks.readSkillFamilySignature.mockReturnValue('family-1-v1');
 
     const handled = await handleSkillFamilyRoutes({
       path: '/api/skills/families/family-1/instances',
       method: 'GET',
       json,
+      jsonWithEtag,
       notFound: vi.fn(),
     });
 
     expect(handled).toBe(true);
     expect(mocks.readSkillFamilyInstances).toHaveBeenCalledWith(['/tmp/a', '/tmp/b'], 'family-1');
-    expect(json).toHaveBeenCalledWith({ instances });
+    expect(mocks.readSkillFamilySignature).toHaveBeenCalledWith(['/tmp/a', '/tmp/b'], 'family-1');
+    expect(jsonWithEtag).toHaveBeenCalledWith({ instances }, 'family-1-v1');
   });
 });

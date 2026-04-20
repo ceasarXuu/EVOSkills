@@ -7,6 +7,7 @@ import {
   readTracesBySessionWindow,
   computeTraceStats,
   readProjectSnapshot,
+  readProjectSnapshotVersion,
 } from '../data-reader.js';
 import { readProjectLanguage } from '../language-state.js';
 import { buildActivityScopeDetailFromData } from '../activity-scope-reader.js';
@@ -23,14 +24,30 @@ interface ProjectReadRouteContext {
   projectPath: string;
   currentLang: Language;
   json: (data: unknown, status?: number) => void;
+  jsonWithEtag?: (data: unknown, etag: string, status?: number) => void;
+  respondNotModified?: (etag: string) => boolean;
   notFound: () => void;
   logger: RouteLogger;
 }
 
 export async function handleProjectReadRoutes(context: ProjectReadRouteContext): Promise<boolean> {
-  const { subPath, method, projectPath, currentLang, json, notFound, logger } = context;
+  const {
+    subPath,
+    method,
+    projectPath,
+    currentLang,
+    json,
+    jsonWithEtag,
+    respondNotModified,
+    notFound,
+    logger,
+  } = context;
 
   if (subPath === '/snapshot' && method === 'GET') {
+    const snapshotVersion = readProjectSnapshotVersion(projectPath);
+    if (respondNotModified?.(snapshotVersion)) {
+      return true;
+    }
     const snapshot = readProjectSnapshot(projectPath);
     const snapshotBytes = Buffer.byteLength(JSON.stringify(snapshot), 'utf-8');
     if (snapshotBytes > 128 * 1024) {
@@ -39,7 +56,11 @@ export async function handleProjectReadRoutes(context: ProjectReadRouteContext):
         bytes: snapshotBytes,
       });
     }
-    json(snapshot);
+    if (jsonWithEtag) {
+      jsonWithEtag(snapshot, snapshotVersion);
+    } else {
+      json(snapshot);
+    }
     return true;
   }
 

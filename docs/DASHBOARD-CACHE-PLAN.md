@@ -2,7 +2,7 @@
 
 **版本**: v1  
 **日期**: 2026-04-21  
-**状态**: 设计确认中，按阶段落地
+**状态**: Phase 1-3 已落地并完成本地验证
 
 ## 1. 背景
 
@@ -51,6 +51,8 @@
 ## 3. 分阶段方案
 
 ## 3.1 Phase 1: Bootstrap 数据缓存
+
+**状态**: 已完成
 
 ### 目标
 
@@ -156,6 +158,8 @@ interface DashboardBootstrapCacheRecord {
 
 ## 3.2 Phase 2: 静态资源缓存
 
+**状态**: 已完成
+
 ### 目标
 
 解决“每次刷新都重新下载和解析整份 app shell”的问题。
@@ -171,10 +175,16 @@ interface DashboardBootstrapCacheRecord {
 ### 方案
 
 - 将 dashboard JS/CSS 从 HTML 中拆出
-- 使用 `buildId` 参与资源路径命名
 - HTML 继续保持 `no-store`
-- `/assets/dashboard.<buildId>.js` 与 `/assets/dashboard.<buildId>.css` 设置：
+- 静态资源路径使用内容哈希，而不是运行时 `buildId`
+- `/assets/dashboard.<content-hash>.js` 与 `/assets/dashboard.<content-hash>.css` 设置：
   - `Cache-Control: public, max-age=31536000, immutable`
+
+### 实现说明
+
+- `buildId` 只保留在一个很小的 inline bootstrap script 里，用于运行时诊断与新旧前端构建检测
+- 资源 URL 只在 JS/CSS 内容实际变化时才变化，因此 daemon 重启不会把浏览器缓存全部打穿
+- 资源路由同时支持 `GET` / `HEAD`，便于本地直接用 `curl -I` 验证 header
 
 ### 预期收益
 
@@ -183,6 +193,8 @@ interface DashboardBootstrapCacheRecord {
 - build 切换时自动失效，不需要额外清理
 
 ## 3.3 Phase 3: 条件重验证
+
+**状态**: 已完成
 
 ### 目标
 
@@ -193,8 +205,18 @@ interface DashboardBootstrapCacheRecord {
 - 为 `/api/projects/:path/snapshot` 增加 `ETag`
 - `ETag` 基于现有 `readProjectSnapshotVersion()` 生成
 - 为 `/api/skills/families` 增加聚合签名与 `ETag`
+- 为 `/api/skills/families/:familyId` 与 `/instances` 复用 family 粒度签名
 - 前端请求带 `If-None-Match`
 - 命中时返回 `304 Not Modified`
+
+### 实现说明
+
+- snapshot 路由会先计算版本签名，再决定是否直接返回 `304`，避免在命中缓存时继续读取完整 snapshot
+- 实际写入响应头的是签名的固定长度哈希，而不是原始拼接串，避免大型技能库把 `ETag / If-None-Match` 头撑爆到 `431`
+- 浏览器侧 `fetchJsonWithTimeout()` 现在维护一个轻量内存 HTTP cache：
+  - 首次 `GET` 记录 `etag + data`
+  - 后续自动带 `If-None-Match`
+  - 命中 `304` 时直接复用旧 payload，不再抛错
 
 ### 预期收益
 
@@ -207,12 +229,10 @@ interface DashboardBootstrapCacheRecord {
 按以下顺序实施，不交叉开战线：
 
 1. 文档与边界冻结
-2. Phase 1 测试
-3. Phase 1 实现
-4. Phase 1 自测与上线
-5. Phase 2 设计细化与测试
-6. Phase 2 实现
-7. Phase 3 条件请求
+2. Phase 1 测试与实现
+3. Phase 2 测试与实现
+4. Phase 3 条件请求
+5. 本地类型检查、构建、daemon 重启与真实页面验证
 
 ## 5. 测试策略
 
@@ -241,6 +261,9 @@ interface DashboardBootstrapCacheRecord {
 - route test：
   - `If-None-Match` 命中返回 `304`
   - 内容变化后返回新 `ETag`
+- UI runtime test：
+  - 第二次请求会自动附带 `If-None-Match`
+  - `304` 时复用第一次请求得到的 JSON
 
 ## 6. 风险与约束
 
@@ -257,6 +280,17 @@ interface DashboardBootstrapCacheRecord {
 
 - 启动后始终异步 revalidate
 - SSE 仍然保留现有变更驱动刷新逻辑
+
+## 7. 本轮落地结果
+
+- 已实现 Phase 1 bootstrap cache，刷新后可先用本地缓存恢复 `Skills` landing、选中项目和关键 UI 状态
+- 已实现 Phase 2 静态资源缓存，HTML shell 与可长期缓存的 JS/CSS 资源完成拆分
+- 已实现 Phase 3 `ETag/304`，大 JSON 接口支持条件重验证，前端可复用旧 payload
+- 本轮验证链路包括：
+  - 单测：cache/bootstrap/asset/etag 相关定向测试
+  - `npm run typecheck`
+  - `npm run build`
+  - daemon 重启后的真实页面与响应头检查
 
 ### 风险 3: localStorage 容量被逐步吃满
 

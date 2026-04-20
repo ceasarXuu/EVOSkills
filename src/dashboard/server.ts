@@ -8,6 +8,7 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createHash } from 'node:crypto';
 import {
   listProjects,
   setProjectMonitoringState,
@@ -22,7 +23,7 @@ import {
   readLogsSince,
   createGlobalLogCursor,
 } from './data-reader.js';
-import { getDashboardHtml } from './ui.js';
+import { getDashboardAssetBundle, getDashboardHtml } from './ui.js';
 import type { Language } from './i18n.js';
 import { createChildLogger } from '../utils/logger.js';
 import {
@@ -81,6 +82,7 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
   const buildId = `${Date.now()}`;
   const startedAt = new Date().toISOString();
   const clientErrors: DashboardClientErrorEvent[] = [];
+  const dashboardAssets = getDashboardAssetBundle();
   const sseHub = createDashboardSseHub({
     createGlobalLogCursor,
     readGlobalLogs,
@@ -97,6 +99,61 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
       'Content-Type': 'application/json',
       'Cache-Control': 'no-cache',
       'Access-Control-Allow-Origin': '*',
+    });
+    res.end(body);
+  }
+
+  function normalizeEtag(value: string): string {
+    const hash = createHash('sha1').update(value, 'utf-8').digest('hex');
+    return `"${hash}"`;
+  }
+
+  function matchesIfNoneMatch(headerValue: string | string[] | undefined, etag: string): boolean {
+    if (!headerValue) return false;
+    const normalizedHeader = Array.isArray(headerValue) ? headerValue.join(',') : headerValue;
+    return normalizedHeader
+      .split(',')
+      .map((part) => part.trim())
+      .some((candidate) => candidate === '*' || candidate === etag);
+  }
+
+  function respondNotModified(
+    req: IncomingMessage,
+    res: ServerResponse,
+    etagValue: string
+  ): boolean {
+    const etag = normalizeEtag(etagValue);
+    if (!matchesIfNoneMatch(req.headers['if-none-match'], etag)) {
+      return false;
+    }
+
+    res.writeHead(304, {
+      ETag: etag,
+      'Cache-Control': 'no-cache',
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.end();
+    return true;
+  }
+
+  function jsonWithEtag(
+    req: IncomingMessage,
+    res: ServerResponse,
+    data: unknown,
+    etagValue: string,
+    status = 200
+  ) {
+    if (respondNotModified(req, res, etagValue)) {
+      return;
+    }
+
+    const etag = normalizeEtag(etagValue);
+    const body = JSON.stringify(data);
+    res.writeHead(status, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache',
+      'Access-Control-Allow-Origin': '*',
+      ETag: etag,
     });
     res.end(body);
   }
@@ -238,6 +295,28 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
       const method = req.method ?? 'GET';
 
       try {
+      if (
+        (path === dashboardAssets.styleHref || path === dashboardAssets.scriptHref) &&
+        (method === 'GET' || method === 'HEAD')
+      ) {
+        const isStyleAsset = path === dashboardAssets.styleHref;
+        const body = isStyleAsset ? dashboardAssets.styleCss : dashboardAssets.scriptSource;
+        const contentType = isStyleAsset
+          ? 'text/css; charset=utf-8'
+          : 'application/javascript; charset=utf-8';
+        res.writeHead(200, {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'X-Dashboard-Build': buildId,
+        });
+        if (method === 'HEAD') {
+          res.end();
+          return;
+        }
+        res.end(body);
+        return;
+      }
+
       // ── Dashboard HTML ──
       if (path === '/' && (method === 'GET' || method === 'HEAD')) {
         const detectedLang = detectLangFromAcceptLanguage(req.headers['accept-language']);
@@ -348,6 +427,8 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
         path,
         method,
         json: (data, status = 200) => json(res, data, status),
+        jsonWithEtag: (data, etag, status = 200) => jsonWithEtag(req, res, data, etag, status),
+        respondNotModified: (etag) => respondNotModified(req, res, etag),
         notFound: () => notFound(res),
       })) {
         return;
@@ -393,6 +474,8 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
           projectPath,
           currentLang,
           json: (data, status = 200) => json(res, data, status),
+          jsonWithEtag: (data, etag, status = 200) => jsonWithEtag(req, res, data, etag, status),
+          respondNotModified: (etag) => respondNotModified(req, res, etag),
           notFound: () => notFound(res),
           logger,
         })) {

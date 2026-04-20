@@ -1,11 +1,12 @@
 /**
  * Dashboard UI
  *
- * 返回完整的单页 HTML Dashboard，内嵌 CSS + JS，无外部依赖。
- * 深色主题，按一级工作区切换主面板。
- * 支持多语言切换（中英文）。
+ * 返回完整的单页 HTML Dashboard。
+ * HTML shell 保持 no-store；JS/CSS 作为可缓存静态资源输出。
+ * 支持多语言（中英文）。
  */
 
+import { createHash } from 'node:crypto';
 import { getI18n, type Language } from './i18n.js';
 import { renderDashboardAppShell } from './web/app-shell.js';
 import { renderDashboardRuntimeSource } from './web/runtime/source.js';
@@ -34,8 +35,34 @@ import { renderDashboardBootstrapCacheSource } from './web/bootstrap-cache.js';
 import { renderDashboardStateSource } from './web/state.js';
 import { getDashboardSystemPromptDefaults } from '../core/prompt-defaults.js';
 
-export function getDashboardHtml(_port: number, lang: Language = 'en', buildId = 'dev'): string {
-  const t = getI18n(lang);
+interface DashboardAssetBundle {
+  styleCss: string;
+  scriptSource: string;
+  styleHref: string;
+  scriptHref: string;
+}
+
+let cachedDashboardAssetBundle: DashboardAssetBundle | null = null;
+
+function hashDashboardAssetSource(source: string): string {
+  return createHash('sha1').update(source, 'utf-8').digest('hex').slice(0, 16);
+}
+
+export function getDashboardStyleCss(): string {
+  return renderDashboardStylesSource();
+}
+
+export function getDashboardInlineBootScript(
+  lang: Language = 'en',
+  buildId = 'dev'
+): string {
+  return `window.__DASHBOARD_BOOTSTRAP__ = ${JSON.stringify({
+    lang: lang === 'zh' ? 'zh' : 'en',
+    buildId,
+  })};`;
+}
+
+export function getDashboardScriptSource(): string {
   const dashboardPromptDefaults = {
     en: getDashboardSystemPromptDefaults('en'),
     zh: getDashboardSystemPromptDefaults('zh'),
@@ -64,13 +91,16 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
   const dashboardBootstrapCacheSource = renderDashboardBootstrapCacheSource();
   const dashboardTraceBarsSource = renderDashboardTraceBarsSource();
 
-  const styleCss = renderDashboardStylesSource();
+  return /* js */ `
+// ─── Boot Config ─────────────────────────────────────────────────────────────
+const DASHBOARD_BOOTSTRAP =
+  (typeof window !== 'undefined' && window.__DASHBOARD_BOOTSTRAP__) ||
+  { lang: 'en', buildId: 'dev' };
 
-  const scriptSource = /* js */ `
 // ─── i18n ─────────────────────────────────────────────────────────────────────
 const I18N = ${JSON.stringify({ en: getI18n('en'), zh: getI18n('zh') })};
-let currentLang = '${lang}';
-const DASHBOARD_BUILD_ID = '${buildId}';
+let currentLang = DASHBOARD_BOOTSTRAP.lang === 'zh' ? 'zh' : 'en';
+const DASHBOARD_BUILD_ID = String(DASHBOARD_BOOTSTRAP.buildId || 'dev');
 const DASHBOARD_BUILD_SHORT = DASHBOARD_BUILD_ID.slice(-8);
 const DEFAULT_DASHBOARD_SYSTEM_PROMPTS = ${JSON.stringify(dashboardPromptDefaults)};
 ${dashboardStateSource}
@@ -130,7 +160,6 @@ function renderLogs() {
     <span class="log-msg">\${escHtml(l.message)}</span>
   </div>\`).join('');
 
-  // Auto-scroll to bottom
   list.scrollTop = list.scrollHeight;
 }
 
@@ -186,7 +215,11 @@ document.getElementById('addPathInput').addEventListener('keydown', async (e) =>
   const path = e.target.value.trim();
   if (!path) return;
   try {
-    const r = await fetch('/api/projects', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path}) });
+    const r = await fetch('/api/projects', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ path }),
+    });
     const data = await r.json();
     if (data.ok) {
       state.projects = data.projects;
@@ -207,7 +240,6 @@ function escHtml(s) {
 }
 
 function escJsStr(s) {
-  // 使用 JSON.stringify 统一处理引号、反斜杠与换行转义，再去掉外层双引号
   return JSON.stringify(String(s ?? '')).slice(1, -1);
 }
 
@@ -234,11 +266,37 @@ function timeAgo(iso) {
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 init();
 `;
+}
+
+export function getDashboardAssetBundle(): DashboardAssetBundle {
+  if (cachedDashboardAssetBundle) {
+    return cachedDashboardAssetBundle;
+  }
+
+  const styleCss = getDashboardStyleCss();
+  const scriptSource = getDashboardScriptSource();
+  const styleHref = `/assets/dashboard.${hashDashboardAssetSource(styleCss)}.css`;
+  const scriptHref = `/assets/dashboard.${hashDashboardAssetSource(scriptSource)}.js`;
+
+  cachedDashboardAssetBundle = {
+    styleCss,
+    scriptSource,
+    styleHref,
+    scriptHref,
+  };
+
+  return cachedDashboardAssetBundle;
+}
+
+export function getDashboardHtml(_port: number, lang: Language = 'en', buildId = 'dev'): string {
+  const t = getI18n(lang);
+  const assets = getDashboardAssetBundle();
 
   return renderDashboardAppShell({
     lang,
-    styleCss,
-    scriptSource,
+    styleHref: assets.styleHref,
+    scriptHref: assets.scriptHref,
+    inlineBootstrapScript: getDashboardInlineBootScript(lang, buildId),
     labels: {
       headerConnecting: t.headerConnecting,
       sidebarProjects: t.sidebarProjects,

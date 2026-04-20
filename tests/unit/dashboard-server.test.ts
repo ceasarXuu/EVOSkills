@@ -1032,4 +1032,116 @@ describe('dashboard server sse bootstrap', () => {
       await dashboard.stop();
     }
   });
+
+  it('serves immutable dashboard asset routes keyed by content hash', async () => {
+    const port = await getFreePort();
+    const { createDashboardServer } = await import('../../src/dashboard/server.js');
+    const dashboard = createDashboardServer(port, 'zh');
+    await dashboard.start();
+
+    try {
+      const htmlResponse = await fetch(`http://127.0.0.1:${port}/`);
+      const html = await htmlResponse.text();
+      const cssMatch = html.match(/href="([^"]*\/assets\/dashboard\.[^"]+\.css)"/);
+      const jsMatch = html.match(/src="([^"]*\/assets\/dashboard\.[^"]+\.js)"/);
+
+      expect(cssMatch?.[1]).toBeTruthy();
+      expect(jsMatch?.[1]).toBeTruthy();
+
+      const cssResponse = await fetch(`http://127.0.0.1:${port}${cssMatch![1]}`);
+      expect(cssResponse.status).toBe(200);
+      expect(cssResponse.headers.get('content-type')).toContain('text/css');
+      expect(cssResponse.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
+      expect(cssResponse.headers.get('x-dashboard-build')).toBeTruthy();
+      await expect(cssResponse.text()).resolves.toContain('.workspace-tabs');
+
+      const jsResponse = await fetch(`http://127.0.0.1:${port}${jsMatch![1]}`);
+      expect(jsResponse.status).toBe(200);
+      expect(jsResponse.headers.get('content-type')).toContain('application/javascript');
+      expect(jsResponse.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
+      expect(jsResponse.headers.get('x-dashboard-build')).toBeTruthy();
+      await expect(jsResponse.text()).resolves.toContain('const I18N = ');
+    } finally {
+      await dashboard.stop();
+    }
+  });
+
+  it('returns 304 for unchanged project snapshots when the If-None-Match header matches', async () => {
+    const projectPath = '/tmp/demo-project';
+    const port = await getFreePort();
+    mocks.listProjects.mockReturnValue([
+      { path: projectPath, name: 'Demo', monitoringState: 'active', pausedAt: null },
+    ]);
+    mocks.readDaemonStatus.mockReturnValue({ isRunning: true });
+    mocks.readSkillCount.mockReturnValue(1);
+    mocks.readProjectSnapshotVersion.mockReturnValue('snapshot-signature-v1');
+    mocks.readProjectSnapshot.mockReturnValue({ daemon: { isRunning: true }, skills: [] });
+
+    const { createDashboardServer } = await import('../../src/dashboard/server.js');
+    const dashboard = createDashboardServer(port, 'zh');
+    await dashboard.start();
+
+    try {
+      const initialResponse = await fetch(
+        `http://127.0.0.1:${port}/api/projects/${encodeURIComponent(projectPath)}/snapshot`
+      );
+      const etag = initialResponse.headers.get('etag');
+
+      expect(initialResponse.status).toBe(200);
+      expect(etag).toBeTruthy();
+      expect(etag).not.toContain('snapshot-signature-v1');
+      expect(etag!.length).toBeLessThan(100);
+
+      mocks.readProjectSnapshot.mockClear();
+
+      const response = await fetch(
+        `http://127.0.0.1:${port}/api/projects/${encodeURIComponent(projectPath)}/snapshot`,
+        {
+          headers: {
+            'If-None-Match': etag!,
+          },
+        }
+      );
+
+      expect(response.status).toBe(304);
+      expect(response.headers.get('etag')).toBe(etag);
+      expect(mocks.readProjectSnapshot).not.toHaveBeenCalled();
+    } finally {
+      await dashboard.stop();
+    }
+  });
+
+  it('returns 304 for unchanged skill family lists when the If-None-Match header matches', async () => {
+    const projectPath = '/tmp/demo-project';
+    const port = await getFreePort();
+    mocks.listProjects.mockReturnValue([
+      { path: projectPath, name: 'Demo', monitoringState: 'active', pausedAt: null },
+    ]);
+    mocks.readDaemonStatus.mockReturnValue({ isRunning: true });
+    mocks.readSkillCount.mockReturnValue(1);
+
+    const { createDashboardServer } = await import('../../src/dashboard/server.js');
+    const dashboard = createDashboardServer(port, 'zh');
+    await dashboard.start();
+
+    try {
+      const initialResponse = await fetch(`http://127.0.0.1:${port}/api/skills/families`);
+      const etag = initialResponse.headers.get('etag');
+
+      expect(initialResponse.status).toBe(200);
+      expect(etag).toBeTruthy();
+      expect(etag!.length).toBeLessThan(100);
+
+      const revalidatedResponse = await fetch(`http://127.0.0.1:${port}/api/skills/families`, {
+        headers: {
+          'If-None-Match': etag!,
+        },
+      });
+
+      expect(revalidatedResponse.status).toBe(304);
+      expect(revalidatedResponse.headers.get('etag')).toBe(etag);
+    } finally {
+      await dashboard.stop();
+    }
+  });
 });

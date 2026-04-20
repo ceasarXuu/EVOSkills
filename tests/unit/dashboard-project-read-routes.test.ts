@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   readProjectSnapshot: vi.fn(),
+  readProjectSnapshotVersion: vi.fn(),
   readDaemonStatus: vi.fn(),
   readRecentTraces: vi.fn(),
   computeTraceStats: vi.fn(),
@@ -15,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../src/dashboard/data-reader.js', () => ({
   readProjectSnapshot: mocks.readProjectSnapshot,
+  readProjectSnapshotVersion: mocks.readProjectSnapshotVersion,
   readDaemonStatus: mocks.readDaemonStatus,
   readRecentTraces: mocks.readRecentTraces,
   computeTraceStats: mocks.computeTraceStats,
@@ -56,8 +58,10 @@ describe('dashboard project read routes', () => {
   it('handles GET /api/projects/:id/snapshot', async () => {
     const { handleProjectReadRoutes } = await import('../../src/dashboard/routes/project-read-routes.js');
     const json = vi.fn();
+    const jsonWithEtag = vi.fn();
     const snapshot = { summary: { traces: 12 } };
     mocks.readProjectSnapshot.mockReturnValue(snapshot);
+    mocks.readProjectSnapshotVersion.mockReturnValue('snapshot-v1');
 
     const handled = await handleProjectReadRoutes({
       subPath: '/snapshot',
@@ -65,13 +69,37 @@ describe('dashboard project read routes', () => {
       projectPath: '/tmp/demo',
       currentLang: 'en',
       json,
+      jsonWithEtag,
       notFound: vi.fn(),
       logger: { debug: vi.fn(), warn: vi.fn() },
     });
 
     expect(handled).toBe(true);
+    expect(mocks.readProjectSnapshotVersion).toHaveBeenCalledWith('/tmp/demo');
     expect(mocks.readProjectSnapshot).toHaveBeenCalledWith('/tmp/demo');
-    expect(json).toHaveBeenCalledWith(snapshot);
+    expect(jsonWithEtag).toHaveBeenCalledWith(snapshot, 'snapshot-v1');
+  });
+
+  it('skips reading the snapshot when the request etag is still fresh', async () => {
+    const { handleProjectReadRoutes } = await import('../../src/dashboard/routes/project-read-routes.js');
+    const respondNotModified = vi.fn().mockReturnValue(true);
+    mocks.readProjectSnapshotVersion.mockReturnValue('snapshot-v1');
+
+    const handled = await handleProjectReadRoutes({
+      subPath: '/snapshot',
+      method: 'GET',
+      projectPath: '/tmp/demo',
+      currentLang: 'en',
+      json: vi.fn(),
+      jsonWithEtag: vi.fn(),
+      respondNotModified,
+      notFound: vi.fn(),
+      logger: { debug: vi.fn(), warn: vi.fn() },
+    });
+
+    expect(handled).toBe(true);
+    expect(respondNotModified).toHaveBeenCalledWith('snapshot-v1');
+    expect(mocks.readProjectSnapshot).not.toHaveBeenCalled();
   });
 
   it('handles GET /api/projects/:id/status', async () => {

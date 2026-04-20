@@ -1,6 +1,9 @@
 import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
-import { getDashboardHtml } from '../../src/dashboard/ui.js';
+import {
+  getDashboardInlineBootScript,
+  getDashboardScriptSource,
+} from '../../src/dashboard/ui.js';
 
 type FakeElement = {
   id?: string;
@@ -29,6 +32,9 @@ type FetchResponse = {
   ok: boolean;
   status: number;
   statusText: string;
+  headers?: {
+    get: (name: string) => string | null;
+  };
   json: () => Promise<unknown>;
 };
 
@@ -80,11 +86,22 @@ function createFakeElement(id = ''): FakeElement {
   };
 }
 
-function createJsonResponse(payload: unknown): FetchResponse {
+function createJsonResponse(
+  payload: unknown,
+  headers: Record<string, string> = {}
+): FetchResponse {
+  const normalizedHeaders = new Map(
+    Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value])
+  );
   return {
     ok: true,
     status: 200,
     statusText: 'OK',
+    headers: {
+      get(name: string) {
+        return normalizedHeaders.get(String(name).toLowerCase()) ?? null;
+      },
+    },
     json: async () => payload,
   };
 }
@@ -95,12 +112,6 @@ function loadDashboardHarness(
     initialStorage?: Record<string, string>;
   }
 ) {
-  const html = getDashboardHtml(47432, 'zh', 'test-build-id');
-  const scriptMatch = html.match(/<script>([\s\S]*)<\/script>/);
-  if (!scriptMatch) {
-    throw new Error('Dashboard script not found');
-  }
-
   const elements = new Map<string, FakeElement>();
   const selectors = new Map<string, FakeElement>();
   const fetchCalls: string[] = [];
@@ -190,7 +201,7 @@ function loadDashboardHarness(
   };
   runtime.globalThis = runtime;
 
-  const script = scriptMatch[1]
+  const script = `${getDashboardInlineBootScript('zh', 'test-build-id')}\n${getDashboardScriptSource()}`
     .replace(/\binit\(\);\s*$/, '')
     .concat('\n;globalThis.__dashboardTest = { state, init, handleUpdate };');
 

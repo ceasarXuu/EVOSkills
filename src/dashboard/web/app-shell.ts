@@ -22,13 +22,14 @@ interface DashboardAppShellLabels {
 
 interface DashboardAppShellParams {
   lang: Language;
-  styleCss: string;
-  scriptSource: string;
+  styleHref: string;
+  scriptHref: string;
+  inlineBootstrapScript: string;
   labels: DashboardAppShellLabels;
 }
 
 export function renderDashboardAppShell(params: DashboardAppShellParams): string {
-  const { lang, styleCss, scriptSource, labels } = params;
+  const { lang, styleHref, scriptHref, inlineBootstrapScript, labels } = params;
 
   return /* html */ `<!DOCTYPE html>
 <html lang="${lang}">
@@ -36,9 +37,7 @@ export function renderDashboardAppShell(params: DashboardAppShellParams): string
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>OrnnSkills Dashboard</title>
-<style>
-${styleCss}
-</style>
+<link rel="stylesheet" href="${styleHref}"/>
 </head>
 <body>
 <div class="app">
@@ -161,8 +160,9 @@ ${styleCss}
 </div>
 
 <script>
-${scriptSource}
+${inlineBootstrapScript}
 </script>
+<script src="${scriptHref}" defer></script>
 </body>
 </html>`;
 }

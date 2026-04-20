@@ -2,6 +2,12 @@
 
 ## 📊 总体进度：Phase 1 ✅ 完成
 
+### 2026-04-21
+
+- ✅ 完成 dashboard 浏览器侧缓存三阶段收口：首屏 bootstrap cache 已接入 `localStorage`，HTML shell 已拆出内容哈希静态资源，`/snapshot` 与 skill family 相关 JSON 路由已支持 `ETag/304`
+- 📝 记录缓存经验：浏览器刷新性能不能只靠后端 reader cache；真正影响体感的是“首屏是否能立刻复用上次状态”和“静态资源 URL 是否只在内容变化时失效”。如果资源路径直接绑定运行时 `buildId`，daemon 每次重启都会把浏览器缓存打穿
+- 📝 记录验证经验：排查 dashboard 缓存是否真的生效时，不能只看页面“好像变快了”；至少要同时检查 HTML 是否引用 `/assets/dashboard.<hash>.*`、资源路由是否返回 `immutable` header，以及 JSON 路由在 `If-None-Match` 命中时是否真正返回 `304`
+
 ### 2026-04-20
 
 - ✅ 从设计层收紧长时间运行的性能退化：`task-episodes.json` 不再把全量 trace id / turn id 当成持久化真相，而是改为“累计计数 + 有界热窗口”模型；活跃 episode 与已关闭 episode 分别应用不同保留上限，运行时间再长也不会让该文件线性膨胀

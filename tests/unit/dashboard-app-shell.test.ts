@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 describe('dashboard app shell', () => {
-  it('renders the localized shell with the injected script payload', async () => {
+  it('renders the localized shell with external asset references and bootstrap config', async () => {
     const { renderDashboardAppShell } = await import('../../src/dashboard/web/app-shell.js');
 
     const html = renderDashboardAppShell({
       lang: 'zh',
-      styleCss: 'body { background: #000; }',
+      styleHref: '/assets/dashboard.app.css',
+      scriptHref: '/assets/dashboard.app.js',
+      inlineBootstrapScript: 'window.__DASHBOARD_BOOTSTRAP__ = {"lang":"zh","buildId":"test-build-id"};',
       labels: {
         headerConnecting: '连接中…',
         sidebarProjects: '项目',
@@ -26,11 +28,10 @@ describe('dashboard app shell', () => {
         activityDetailTitle: '活动明细',
         activityDetailEmpty: '暂无明细',
       },
-      scriptSource: 'console.log("dashboard test")',
     });
 
     expect(html).toContain('<html lang="zh">');
-    expect(html).toContain('body { background: #000; }');
+    expect(html).toContain('<link rel="stylesheet" href="/assets/dashboard.app.css"/>');
     expect(html).toContain('连接中…');
     expect(html).not.toContain('id="appVersion"');
     expect(html).not.toContain('id="appBuild"');
@@ -45,6 +46,8 @@ describe('dashboard app shell', () => {
     expect(html).toContain('id="skillModal"');
     expect(html).toContain('id="modalRuntimeSelect"');
     expect(html.indexOf('id="modalRuntimeSelect"')).toBeLessThan(html.indexOf('onclick="closeModal()"'));
-    expect(html).toContain('console.log("dashboard test")');
+    expect(html).toContain('window.__DASHBOARD_BOOTSTRAP__');
+    expect(html).toContain('<script src="/assets/dashboard.app.js" defer></script>');
+    expect(html).not.toContain('<style>');
   });
 });

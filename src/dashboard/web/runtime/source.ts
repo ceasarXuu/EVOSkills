@@ -83,6 +83,7 @@ const DASHBOARD_RUNTIME_FETCH_JSON_OPTIMIZED = `async function fetchJsonWithTime
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const requestMethod = String(options && options.method ? options.method : 'GET').toUpperCase();
   const requestUrl = String(url);
+  const requestCacheMode = requestMethod === 'GET' ? 'no-store' : options.cache;
   const cacheStore = globalThis.__DASHBOARD_HTTP_CACHE__ || (globalThis.__DASHBOARD_HTTP_CACHE__ = {});
   const originalHeaders =
     options && options.headers && typeof options.headers === 'object' && !Array.isArray(options.headers)
@@ -95,6 +96,7 @@ const DASHBOARD_RUNTIME_FETCH_JSON_OPTIMIZED = `async function fetchJsonWithTime
   try {
     const response = await fetch(url, {
       ...options,
+      cache: requestCacheMode,
       headers: originalHeaders,
       signal: controller.signal,
     });

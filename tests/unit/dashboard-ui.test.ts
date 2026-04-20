@@ -2729,6 +2729,8 @@ describe('dashboard ui recovery', () => {
   it('revalidates cached json with If-None-Match and reuses the previous payload on 304', async () => {
     let familiesRequests = 0;
     let secondRequestHeaders: Record<string, unknown> | undefined;
+    let firstRequestCacheMode: unknown;
+    let secondRequestCacheMode: unknown;
     const { dashboard } = loadDashboardTestHarness(
       {},
       {
@@ -2736,6 +2738,7 @@ describe('dashboard ui recovery', () => {
           if (url === '/api/skills/families') {
             familiesRequests += 1;
             if (familiesRequests === 1) {
+              firstRequestCacheMode = init?.cache;
               return {
                 ok: true,
                 status: 200,
@@ -2752,6 +2755,7 @@ describe('dashboard ui recovery', () => {
             }
 
             secondRequestHeaders = (init?.headers || {}) as Record<string, unknown>;
+            secondRequestCacheMode = init?.cache;
             return {
               ok: false,
               status: 304,
@@ -2788,6 +2792,8 @@ describe('dashboard ui recovery', () => {
     expect(secondRequestHeaders).toEqual(
       expect.objectContaining({ 'If-None-Match': '"families-v1"' })
     );
+    expect(firstRequestCacheMode).toBe('no-store');
+    expect(secondRequestCacheMode).toBe('no-store');
   });
 
   it('opens the apply-to-all confirmation and posts the current editor content', async () => {

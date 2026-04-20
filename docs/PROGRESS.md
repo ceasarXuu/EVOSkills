@@ -7,6 +7,8 @@
 - ✅ 完成 dashboard 浏览器侧缓存三阶段收口：首屏 bootstrap cache 已接入 `localStorage`，HTML shell 已拆出内容哈希静态资源，`/snapshot` 与 skill family 相关 JSON 路由已支持 `ETag/304`
 - 📝 记录缓存经验：浏览器刷新性能不能只靠后端 reader cache；真正影响体感的是“首屏是否能立刻复用上次状态”和“静态资源 URL 是否只在内容变化时失效”。如果资源路径直接绑定运行时 `buildId`，daemon 每次重启都会把浏览器缓存打穿
 - 📝 记录验证经验：排查 dashboard 缓存是否真的生效时，不能只看页面“好像变快了”；至少要同时检查 HTML 是否引用 `/assets/dashboard.<hash>.*`、资源路由是否返回 `immutable` header，以及 JSON 路由在 `If-None-Match` 命中时是否真正返回 `304`
+- ✅ 修复 dashboard 启动期 `HTTP 431`：浏览器此前缓存过的超长旧 `ETag` 仍可能被默认 `fetch` 自动带回 `If-None-Match`，导致请求在进入业务路由前就被 Node 的 header 限制拦下；现在 dashboard 的 `GET` JSON 请求统一显式走 `cache: 'no-store'`，只保留应用层自己维护的轻量 `ETag` 重验证
+- 📝 记录缓存经验：当应用自己实现 `ETag`/内存 revalidate 时，不能再把浏览器默认 HTTP cache 也留在链路里一起工作；否则旧缓存里的 validator 会跨版本残留，最终形成“服务端逻辑已修好，但浏览器启动仍直接带着历史巨型头请求”的隐性故障
 
 ### 2026-04-20
 

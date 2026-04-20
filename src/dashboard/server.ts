@@ -16,7 +16,7 @@ import {
 import { writeProjectLanguage } from './language-state.js';
 import {
   readDaemonStatus,
-  readSkills,
+  readSkillCount,
   readProjectSnapshotVersion,
   readGlobalLogs,
   readLogsSince,
@@ -164,14 +164,13 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
       const pausedAt = monitoringState === 'paused' ? p.pausedAt ?? null : null;
       try {
         const daemon = readDaemonStatus(p.path);
-        const skills = readSkills(p.path);
         return {
           ...p,
           monitoringState,
           pausedAt,
           isPaused: monitoringState === 'paused',
           isRunning: monitoringState === 'paused' ? false : daemon.isRunning,
-          skillCount: skills.length,
+          skillCount: readSkillCount(p.path),
         };
       } catch {
         return {

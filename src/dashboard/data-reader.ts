@@ -50,6 +50,7 @@ import {
   type AgentUsageStats,
 } from './readers/agent-usage-reader.js';
 export { readSkills, readSkillContent, readSkillVersion } from './readers/skills-reader.js';
+export { readSkillCount } from './readers/skills-reader.js';
 export type { SkillInfo, SkillVersionMeta, DashboardSkillInfo } from './readers/skills-reader.js';
 export { readRecentTraces, readTracesByIds, readTracesBySessionWindow, computeTraceStats } from './readers/trace-reader.js';
 export type { TraceEntry, TraceStats } from './readers/trace-reader.js';

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   ensureMonitoringDaemon: vi.fn(),
   writeProjectLanguage: vi.fn(),
   readDaemonStatus: vi.fn(),
+  readSkillCount: vi.fn(),
   readSkills: vi.fn(),
   readSkillContent: vi.fn(),
   readSkillVersion: vi.fn(),
@@ -72,6 +73,7 @@ vi.mock('../../src/dashboard/project-onboarding.js', () => ({
 
 vi.mock('../../src/dashboard/data-reader.js', () => ({
   readDaemonStatus: mocks.readDaemonStatus,
+  readSkillCount: mocks.readSkillCount,
   readSkills: mocks.readSkills,
   readSkillContent: mocks.readSkillContent,
   readSkillVersion: mocks.readSkillVersion,
@@ -177,6 +179,10 @@ describe('dashboard server sse bootstrap', () => {
       lines: [],
       newOffset: 0,
       cursor: { path: null, offset: 0 },
+    });
+    mocks.readSkillCount.mockImplementation((projectPath: string) => {
+      const skills = mocks.readSkills(projectPath);
+      return Array.isArray(skills) ? skills.length : 0;
     });
   });
 
@@ -506,6 +512,48 @@ describe('dashboard server sse bootstrap', () => {
       expect(payload.logs).toEqual([{ ts: '2026-04-15T00:00:00.000Z', line: 'boot' }]);
       expect(payload).not.toHaveProperty('projectData');
       expect(mocks.readProjectSnapshot).not.toHaveBeenCalled();
+    } finally {
+      await dashboard.stop();
+    }
+  });
+
+  it('uses lightweight skill counts for project status heartbeats', async () => {
+    const projectPath = '/tmp/demo-project';
+    const port = await getFreePort();
+    mocks.listProjects.mockReturnValue([
+      {
+        path: projectPath,
+        name: 'demo-project',
+        registeredAt: '2026-04-15T00:00:00.000Z',
+        lastSeenAt: '2026-04-15T00:00:00.000Z',
+      },
+    ]);
+    mocks.readDaemonStatus.mockReturnValue({ isRunning: true });
+    mocks.readSkillCount.mockReturnValue(7);
+    mocks.readSkills.mockImplementation(() => {
+      throw new Error('readSkills should not be used for project heartbeat status');
+    });
+    mocks.readGlobalLogs.mockReturnValue([]);
+    mocks.readProjectSnapshotVersion.mockReturnValue('v1');
+
+    const { createDashboardServer } = await import('../../src/dashboard/server.js');
+    const dashboard = createDashboardServer(port, 'en');
+    await dashboard.start();
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/api/projects`);
+      expect(response.ok).toBe(true);
+      await expect(response.json()).resolves.toEqual({
+        projects: [
+          expect.objectContaining({
+            path: projectPath,
+            isRunning: true,
+            skillCount: 7,
+          }),
+        ],
+      });
+      expect(mocks.readSkillCount).toHaveBeenCalledWith(projectPath);
+      expect(mocks.readSkills).not.toHaveBeenCalled();
     } finally {
       await dashboard.stop();
     }

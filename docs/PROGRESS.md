@@ -7,7 +7,10 @@
 - ✅ 从设计层收紧长时间运行的性能退化：`task-episodes.json` 不再把全量 trace id / turn id 当成持久化真相，而是改为“累计计数 + 有界热窗口”模型；活跃 episode 与已关闭 episode 分别应用不同保留上限，运行时间再长也不会让该文件线性膨胀
 - ✅ 把 episode 上下文恢复从 “traceRefs 精确枚举” 改成 “按 session + 时间窗重建”：activity detail、自动 probe、手动 optimize 现在都能直接从 session trace 里恢复完整窗口，不再要求 `task-episodes.json` 永久保存全部 trace 引用
 - ✅ 收紧 dashboard SSE 广播的版本探测放大效应：同一轮 broadcast 现在按项目只计算一次 snapshot version，不再随着连接客户端数量线性重复做版本读取
+- ✅ 修复 trace 热路径的 session 读取设计：`TraceManager` 不再把“当前活动 session 的 trace store”当成所有查询的事实来源；现在按 session 文件持久化，并在内存中维护 session timeline cache 与 recent trace buffer，避免每条 trace 都整文件反序列化长会话
+- ✅ 给 dashboard 项目状态轮询拆出轻量 `skillCount` 读侧：项目列表和 SSE 心跳现在直接读取 `.ornn/shadows/index.json` 的数量，不再为了 sidebar 的一个计数去扫描每个 skill 的版本目录和 `latest` 链接
 - 📝 记录性能经验：像 `task-episodes.json` 这种既在热路径写入、又会被 dashboard 周期读取的状态文件，绝不能把“完整历史明细”直接当作在线事实来源；正确边界应该是“热窗口 + 可重建上下文 + 累计统计”，否则运行时长最终一定会转换成持续卡顿
+- 📝 记录性能经验：任何出现在“每条 trace 都会触发”或“固定心跳轮询”的路径，都不能复用面向详情页的重读侧。热路径应该有自己受控的轻量事实来源，否则当前数据量乘以运行时长，最终一定变成体感卡顿
 
 ### 2026-04-19
 

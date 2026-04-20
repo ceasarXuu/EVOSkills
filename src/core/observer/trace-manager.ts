@@ -1,3 +1,4 @@
+import { closeSync, existsSync, openSync, readdirSync, readSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createChildLogger } from '../../utils/logger.js';
 import { createTraceStore } from '../../storage/ndjson.js';
@@ -5,27 +6,170 @@ import { createSQLiteStorage } from '../../storage/sqlite.js';
 import type { Trace, RuntimeType } from '../../types/index.js';
 
 const logger = createChildLogger('trace-manager');
+const RECENT_TRACE_BUFFER_LIMIT = 1000;
+const MIN_RECENT_TRACE_HYDRATION = 200;
+
+function compareTraceTimestampAsc(left: Trace, right: Trace): number {
+  return new Date(left.timestamp).getTime() - new Date(right.timestamp).getTime();
+}
+
+function parseTraceRecord(line: string): Trace | null {
+  try {
+    const raw = JSON.parse(line) as Partial<Trace>;
+    if (!raw.trace_id || !raw.timestamp || !raw.runtime || !raw.session_id || !raw.turn_id || !raw.event_type || !raw.status) {
+      return null;
+    }
+    return {
+      trace_id: String(raw.trace_id),
+      runtime: raw.runtime,
+      session_id: String(raw.session_id),
+      turn_id: String(raw.turn_id),
+      event_type: raw.event_type,
+      timestamp: String(raw.timestamp),
+      user_input: typeof raw.user_input === 'string' ? raw.user_input : undefined,
+      assistant_output: typeof raw.assistant_output === 'string' ? raw.assistant_output : undefined,
+      tool_name: typeof raw.tool_name === 'string' ? raw.tool_name : undefined,
+      tool_args: raw.tool_args && typeof raw.tool_args === 'object' ? raw.tool_args : undefined,
+      tool_result: raw.tool_result && typeof raw.tool_result === 'object' ? raw.tool_result : undefined,
+      files_changed: Array.isArray(raw.files_changed) ? raw.files_changed.map((item) => String(item)) : undefined,
+      skill_refs: Array.isArray(raw.skill_refs) ? raw.skill_refs.map((item) => String(item)) : undefined,
+      status: raw.status,
+      metadata: raw.metadata && typeof raw.metadata === 'object' ? raw.metadata : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function tailTraceRecords(filePath: string, maxLines: number): Trace[] {
+  if (!existsSync(filePath)) return [];
+
+  const chunkSize = 65536;
+  const fd = openSync(filePath, 'r');
+  try {
+    const fileSize = statSync(filePath).size;
+    if (fileSize === 0) return [];
+
+    let position = fileSize;
+    const lines: string[] = [];
+    let remainder = '';
+
+    while (position > 0 && lines.length < maxLines) {
+      const readSize = Math.min(chunkSize, position);
+      position -= readSize;
+      const buffer = Buffer.alloc(readSize);
+      readSync(fd, buffer, 0, readSize, position);
+      const chunk = buffer.toString('utf-8') + remainder;
+      const parts = chunk.split('\n');
+      remainder = parts[0] ?? '';
+      for (let index = parts.length - 1; index >= 1; index -= 1) {
+        if (parts[index].trim()) {
+          lines.push(parts[index]);
+        }
+      }
+    }
+
+    if (remainder.trim()) {
+      lines.push(remainder);
+    }
+
+    return lines
+      .slice(0, maxLines)
+      .reverse()
+      .map((line) => parseTraceRecord(line))
+      .filter((trace): trace is Trace => Boolean(trace));
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function listTraceNdjsonPaths(tracesDir: string): string[] {
+  if (!existsSync(tracesDir)) return [];
+
+  try {
+    return readdirSync(tracesDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ndjson'))
+      .map((entry) => entry.name)
+      .filter((name) => name !== 'decision-events.ndjson' && name !== 'agent-usage.ndjson')
+      .sort()
+      .map((name) => join(tracesDir, name));
+  } catch {
+    return [];
+  }
+}
+
+function mergeUniqueRecentTraces(traces: Trace[], limit: number): Trace[] {
+  const deduped = new Map<string, Trace>();
+  for (const trace of traces) {
+    deduped.set(trace.trace_id, trace);
+  }
+
+  return [...deduped.values()]
+    .sort(compareTraceTimestampAsc)
+    .slice(-limit);
+}
 
 /**
  * Trace 存储管理器
  * 负责存储和查询 trace 数据
  */
 export class TraceManager {
-  private projectRoot: string;
   private db: Awaited<ReturnType<typeof createSQLiteStorage>> | null = null;
-  private traceStore;
   private currentSessionId: string | null = null;
   private dbPath: string;
+  private tracesDir: string;
+  private sessionStores = new Map<string, ReturnType<typeof createTraceStore>>();
+  private sessionTraceCache = new Map<string, Trace[]>();
+  private recentTraceBuffer: Trace[] = [];
+  private recentTraceBufferHydrated = false;
 
   constructor(projectRoot: string) {
-    this.projectRoot = projectRoot;
-
     // 初始化数据库路径
     this.dbPath = join(projectRoot, '.ornn', 'state', 'sessions.db');
+    this.tracesDir = join(projectRoot, '.ornn', 'state');
+  }
 
-    // 初始化 NDJSON trace store
-    const tracesDir = join(projectRoot, '.ornn', 'state');
-    this.traceStore = createTraceStore(tracesDir, 'default');
+  private getSessionStore(sessionId: string) {
+    const existing = this.sessionStores.get(sessionId);
+    if (existing) {
+      return existing;
+    }
+
+    const store = createTraceStore(this.tracesDir, sessionId);
+    this.sessionStores.set(sessionId, store);
+    return store;
+  }
+
+  private async loadSessionTraceCache(sessionId: string): Promise<Trace[]> {
+    const cached = this.sessionTraceCache.get(sessionId);
+    if (cached) {
+      return cached;
+    }
+
+    const traces = await this.getSessionStore(sessionId).readAll();
+    traces.sort(compareTraceTimestampAsc);
+    this.sessionTraceCache.set(sessionId, traces);
+    return traces;
+  }
+
+  private rememberRecordedTrace(trace: Trace): void {
+    const cached = this.sessionTraceCache.get(trace.session_id);
+    if (cached) {
+      cached.push(trace);
+      cached.sort(compareTraceTimestampAsc);
+    }
+
+    this.recentTraceBuffer = mergeUniqueRecentTraces(
+      this.recentTraceBuffer.concat(trace),
+      RECENT_TRACE_BUFFER_LIMIT
+    );
+  }
+
+  private loadRecentTracesFromDisk(limit: number): Trace[] {
+    const candidates = listTraceNdjsonPaths(this.tracesDir);
+    const perFileLimit = Math.max(limit * 2, 50);
+    const traces = candidates.flatMap((filePath) => tailTraceRecords(filePath, perFileLimit));
+    return mergeUniqueRecentTraces(traces, limit);
   }
 
   /**
@@ -81,9 +225,8 @@ export class TraceManager {
         trace_count: 0,
       });
 
-      // 更新 trace store 的 session ID
-      const tracesDir = join(this.projectRoot, '.ornn', 'state');
-      this.traceStore = createTraceStore(tracesDir, sessionId);
+      // 预热当前 session 对应的 trace store，避免首次写入时再建对象
+      this.getSessionStore(sessionId);
 
       logger.info(`Session set: ${sessionId}`, { runtime, projectId });
     } catch (error) {
@@ -110,7 +253,8 @@ export class TraceManager {
       this.ensureSessionExists(trace);
 
       // 先写入 NDJSON（可追加，原子性较好）
-      this.traceStore.append(trace);
+      this.getSessionStore(trace.session_id).append(trace);
+      this.rememberRecordedTrace(trace);
       ndjsonWritten = true;
       
       // 再写入数据库
@@ -158,7 +302,8 @@ export class TraceManager {
               invalidationReason: 'Database write failed'
             }
           };
-          this.traceStore.append(invalidatedTrace);
+          this.getSessionStore(trace.session_id).append(invalidatedTrace);
+          this.rememberRecordedTrace(invalidatedTrace);
           logger.info('Trace marked as invalidated due to database failure', {
             trace_id: trace.trace_id
           });
@@ -191,12 +336,7 @@ export class TraceManager {
    * 获取 session 的 traces
    */
   async getSessionTraces(sessionId: string, limit?: number): Promise<Trace[]> {
-    const allTraces = await this.traceStore.readAll();
-
-    let filtered = allTraces.filter((t) => t.session_id === sessionId);
-
-    // 按时间戳排序
-    filtered.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    let filtered = [...(await this.loadSessionTraceCache(sessionId))];
 
     if (limit) {
       filtered = filtered.slice(0, limit);
@@ -209,7 +349,17 @@ export class TraceManager {
    * 获取最近的 traces
    */
   async getRecentTraces(count: number): Promise<Trace[]> {
-    return this.traceStore.readRecent(count);
+    if (!this.recentTraceBufferHydrated) {
+      this.recentTraceBuffer = mergeUniqueRecentTraces(
+        this.recentTraceBuffer.concat(
+          this.loadRecentTracesFromDisk(Math.max(count, MIN_RECENT_TRACE_HYDRATION))
+        ),
+        RECENT_TRACE_BUFFER_LIMIT
+      );
+      this.recentTraceBufferHydrated = true;
+    }
+
+    return this.recentTraceBuffer.slice(-count);
   }
 
   /**
@@ -219,10 +369,8 @@ export class TraceManager {
     sessionId: string,
     eventType: string
   ): Promise<Trace[]> {
-    const allTraces = await this.traceStore.readAll();
-    return allTraces.filter(
-      (t) => t.session_id === sessionId && t.event_type === eventType
-    );
+    const sessionTraces = await this.getSessionTraces(sessionId);
+    return sessionTraces.filter((trace) => trace.event_type === eventType);
   }
 
   /**
@@ -233,12 +381,11 @@ export class TraceManager {
     startTime: string,
     endTime: string
   ): Promise<Trace[]> {
-    const allTraces = await this.traceStore.readAll();
+    const allTraces = await this.getSessionTraces(sessionId);
     const start = new Date(startTime).getTime();
     const end = new Date(endTime).getTime();
 
     return allTraces.filter((t) => {
-      if (t.session_id !== sessionId) return false;
       const time = new Date(t.timestamp).getTime();
       return time >= start && time <= end;
     });
@@ -248,30 +395,24 @@ export class TraceManager {
    * 获取失败的 traces
    */
   async getFailedTraces(sessionId: string): Promise<Trace[]> {
-    const allTraces = await this.traceStore.readAll();
-    return allTraces.filter(
-      (t) => t.session_id === sessionId && t.status === 'failure'
-    );
+    const sessionTraces = await this.getSessionTraces(sessionId);
+    return sessionTraces.filter((trace) => trace.status === 'failure');
   }
 
   /**
    * 获取重试的 traces
    */
   async getRetryTraces(sessionId: string): Promise<Trace[]> {
-    const allTraces = await this.traceStore.readAll();
-    return allTraces.filter(
-      (t) => t.session_id === sessionId && t.event_type === 'retry'
-    );
+    const sessionTraces = await this.getSessionTraces(sessionId);
+    return sessionTraces.filter((trace) => trace.event_type === 'retry');
   }
 
   /**
    * 获取文件变化的 traces
    */
   async getFileChangeTraces(sessionId: string): Promise<Trace[]> {
-    const allTraces = await this.traceStore.readAll();
-    return allTraces.filter(
-      (t) => t.session_id === sessionId && t.event_type === 'file_change'
-    );
+    const sessionTraces = await this.getSessionTraces(sessionId);
+    return sessionTraces.filter((trace) => trace.event_type === 'file_change');
   }
 
   /**
@@ -282,8 +423,7 @@ export class TraceManager {
     byEventType: Record<string, number>;
     byStatus: Record<string, number>;
   }> {
-    const allTraces = await this.traceStore.readAll();
-    const sessionTraces = allTraces.filter((t) => t.session_id === sessionId);
+    const sessionTraces = await this.getSessionTraces(sessionId);
 
     const byEventType: Record<string, number> = {};
     const byStatus: Record<string, number> = {};
@@ -333,6 +473,13 @@ export class TraceManager {
   close(): void {
     this.endSession();
     if (!this.db) throw new Error('TraceManager not initialized');
+    for (const store of this.sessionStores.values()) {
+      store.close();
+    }
+    this.sessionStores.clear();
+    this.sessionTraceCache.clear();
+    this.recentTraceBuffer = [];
+    this.recentTraceBufferHydrated = false;
     this.db.close();
     logger.info('Trace manager closed');
   }

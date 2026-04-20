@@ -108,6 +108,40 @@ describe('TraceManager', () => {
       expect(traces.length).toBe(0);
       manager.close();
     });
+
+    it('should keep reading a previous session after switching the active session', async () => {
+      const manager = createTraceManager(testProjectPath);
+      await manager.init();
+      manager.setSession('sess-1', 'codex');
+      manager.recordTrace(makeTrace('t-1', 'sess-1'));
+      manager.setSession('sess-2', 'codex');
+      manager.recordTrace(makeTrace('t-2', 'sess-2'));
+
+      const traces = await manager.getSessionTraces('sess-1');
+      expect(traces.map((trace) => trace.trace_id)).toEqual(['t-1']);
+      manager.close();
+    });
+  });
+
+  describe('getRecentTraces', () => {
+    it('should aggregate recent traces across session files', async () => {
+      const manager = createTraceManager(testProjectPath);
+      await manager.init();
+      manager.setSession('sess-1', 'codex');
+      manager.recordTrace({
+        ...makeTrace('t-1', 'sess-1'),
+        timestamp: '2026-04-20T08:00:00.000Z',
+      });
+      manager.setSession('sess-2', 'codex');
+      manager.recordTrace({
+        ...makeTrace('t-2', 'sess-2'),
+        timestamp: '2026-04-20T08:01:00.000Z',
+      });
+
+      const traces = await manager.getRecentTraces(2);
+      expect(traces.map((trace) => trace.trace_id)).toEqual(['t-1', 't-2']);
+      manager.close();
+    });
   });
 
   describe('getTracesByEventType', () => {

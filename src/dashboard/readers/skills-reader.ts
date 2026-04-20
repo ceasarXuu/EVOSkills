@@ -112,6 +112,19 @@ export function readSkills(projectRoot: string): SkillInfo[] {
   }
 }
 
+export function readSkillCount(projectRoot: string): number {
+  const indexPath = join(projectRoot, '.ornn', 'shadows', 'index.json');
+  if (!existsSync(indexPath)) return 0;
+
+  try {
+    const raw = readFileSync(indexPath, 'utf-8');
+    const parsed = JSON.parse(raw) as ShadowEntry[] | Record<string, ShadowEntry>;
+    return Array.isArray(parsed) ? parsed.length : Object.keys(parsed).length;
+  } catch {
+    return 0;
+  }
+}
+
 export function toDashboardSkillInfo(skill: SkillInfo): DashboardSkillInfo {
   return {
     skillId: skill.skillId,

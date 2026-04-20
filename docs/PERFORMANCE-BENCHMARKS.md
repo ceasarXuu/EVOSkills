@@ -90,6 +90,9 @@ npm run benchmark:dashboard:soak -- --dataset standard --cycles 320
   - `agent usage` 摘要缓存: 最多 `256` 条，默认闲置 `15` 分钟过期。
   - `processed trace` 文件缓存: 最多 `1024` 条，默认闲置 `15` 分钟过期。
   - `processed trace` 项目级计数缓存: 最多 `512` 条，默认闲置 `15` 分钟过期。
+- 启动阶段首包裁剪
+  - dashboard 初始化已经会单独请求 `/api/logs`，因此 SSE 客户端首连只下发 `projects`，不再重复回放最近日志。
+  - 2026-04-21 的一次启动卡顿排查里，`/events` 首包从约 `53 KB` 收缩到约 `730 B`，避免了刷新时额外解析重复日志。
 - soak benchmark
   - 用高轮转临时项目反复触发 `readAgentUsageStats`、`countProcessedTraceIds`、`readProjectSnapshotVersion`、`readProjectSnapshot`。
   - 目标不是给出绝对内存承诺，而是防止 reader 级缓存因为项目 churn 无界增长。

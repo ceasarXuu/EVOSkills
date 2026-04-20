@@ -509,9 +509,10 @@ describe('dashboard server sse bootstrap', () => {
           skillCount: 1,
         }),
       ]);
-      expect(payload.logs).toEqual([{ ts: '2026-04-15T00:00:00.000Z', line: 'boot' }]);
+      expect(payload).not.toHaveProperty('logs');
       expect(payload).not.toHaveProperty('projectData');
       expect(mocks.readProjectSnapshot).not.toHaveBeenCalled();
+      expect(mocks.readGlobalLogs).not.toHaveBeenCalled();
     } finally {
       await dashboard.stop();
     }

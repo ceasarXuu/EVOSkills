@@ -13,7 +13,7 @@ describe('dashboard sse hub', () => {
     vi.clearAllMocks();
   });
 
-  it('connects a client, seeds snapshot versions, and sends the initial update', async () => {
+  it('connects a client, seeds snapshot versions, and sends the initial update without replaying logs', async () => {
     const { createDashboardSseHub } = await import('../../src/dashboard/sse/hub.js');
     const res = createFakeResponse();
     const projects = [
@@ -27,9 +27,10 @@ describe('dashboard sse hub', () => {
       },
     ];
 
+    const readGlobalLogs = vi.fn().mockReturnValue([{ ts: '2026-04-17T00:00:00.000Z', line: 'boot' }]);
     const hub = createDashboardSseHub({
       createGlobalLogCursor: vi.fn().mockReturnValue({ path: null, offset: 0 }),
-      readGlobalLogs: vi.fn().mockReturnValue([{ ts: '2026-04-17T00:00:00.000Z', line: 'boot' }]),
+      readGlobalLogs,
       readLogsSince: vi.fn().mockReturnValue({
         lines: [],
         cursor: { path: null, offset: 0 },
@@ -52,8 +53,9 @@ describe('dashboard sse hub', () => {
 
     const initialPayloadWrite = res.write.mock.calls[1]?.[0];
     expect(initialPayloadWrite).toContain('"projects"');
-    expect(initialPayloadWrite).toContain('"logs"');
+    expect(initialPayloadWrite).not.toContain('"logs"');
     expect(initialPayloadWrite).not.toContain('projectData');
+    expect(readGlobalLogs).not.toHaveBeenCalled();
   });
 
   it('stays idle when projects, versions, and logs have not changed', async () => {

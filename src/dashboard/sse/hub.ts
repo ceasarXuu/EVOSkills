@@ -51,9 +51,10 @@ function buildProjectsSignature(projects: SseProjectState[]): string {
 }
 
 export function createDashboardSseHub(dependencies: SseHubDependencies) {
-  const { createGlobalLogCursor, readGlobalLogs, readLogsSince, readProjectSnapshotVersion, logger } = dependencies;
+  const { createGlobalLogCursor, readLogsSince, readProjectSnapshotVersion, logger } = dependencies;
   const clients = new Set<SseClient>();
   let logCursor: LogCursor = { path: null, offset: 0 };
+  const LARGE_PAYLOAD_BYTES = 128 * 1024;
 
   function seedClientSnapshotVersions(client: SseClient, projects: SseProjectState[]): void {
     const livePaths = new Set(projects.map((project) => project.path));
@@ -79,6 +80,18 @@ export function createDashboardSseHub(dependencies: SseHubDependencies) {
     }
   }
 
+  function warnIfPayloadLarge(clientId: string, payload: unknown, projects: SseProjectState[], source: 'connect' | 'broadcast'): void {
+    const payloadBytes = Buffer.byteLength(JSON.stringify(payload), 'utf-8');
+    if (payloadBytes <= LARGE_PAYLOAD_BYTES) return;
+    logger.warn('Dashboard SSE payload is large', {
+      bytes: payloadBytes,
+      clients: clients.size,
+      projectCount: projects.length,
+      clientId,
+      source,
+    });
+  }
+
   function initializeCursor(): void {
     logCursor = createGlobalLogCursor();
   }
@@ -101,7 +114,9 @@ export function createDashboardSseHub(dependencies: SseHubDependencies) {
     seedClientSnapshotVersions(client, projects);
     clients.add(client);
 
-    sendSseEvent(client, 'update', { projects, logs: readGlobalLogs(100) });
+    const payload = { projects };
+    warnIfPayloadLarge(client.id, payload, projects, 'connect');
+    sendSseEvent(client, 'update', payload);
     return client.id;
   }
 
@@ -163,15 +178,7 @@ export function createDashboardSseHub(dependencies: SseHubDependencies) {
         ...(changedProjects.length > 0 ? { changedProjects } : {}),
         ...(newLogs.length > 0 ? { logs: newLogs } : {}),
       };
-      const payloadBytes = Buffer.byteLength(JSON.stringify(payload), 'utf-8');
-      if (payloadBytes > 128 * 1024) {
-        logger.warn('Dashboard SSE payload is large', {
-          bytes: payloadBytes,
-          clients: clients.size,
-          projectCount: projects.length,
-          clientId: client.id,
-        });
-      }
+      warnIfPayloadLarge(client.id, payload, projects, 'broadcast');
       sendSseEvent(client, 'update', payload);
     }
   }

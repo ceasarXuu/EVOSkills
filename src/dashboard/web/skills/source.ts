@@ -439,6 +439,9 @@ function renderSkillLibraryDetail() {
     .map(function(runtime) { return normalizeSkillRuntime(runtime); });
   const runtimeOptions = (availableRuntimes.length > 0 ? availableRuntimes : [normalizeSkillRuntime(activeInstance && activeInstance.runtime)]);
   const selectedRuntime = normalizeSkillRuntime((activeInstance && activeInstance.runtime) || state.currentSkillRuntime || runtimeOptions[0] || 'codex');
+  const visibleInstances = instances.filter(function(instance) {
+    return normalizeSkillRuntime(instance && instance.runtime) === selectedRuntime;
+  });
   const runtimeOptionsHtml = runtimeOptions.map(function(runtime) {
     return '<option value="' + escHtml(runtime) + '">' + escHtml(getRuntimeLabel(runtime)) + '</option>';
   }).join('');
@@ -484,7 +487,7 @@ function renderSkillLibraryDetail() {
       '</div>' +
     '</div>' +
     '<div class="card-body skill-inline-card-body">' +
-      '<div class="skill-instance-strip">' + renderSkillLibraryInstances(familyId, instances) + '</div>' +
+      '<div class="skill-instance-strip">' + renderSkillLibraryInstances(familyId, visibleInstances) + '</div>' +
       editorHtml +
     '</div>' +
   '</div>';

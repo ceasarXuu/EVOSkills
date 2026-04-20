@@ -3465,6 +3465,139 @@ describe('dashboard ui recovery', () => {
     expect(html).not.toContain('card skill-library-nav-card');
   });
 
+  it('filters the skill instance strip by the selected inline runtime host', () => {
+    const { dashboard, getElement } = loadDashboardTestHarness({}, { lang: 'zh' });
+    const projectPath = '/Users/xuzhang/OrnnSkills';
+    const family = {
+      familyId: 'family-astartes',
+      familyName: 'astartes-coding-custodes',
+      status: 'pending',
+      runtimes: ['codex', 'claude', 'opencode'],
+      instanceCount: 4,
+      projectCount: 3,
+      runtimeCount: 3,
+      usage: { observedCalls: 7 },
+      lastSeenAt: '2026-04-16T18:00:50.529Z',
+    };
+    const instances = [
+      {
+        instanceId: 'codex-1',
+        familyId: family.familyId,
+        projectPath,
+        skillId: family.familyName,
+        runtime: 'codex',
+        effectiveVersion: 6,
+        status: 'pending',
+        lastUsedAt: '2026-04-16T18:00:50.529Z',
+      },
+      {
+        instanceId: 'codex-2',
+        familyId: family.familyId,
+        projectPath: '/Users/xuzhang/mili',
+        skillId: family.familyName,
+        runtime: 'codex',
+        effectiveVersion: 0,
+        status: 'pending',
+        lastUsedAt: '2026-04-15T18:00:50.529Z',
+      },
+      {
+        instanceId: 'claude-1',
+        familyId: family.familyId,
+        projectPath,
+        skillId: family.familyName,
+        runtime: 'claude',
+        effectiveVersion: 1,
+        status: 'pending',
+        lastUsedAt: '2026-04-14T18:00:50.529Z',
+      },
+      {
+        instanceId: 'opencode-1',
+        familyId: family.familyId,
+        projectPath,
+        skillId: family.familyName,
+        runtime: 'opencode',
+        effectiveVersion: 1,
+        status: 'pending',
+        lastUsedAt: '2026-04-13T18:00:50.529Z',
+      },
+    ];
+
+    getElement('mainPanel');
+    dashboard.state.selectedProjectId = projectPath;
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [
+          {
+            skillId: family.familyName,
+            runtime: 'codex',
+            status: 'pending',
+            traceCount: 7,
+            current_revision: 6,
+            updatedAt: '2026-04-16T18:00:50.529Z',
+          },
+          {
+            skillId: family.familyName,
+            runtime: 'claude',
+            status: 'pending',
+            traceCount: 1,
+            current_revision: 1,
+            updatedAt: '2026-04-14T18:00:50.529Z',
+          },
+          {
+            skillId: family.familyName,
+            runtime: 'opencode',
+            status: 'pending',
+            traceCount: 1,
+            current_revision: 1,
+            updatedAt: '2026-04-13T18:00:50.529Z',
+          },
+        ],
+        skillInstances: instances,
+        traceStats: {
+          total: 7,
+          byRuntime: { codex: 5, claude: 1, opencode: 1 },
+          byStatus: { pending: 7 },
+          byEventType: { tool_call: 7 },
+        },
+        recentTraces: [],
+        decisionEvents: [],
+        agentUsage: {
+          callCount: 0,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          durationMsTotal: 0,
+          avgDurationMs: 0,
+          lastCallAt: null,
+          byModel: {},
+          byScope: {},
+          bySkill: {},
+        },
+      },
+    };
+    dashboard.state.selectedMainTab = 'skills';
+    dashboard.state.selectedSkillsSubTab = 'skill_library';
+    dashboard.state.skillLibraryLoaded = true;
+    dashboard.state.skillFamilies = [family];
+    dashboard.state.skillFamilyDetailsById = { [family.familyId]: family };
+    dashboard.state.skillFamilyInstancesById = { [family.familyId]: instances };
+    dashboard.state.selectedSkillFamilyId = family.familyId;
+    dashboard.state.currentSkillProjectId = projectPath;
+    dashboard.state.currentSkillId = family.familyName;
+    dashboard.state.currentSkillRuntime = 'codex';
+    dashboard.state.currentSkillInstanceId = 'codex-1';
+
+    dashboard.renderMainPanel(projectPath);
+
+    const html = getElement('mainPanel').innerHTML;
+    expect((html.match(/skill-instance-item/g) || []).length).toBe(2);
+    expect(html).toContain('Codex · v6 · pending');
+    expect(html).toContain('Codex · v0 · pending');
+    expect(html).not.toContain('Claude · v1 · pending');
+    expect(html).not.toContain('OpenCode · v1 · pending');
+  });
+
   it('loads skill library details into the inline editor instead of opening the modal', async () => {
     const projectPath = '/tmp/ornn-project';
     const encodedProject = encodeURIComponent(projectPath);

@@ -442,15 +442,28 @@ function renderSkillLibraryDetail() {
   const visibleInstances = instances.filter(function(instance) {
     return normalizeSkillRuntime(instance && instance.runtime) === selectedRuntime;
   });
+  const useCurrentSkillState = !!(activeInstance &&
+    state.currentSkillId === activeInstance.skillId &&
+    state.currentSkillInstanceId === activeInstance.instanceId &&
+    getCurrentSkillProjectId() === activeInstance.projectPath &&
+    normalizeSkillRuntime(state.currentSkillRuntime) === normalizeSkillRuntime(activeInstance.runtime));
   const runtimeOptionsHtml = runtimeOptions.map(function(runtime) {
-    return '<option value="' + escHtml(runtime) + '">' + escHtml(getRuntimeLabel(runtime)) + '</option>';
+    const selectedAttr = runtime === selectedRuntime ? ' selected' : '';
+    return '<option value="' + escHtml(runtime) + '"' + selectedAttr + '>' + escHtml(getRuntimeLabel(runtime)) + '</option>';
   }).join('');
-  const historyPlaceholder = '<div style="font-size:11px;color:var(--muted)">' + escHtml(t('mainLoading')) + '</div>';
+  const historyPlaceholder = useCurrentSkillState
+    ? renderSkillVersionHistoryHtml(
+      encodeURIComponent(activeInstance.projectPath),
+      encodeURIComponent(activeInstance.skillId),
+      encodeURIComponent(selectedRuntime)
+    )
+    : '<div style="font-size:11px;color:var(--muted)">' + escHtml(t('mainLoading')) + '</div>';
+  const editorValue = useCurrentSkillState ? getCurrentSkillContentValue() : t('modalLoading');
   const editorHtml = instances.length === 0
     ? '<div class="empty-state">' + t('skillsEmpty') + '</div>'
     : '<div class="skill-inline-editor-layout">' +
       '<div class="skill-inline-editor-pane">' +
-        '<textarea id="skillInlineContent" class="modal-editor" spellcheck="false">' + escHtml(t('modalLoading')) + '</textarea>' +
+        '<textarea id="skillInlineContent" class="modal-editor" spellcheck="false">' + escHtml(editorValue) + '</textarea>' +
         '<div class="modal-actions">' +
           '<span id="skillInlineSaveHint" class="modal-save-hint"></span>' +
           '<div class="modal-action-group">' +
@@ -590,6 +603,8 @@ async function loadSkillFamilyDetail(familyId, force = false, options) {
         instanceId: state.currentSkillInstanceId,
         runtime: state.currentSkillRuntime,
       });
+      refreshInlineSkillLibraryDetail();
+      syncCurrentSkillDetailSurface();
     } else {
       await ensureSkillLibraryInlineSkill(familyId, { force: force });
     }
@@ -840,18 +855,41 @@ function getSkillVersionMetaElementId(version) {
   return (isSkillLibraryInlineSurfaceActive() ? 'skillInlineVmeta_' : 'vmeta_') + version;
 }
 
-function renderVersionHistory(encProject, encSkill, encRuntime) {
-  const versionList = getSkillDetailElement('versionList');
-  if (!versionList) return;
+function getCurrentSkillDetailContextKey() {
+  const projectPath = getCurrentSkillProjectId();
+  if (!projectPath || !state.currentSkillId) return '';
+  return String(projectPath) +
+    '::' + String(state.currentSkillId) +
+    '::' + String(normalizeSkillRuntime(state.currentSkillRuntime || 'codex')) +
+    '::' + String(state.currentSkillInstanceId || '');
+}
+
+function getCurrentSkillContentValue() {
+  if (state.currentSkillContentLoading) {
+    return t('modalLoading');
+  }
+  if (state.currentSkillLoadError) {
+    return t('modalLoadError');
+  }
+  const content = typeof state.currentSkillContent === 'string' ? state.currentSkillContent : '';
+  return content === '' ? t('modalNoContent') : content;
+}
+
+function renderSkillVersionHistoryHtml(encProject, encSkill, encRuntime) {
+  if (state.currentSkillContentLoading) {
+    return '<div style="font-size:11px;color:var(--muted)">' + t('mainLoading') + '</div>';
+  }
+  if (state.currentSkillLoadError) {
+    return '<div style="font-size:11px;color:var(--muted)">' + t('modalLoadError') + '</div>';
+  }
   const versions = Array.isArray(state.currentSkillVersions) ? state.currentSkillVersions : [];
   if (versions.length === 0) {
-    versionList.innerHTML = '<div style="font-size:11px;color:var(--muted)">' + t('modalNoVersions') + '</div>';
-    return;
+    return '<div style="font-size:11px;color:var(--muted)">' + t('modalNoVersions') + '</div>';
   }
   const selectedVersion = state.currentSkillVersion ?? Math.max.apply(Math, versions);
   const effectiveVersion = state.currentSkillEffectiveVersion ?? selectedVersion;
   const metaByVersion = state.currentSkillVersionMeta || {};
-  versionList.innerHTML = versions.slice().reverse().map(function(version) {
+  return versions.slice().reverse().map(function(version) {
     const isSelected = version === selectedVersion;
     const meta = metaByVersion[version];
     const isDisabled = !!(meta && meta.isDisabled);
@@ -870,6 +908,50 @@ function renderVersionHistory(encProject, encSkill, encRuntime) {
       '<div class="version-actions"><button class="btn-secondary" type="button" onclick="toggleSkillVersionDisabled(\\'' + encProject + '\\',\\'' + encSkill + '\\',\\'' + encRuntime + '\\',' + version + ',' + actionTarget + ');event.stopPropagation()">' + actionLabel + '</button></div>' +
     '</div>';
   }).join('');
+}
+
+function captureCurrentSkillDetailDraft() {
+  if (!state.currentSkillId || state.currentSkillContentLoading) return;
+  const contentEl = getSkillDetailElement('content');
+  if (!contentEl) return;
+  const draft = typeof contentEl.value === 'string' ? contentEl.value : '';
+  if (
+    draft === t('modalLoading') ||
+    draft === t('modalLoadError') ||
+    draft === t('modalNoContent')
+  ) {
+    return;
+  }
+  state.currentSkillContent = draft;
+}
+
+function syncCurrentSkillDetailSurface() {
+  const projectPath = getCurrentSkillProjectId();
+  const skillId = state.currentSkillId;
+  if (!projectPath || !skillId) return;
+  const runtime = normalizeSkillRuntime(state.currentSkillRuntime || 'codex');
+  updateModalRuntimeSelect(state.currentSkillAvailableRuntimes, runtime);
+  updateModalSkillHeader(projectPath, skillId, runtime);
+
+  const contentEl = getSkillDetailElement('content');
+  if (contentEl) {
+    contentEl.value = getCurrentSkillContentValue();
+  }
+
+  const versionList = getSkillDetailElement('versionList');
+  if (versionList) {
+    versionList.innerHTML = renderSkillVersionHistoryHtml(
+      encodeURIComponent(projectPath),
+      encodeURIComponent(skillId),
+      encodeURIComponent(runtime)
+    );
+  }
+}
+
+function renderVersionHistory(encProject, encSkill, encRuntime) {
+  const versionList = getSkillDetailElement('versionList');
+  if (!versionList) return;
+  versionList.innerHTML = renderSkillVersionHistoryHtml(encProject, encSkill, encRuntime);
 }
 
 function refreshInlineSkillLibraryDetail() {
@@ -970,6 +1052,15 @@ async function viewSkill(projectPath, skillId, runtime, instanceId) {
       return normalizeSkillRuntime(member.runtime);
     })
     : [resolvedRuntime];
+  state.currentSkillContent = '';
+  state.currentSkillContentLoading = true;
+  state.currentSkillLoadError = '';
+  state.currentSkillLoadContextKey = getCurrentSkillDetailContextKey();
+  state.currentSkillVersions = [];
+  state.currentSkillEffectiveVersion = null;
+  state.currentSkillVersion = null;
+  state.currentSkillVersionMeta = {};
+  state.currentSkillVersionContextKey = '';
 
   if (isSkillLibraryInlineSurfaceActive()) {
     refreshInlineSkillLibraryDetail();
@@ -979,9 +1070,6 @@ async function viewSkill(projectPath, skillId, runtime, instanceId) {
       modal.classList.add('visible');
     }
   }
-
-  updateModalRuntimeSelect(state.currentSkillAvailableRuntimes, resolvedRuntime);
-  updateModalSkillHeader(projectPath, skillId, resolvedRuntime);
 
   const saveHintEl = getSkillDetailElement('saveHint');
   if (saveHintEl) {
@@ -997,26 +1085,20 @@ async function viewSkill(projectPath, skillId, runtime, instanceId) {
     applyAllBtn.disabled = false;
     applyAllBtn.textContent = t('modalApplyAllButton');
   }
-
-  const contentEl = getSkillDetailElement('content');
-  if (contentEl) {
-    contentEl.value = t('modalLoading');
-  }
+  syncCurrentSkillDetailSurface();
 
   try {
     const enc = encodeURIComponent(projectPath);
     const encSkill = encodeURIComponent(skillId);
     const encRuntime = encodeURIComponent(resolvedRuntime);
-    const r = await fetch('/api/projects/' + enc + '/skills/' + encSkill + '?runtime=' + encRuntime);
-    if (!r.ok) {
-      throw new Error('HTTP ' + r.status + ': ' + r.statusText);
-    }
-    const data = await r.json();
-    if (contentEl) {
-      contentEl.value = data.content ?? t('modalNoContent');
-    }
+    const contextKey = state.currentSkillLoadContextKey;
+    const data = await fetchJsonWithTimeout('/api/projects/' + enc + '/skills/' + encSkill + '?runtime=' + encRuntime, 12000);
+    if (state.currentSkillLoadContextKey !== contextKey) return;
 
     const versions = data.versions ?? [];
+    state.currentSkillContent = data.content ?? '';
+    state.currentSkillContentLoading = false;
+    state.currentSkillLoadError = '';
     state.currentSkillVersions = Array.isArray(versions) ? versions.slice() : [];
     state.currentSkillEffectiveVersion = typeof data.effectiveVersion === 'number' ? data.effectiveVersion : null;
     state.currentSkillVersion = typeof data.effectiveVersion === 'number'
@@ -1024,7 +1106,7 @@ async function viewSkill(projectPath, skillId, runtime, instanceId) {
       : (versions.length > 0 ? Math.max.apply(Math, versions) : null);
     state.currentSkillVersionMeta = {};
     state.currentSkillVersionContextKey = getSkillVersionContextKey(enc, encSkill, encRuntime);
-    renderVersionHistory(enc, encSkill, encRuntime);
+    syncCurrentSkillDetailSurface();
 
     if (versions.length > 0) {
       await Promise.allSettled(versions.map(function(version) {
@@ -1038,9 +1120,14 @@ async function viewSkill(projectPath, skillId, runtime, instanceId) {
       runtime: resolvedRuntime,
       error: String(e),
     });
-    if (contentEl) {
-      contentEl.value = t('modalLoadError');
-    }
+    state.currentSkillContent = '';
+    state.currentSkillContentLoading = false;
+    state.currentSkillLoadError = String(e);
+    state.currentSkillVersions = [];
+    state.currentSkillEffectiveVersion = null;
+    state.currentSkillVersion = null;
+    state.currentSkillVersionMeta = {};
+    syncCurrentSkillDetailSurface();
   }
 }
 
@@ -1098,9 +1185,7 @@ async function loadVersionMeta(encProject, encSkill, encRuntime, version) {
     const versionUrl = state.currentSkillInstanceId
       ? '/api/projects/' + encProject + '/skill-instances/' + encodeURIComponent(state.currentSkillInstanceId) + '/versions/' + version
       : '/api/projects/' + encProject + '/skills/' + encSkill + '/versions/' + version + '?runtime=' + encRuntime;
-    const r = await fetch(versionUrl);
-    if (!r.ok) return;
-    const data = await r.json();
+    const data = await fetchJsonWithTimeout(versionUrl, 12000);
     if (state.currentSkillVersionContextKey !== contextKey) return;
     if (!state.currentSkillVersionMeta || typeof state.currentSkillVersionMeta !== 'object') {
       state.currentSkillVersionMeta = {};
@@ -1127,28 +1212,23 @@ async function loadVersion(encProject, encSkill, encRuntime, version) {
     const versionUrl = state.currentSkillInstanceId
       ? '/api/projects/' + encProject + '/skill-instances/' + encodeURIComponent(state.currentSkillInstanceId) + '/versions/' + version
       : '/api/projects/' + encProject + '/skills/' + encSkill + '/versions/' + version + '?runtime=' + encRuntime;
-    const r = await fetch(versionUrl);
-    if (!r.ok) {
-      throw new Error('HTTP ' + r.status + ': ' + r.statusText);
-    }
-    const data = await r.json();
+    const data = await fetchJsonWithTimeout(versionUrl, 12000);
     if (state.currentSkillVersionContextKey === contextKey) {
       state.currentSkillVersion = version;
+      state.currentSkillContent = data.content ?? '';
+      state.currentSkillContentLoading = false;
+      state.currentSkillLoadError = '';
       if (!state.currentSkillVersionMeta || typeof state.currentSkillVersionMeta !== 'object') {
         state.currentSkillVersionMeta = {};
       }
       state.currentSkillVersionMeta[version] = data.metadata || state.currentSkillVersionMeta[version] || null;
-      renderVersionHistory(encProject, encSkill, encRuntime);
+      syncCurrentSkillDetailSurface();
       console.debug('[dashboard] selected skill version', {
         encProject: encProject,
         encSkill: encSkill,
         encRuntime: encRuntime,
         version: version,
       });
-    }
-    const contentEl = getSkillDetailElement('content');
-    if (contentEl) {
-      contentEl.value = data.content ?? t('modalNoContent');
     }
     await loadVersionMeta(encProject, encSkill, encRuntime, version);
   } catch (e) {
@@ -1168,16 +1248,11 @@ async function toggleSkillVersionDisabled(encProject, encSkill, encRuntime, vers
     const versionUrl = state.currentSkillInstanceId
       ? '/api/projects/' + encProject + '/skill-instances/' + encodeURIComponent(state.currentSkillInstanceId) + '/versions/' + version
       : '/api/projects/' + encProject + '/skills/' + encSkill + '/versions/' + version + '?runtime=' + encRuntime;
-    const r = await fetch(versionUrl, {
+    const data = await fetchJsonWithTimeout(versionUrl, 12000, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ disabled: !!disabled }),
     });
-    if (!r.ok) {
-      const errorBody = await r.json().catch(function() { return {}; });
-      throw new Error((errorBody && errorBody.error) || ('HTTP ' + r.status + ': ' + r.statusText));
-    }
-    const data = await r.json();
     if (state.currentSkillVersionContextKey !== contextKey) return;
     if (!state.currentSkillVersionMeta || typeof state.currentSkillVersionMeta !== 'object') {
       state.currentSkillVersionMeta = {};
@@ -1350,7 +1425,8 @@ async function saveCurrentSkill() {
   const applyAllBtn = getSkillDetailElement('applyAllBtn');
   const hintEl = getSkillDetailElement('saveHint');
   const contentEl = getSkillDetailElement('content');
-  const content = contentEl && contentEl.value ? contentEl.value : '';
+  const rawContent = contentEl && typeof contentEl.value === 'string' ? contentEl.value : '';
+  const content = rawContent === t('modalNoContent') && !state.currentSkillContent ? '' : rawContent;
   const runtime = state.currentSkillRuntime || 'codex';
 
   if (saveBtn) {
@@ -1412,7 +1488,8 @@ async function confirmApplyCurrentSkillToAll() {
   const cancelBtn = document.getElementById('applyAllCancelBtn');
   const hintEl = getSkillDetailElement('saveHint');
   const contentEl = getSkillDetailElement('content');
-  const content = contentEl && contentEl.value ? contentEl.value : '';
+  const rawContent = contentEl && typeof contentEl.value === 'string' ? contentEl.value : '';
+  const content = rawContent === t('modalNoContent') && !state.currentSkillContent ? '' : rawContent;
   const runtime = state.currentSkillRuntime || 'codex';
 
   if (saveBtn) {

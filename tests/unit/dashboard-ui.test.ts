@@ -3851,6 +3851,9 @@ describe('dashboard ui recovery', () => {
     await dashboard.viewSkill(projectPath, skillId, runtimeId, 'instance-codex');
     await new Promise((resolve) => setTimeout(resolve, 0));
     clearFetchCalls();
+    getElement('skillInlineContent').value = '加载中...';
+    getElement('skillInlineVersionList').innerHTML =
+      '<div style="font-size:11px;color:var(--muted)">加载中...</div>';
 
     await (
       dashboard as unknown as { handleUpdate: (data: Record<string, unknown>) => Promise<void> }
@@ -3864,6 +3867,9 @@ describe('dashboard ui recovery', () => {
     expect(fetchCalls).not.toContain(`/api/projects/${encodedProject}/skill-instances/instance-codex/versions/4`);
     expect(fetchCalls).not.toContain(`/api/projects/${encodedProject}/skill-instances/instance-codex/versions/5`);
     expect(fetchCalls).not.toContain(`/api/projects/${encodedProject}/skill-instances/instance-codex/versions/6`);
+    expect(getElement('skillInlineContent').value).toBe(skillResponse.content);
+    expect(getElement('skillInlineVersionList').innerHTML).toContain('v6');
+    expect(getElement('skillInlineVersionList').innerHTML).toContain('生效中');
   });
 
   it('loads skill library details into the inline editor instead of opening the modal', async () => {

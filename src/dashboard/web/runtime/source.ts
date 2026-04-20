@@ -25,9 +25,51 @@ const DASHBOARD_RUNTIME_SNAPSHOT_REFRESH_OPTIMIZED = `  const changedProjects = 
     }
   }`;
 
+const DASHBOARD_RUNTIME_INIT_SELECT_FIRST_PROJECT_SNIPPET = `      await selectProject(state.projects[0].path);`;
+
+const DASHBOARD_RUNTIME_INIT_SELECT_PREFERRED_PROJECT = `      const preferredProjectPath = state.selectedProjectId && state.projects.some(function(project) {
+        return project && project.path === state.selectedProjectId;
+      })
+        ? state.selectedProjectId
+        : state.projects[0].path;
+      state.selectedProjectId = preferredProjectPath || null;
+      await selectProject(preferredProjectPath);`;
+
+const DASHBOARD_RUNTIME_INIT_ERROR_STATE_SNIPPET = `    // Show error state in sidebar and main panel
+    const projectListEl = document.getElementById('projectList');
+    if (projectListEl) {
+      projectListEl.innerHTML = '<div class="empty-state" style="color:var(--red)">' + t('initProjectsLoadFailed') + '</div>';
+    }
+    const mainPanelEl = document.getElementById('mainPanel');
+    if (mainPanelEl) {
+      mainPanelEl.innerHTML = '<div class="panel-inner"><div class="no-project" style="color:var(--yellow)">' + t('initRecoveryWaiting') + '</div></div>';
+    }`;
+
+const DASHBOARD_RUNTIME_INIT_ERROR_STATE_OPTIMIZED = `    if (hasDashboardBootstrapRenderableState()) {
+      console.warn('[dashboard] init failed; keeping bootstrap cache hydrated UI', { error: String(e) });
+    } else {
+      // Show error state in sidebar and main panel
+      const projectListEl = document.getElementById('projectList');
+      if (projectListEl) {
+        projectListEl.innerHTML = '<div class="empty-state" style="color:var(--red)">' + t('initProjectsLoadFailed') + '</div>';
+      }
+      const mainPanelEl = document.getElementById('mainPanel');
+      if (mainPanelEl) {
+        mainPanelEl.innerHTML = '<div class="panel-inner"><div class="no-project" style="color:var(--yellow)">' + t('initRecoveryWaiting') + '</div></div>';
+      }
+    }`;
+
 export function renderDashboardRuntimeSource(): string {
   return DASHBOARD_RUNTIME_SOURCE.replace(
     DASHBOARD_RUNTIME_SNAPSHOT_REFRESH_SNIPPET,
     DASHBOARD_RUNTIME_SNAPSHOT_REFRESH_OPTIMIZED
-  );
+  )
+    .replace(
+      DASHBOARD_RUNTIME_INIT_SELECT_FIRST_PROJECT_SNIPPET,
+      DASHBOARD_RUNTIME_INIT_SELECT_PREFERRED_PROJECT
+    )
+    .replace(
+      DASHBOARD_RUNTIME_INIT_ERROR_STATE_SNIPPET,
+      DASHBOARD_RUNTIME_INIT_ERROR_STATE_OPTIMIZED
+    );
 }

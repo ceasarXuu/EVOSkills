@@ -1502,9 +1502,48 @@ const DASHBOARD_SKILL_LIBRARY_STALE_SNAPSHOT_OPTIMIZED = `  const hasProjectSnap
     await loadProjectSnapshot(projectPath, { force: !!state.staleProjectData[projectPath] });
   }`;
 
+const DASHBOARD_SKILLS_BOOTSTRAP_CACHE_SOURCE = [
+  'const baseLoadSkillLibraryForBootstrapCache = loadSkillLibrary;',
+  'loadSkillLibrary = async function(force = false, options) {',
+  '  const result = await baseLoadSkillLibraryForBootstrapCache(force, options);',
+  "  scheduleDashboardBootstrapCacheSave('loadSkillLibrary');",
+  '  return result;',
+  '};',
+  'const baseLoadSkillFamilyDetailForBootstrapCache = loadSkillFamilyDetail;',
+  'loadSkillFamilyDetail = async function(familyId, force = false, options) {',
+  '  const result = await baseLoadSkillFamilyDetailForBootstrapCache(familyId, force, options);',
+  "  scheduleDashboardBootstrapCacheSave('loadSkillFamilyDetail');",
+  '  return result;',
+  '};',
+  'const baseSelectSkillFamilyForBootstrapCache = selectSkillFamily;',
+  'selectSkillFamily = function(familyId) {',
+  '  const result = baseSelectSkillFamilyForBootstrapCache(familyId);',
+  "  scheduleDashboardBootstrapCacheSave('selectSkillFamily');",
+  '  return result;',
+  '};',
+  'const baseSelectRuntimeTabForBootstrapCache = selectRuntimeTab;',
+  'selectRuntimeTab = function(runtime) {',
+  '  const result = baseSelectRuntimeTabForBootstrapCache(runtime);',
+  "  scheduleDashboardBootstrapCacheSave('selectRuntimeTab');",
+  '  return result;',
+  '};',
+  'const baseHandleSearchForBootstrapCache = handleSearch;',
+  'handleSearch = function(query) {',
+  '  const result = baseHandleSearchForBootstrapCache(query);',
+  "  scheduleDashboardBootstrapCacheSave('handleSearch');",
+  '  return result;',
+  '};',
+  'const baseToggleSortForBootstrapCache = toggleSort;',
+  'toggleSort = function(sortBy) {',
+  '  const result = baseToggleSortForBootstrapCache(sortBy);',
+  "  scheduleDashboardBootstrapCacheSave('toggleSort');",
+  '  return result;',
+  '};',
+].join('\n');
+
 export function renderDashboardSkillsSource(): string {
   return DASHBOARD_SKILLS_SOURCE.replace(
     DASHBOARD_SKILL_LIBRARY_STALE_SNAPSHOT_SNIPPET,
     DASHBOARD_SKILL_LIBRARY_STALE_SNAPSHOT_OPTIMIZED
-  );
+  ).concat('\n', DASHBOARD_SKILLS_BOOTSTRAP_CACHE_SOURCE);
 }

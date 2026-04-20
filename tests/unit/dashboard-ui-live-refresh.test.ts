@@ -90,7 +90,10 @@ function createJsonResponse(payload: unknown): FetchResponse {
 }
 
 function loadDashboardHarness(
-  fetchImpl: (url: string, init?: Record<string, unknown>) => Promise<FetchResponse>
+  fetchImpl: (url: string, init?: Record<string, unknown>) => Promise<FetchResponse>,
+  options?: {
+    initialStorage?: Record<string, string>;
+  }
 ) {
   const html = getDashboardHtml(47432, 'zh', 'test-build-id');
   const scriptMatch = html.match(/<script>([\s\S]*)<\/script>/);
@@ -101,6 +104,7 @@ function loadDashboardHarness(
   const elements = new Map<string, FakeElement>();
   const selectors = new Map<string, FakeElement>();
   const fetchCalls: string[] = [];
+  const storage = new Map<string, string>(Object.entries(options?.initialStorage || {}));
 
   const ensureElement = (id: string) => {
     if (!elements.has(id)) {
@@ -153,8 +157,13 @@ function loadDashboardHarness(
       },
     },
     localStorage: {
-      getItem: () => null,
-      setItem: () => undefined,
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, String(value));
+      },
+      removeItem: (key: string) => {
+        storage.delete(key);
+      },
     },
     fetch: async (url: string, init?: Record<string, unknown>) => {
       fetchCalls.push(String(url));
@@ -202,6 +211,9 @@ function loadDashboardHarness(
     },
     clearFetchCalls() {
       fetchCalls.length = 0;
+    },
+    getStorageItem(key: string) {
+      return storage.get(key) ?? null;
     },
   };
 }
@@ -408,5 +420,110 @@ describe('dashboard ui live refresh', () => {
     expect(snapshotFetches).toBe(baselineSnapshotFetches);
     expect(harness.getFetchCalls()).toContain('/api/skills/families');
     expect(harness.dashboard.state.staleProjectData[projectPath]).toBe(true);
+  });
+
+  it('hydrates dashboard bootstrap cache before the first network round-trip finishes', async () => {
+    const projectPath = '/tmp/cached-project';
+    const familyId = 'family-1';
+    let resolveProjectsResponse: ((value: FetchResponse) => void) | null = null;
+
+    const harness = loadDashboardHarness(
+      async (url) => {
+        if (url === '/api/projects') {
+          return await new Promise<FetchResponse>((resolve) => {
+            resolveProjectsResponse = resolve;
+          });
+        }
+
+        if (url === '/api/logs') {
+          return createJsonResponse({ lines: [] });
+        }
+
+        if (url === '/api/dashboard/runtime') {
+          return createJsonResponse({ buildId: 'test-build-id', pid: 1 });
+        }
+
+        if (url === '/api/lang') {
+          return createJsonResponse({ ok: true, lang: 'zh' });
+        }
+
+        return createJsonResponse({});
+      },
+      {
+        initialStorage: {
+          'ornn-dashboard-bootstrap-cache': JSON.stringify({
+            version: 1,
+            buildId: 'test-build-id',
+            cachedAt: '2026-04-21T00:00:00.000Z',
+            ui: {
+              selectedProjectId: projectPath,
+              selectedMainTab: 'skills',
+              selectedSkillFamilyId: familyId,
+              selectedRuntimeTab: 'all',
+              searchQuery: '',
+              sortBy: 'name',
+              sortOrder: 'asc',
+            },
+            projects: [{ path: projectPath, name: 'Cached Project', isRunning: true, skillCount: 1 }],
+            selectedProjectSnapshot: {
+              projectPath,
+              snapshot: {
+                daemon: { isRunning: true, processedTraces: 7 },
+                skills: [{ skillId: 'cached-skill', runtime: 'codex', status: 'active' }],
+                skillGroups: [],
+                skillInstances: [],
+                traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+                recentTraces: [],
+                decisionEvents: [],
+                activityScopes: [],
+                agentUsage: {
+                  callCount: 0,
+                  promptTokens: 0,
+                  completionTokens: 0,
+                  totalTokens: 0,
+                  durationMsTotal: 0,
+                  avgDurationMs: 0,
+                  lastCallAt: null,
+                  byModel: {},
+                  byScope: {},
+                  bySkill: {},
+                },
+              },
+            },
+            skillLibrary: {
+              families: [{ familyId, familyName: 'cached-skill', runtimes: ['codex'] }],
+              selectedFamilyId: familyId,
+              family: { familyId, familyName: 'cached-skill', runtimes: ['codex'] },
+              instances: [{ instanceId: 'instance-1', familyId, projectPath, runtime: 'codex' }],
+            },
+          }),
+        },
+      }
+    );
+
+    const initPromise = harness.dashboard.init();
+
+    expect(harness.dashboard.state.projects).toEqual([
+      { path: projectPath, name: 'Cached Project', isRunning: true, skillCount: 1 },
+    ]);
+    expect(harness.dashboard.state.selectedProjectId).toBe(projectPath);
+    expect(harness.dashboard.state.projectData[projectPath]?.daemon?.processedTraces).toBe(7);
+    expect(harness.dashboard.state.skillFamilies).toEqual([
+      { familyId, familyName: 'cached-skill', runtimes: ['codex'] },
+    ]);
+    expect(harness.dashboard.state.selectedSkillFamilyId).toBe(familyId);
+    expect(harness.getFetchCalls()).toContain('/api/projects');
+
+    resolveProjectsResponse?.(
+      createJsonResponse({
+        projects: [{ path: projectPath, name: 'Fresh Project', isRunning: true, skillCount: 2 }],
+      })
+    );
+
+    await initPromise;
+
+    expect(harness.dashboard.state.projects).toEqual([
+      { path: projectPath, name: 'Fresh Project', isRunning: true, skillCount: 2 },
+    ]);
   });
 });

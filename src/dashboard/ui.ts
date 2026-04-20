@@ -30,6 +30,7 @@ import { renderDashboardMetricRowsSource } from './web/render/metric-rows.js';
 import { renderDashboardSkillCardSource } from './web/render/skill-card.js';
 import { renderDashboardStateBadgeSource } from './web/render/state-badge.js';
 import { renderDashboardTraceBarsSource } from './web/render/trace-bars.js';
+import { renderDashboardBootstrapCacheSource } from './web/bootstrap-cache.js';
 import { renderDashboardStateSource } from './web/state.js';
 import { getDashboardSystemPromptDefaults } from '../core/prompt-defaults.js';
 
@@ -60,6 +61,7 @@ export function getDashboardHtml(_port: number, lang: Language = 'en', buildId =
   const dashboardStateBadgeSource = renderDashboardStateBadgeSource();
   const dashboardSkillsPanelSource = renderDashboardSkillsPanelSource();
   const dashboardStateSource = renderDashboardStateSource();
+  const dashboardBootstrapCacheSource = renderDashboardBootstrapCacheSource();
   const dashboardTraceBarsSource = renderDashboardTraceBarsSource();
 
   const styleCss = renderDashboardStylesSource();
@@ -72,6 +74,7 @@ const DASHBOARD_BUILD_ID = '${buildId}';
 const DASHBOARD_BUILD_SHORT = DASHBOARD_BUILD_ID.slice(-8);
 const DEFAULT_DASHBOARD_SYSTEM_PROMPTS = ${JSON.stringify(dashboardPromptDefaults)};
 ${dashboardStateSource}
+${dashboardBootstrapCacheSource}
 ${dashboardActivityPanelSource}
 ${dashboardConfigPanelSource}
 ${dashboardCostPanelSource}

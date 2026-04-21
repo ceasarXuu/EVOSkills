@@ -4,6 +4,7 @@ export const DASHBOARD_BOOTSTRAP_CACHE_TTL_MS = 30 * 60 * 1000;
 
 type DashboardMainTab = 'skills' | 'project' | 'config';
 type DashboardRuntimeTab = 'all' | 'codex' | 'claude' | 'opencode';
+type DashboardConfigSubTab = 'model' | 'evolution';
 type DashboardSortBy = 'name' | 'updated';
 type DashboardSortOrder = 'asc' | 'desc';
 
@@ -12,6 +13,7 @@ export interface DashboardBootstrapCacheUiState {
   selectedMainTab: DashboardMainTab;
   selectedSkillFamilyId: string | null;
   selectedRuntimeTab: DashboardRuntimeTab;
+  selectedConfigSubTab: DashboardConfigSubTab;
   searchQuery: string;
   sortBy: DashboardSortBy;
   sortOrder: DashboardSortOrder;
@@ -54,6 +56,10 @@ function normalizeMainTab(value: unknown): DashboardMainTab {
 
 function normalizeRuntimeTab(value: unknown): DashboardRuntimeTab {
   return value === 'codex' || value === 'claude' || value === 'opencode' ? value : 'all';
+}
+
+function normalizeConfigSubTab(value: unknown): DashboardConfigSubTab {
+  return value === 'evolution' ? 'evolution' : 'model';
 }
 
 function normalizeSortBy(value: unknown): DashboardSortBy {
@@ -123,6 +129,7 @@ function normalizeUiState(
     selectedMainTab: normalizeMainTab(raw.selectedMainTab),
     selectedSkillFamilyId: normalizeSelectedFamilyId(raw.selectedSkillFamilyId, skillLibrary),
     selectedRuntimeTab: normalizeRuntimeTab(raw.selectedRuntimeTab),
+    selectedConfigSubTab: normalizeConfigSubTab(raw.selectedConfigSubTab),
     searchQuery: typeof raw.searchQuery === 'string' ? raw.searchQuery : '',
     sortBy: normalizeSortBy(raw.sortBy),
     sortOrder: normalizeSortOrder(raw.sortOrder),
@@ -215,6 +222,10 @@ export function renderDashboardBootstrapCacheSource(): string {
     "  return value === 'codex' || value === 'claude' || value === 'opencode' ? value : 'all';",
     '}',
     '',
+    'function normalizeDashboardBootstrapConfigSubTab(value) {',
+    "  return value === 'evolution' ? 'evolution' : 'model';",
+    '}',
+    '',
     'function normalizeDashboardBootstrapSortBy(value) {',
     "  return value === 'updated' ? 'updated' : 'name';",
     '}',
@@ -275,6 +286,7 @@ export function renderDashboardBootstrapCacheSource(): string {
     '    selectedMainTab: normalizeDashboardBootstrapMainTab(rawUi.selectedMainTab),',
     '    selectedSkillFamilyId: normalizeDashboardBootstrapSelectedFamilyId(rawUi.selectedSkillFamilyId, skillLibrary),',
     '    selectedRuntimeTab: normalizeDashboardBootstrapRuntimeTab(rawUi.selectedRuntimeTab),',
+    '    selectedConfigSubTab: normalizeDashboardBootstrapConfigSubTab(rawUi.selectedConfigSubTab),',
     "    searchQuery: typeof rawUi.searchQuery === 'string' ? rawUi.searchQuery : '',",
     '    sortBy: normalizeDashboardBootstrapSortBy(rawUi.sortBy),',
     '    sortOrder: normalizeDashboardBootstrapSortOrder(rawUi.sortOrder),',
@@ -340,6 +352,7 @@ export function renderDashboardBootstrapCacheSource(): string {
     "  state.selectedSkillsSubTab = 'skill_library';",
     '  state.selectedSkillFamilyId = record.ui.selectedSkillFamilyId;',
     '  state.selectedRuntimeTab = record.ui.selectedRuntimeTab;',
+    '  state.selectedConfigSubTab = record.ui.selectedConfigSubTab;',
     '  state.searchQuery = record.ui.searchQuery;',
     '  state.sortBy = record.ui.sortBy;',
     '  state.sortOrder = record.ui.sortOrder;',
@@ -361,6 +374,7 @@ export function renderDashboardBootstrapCacheSource(): string {
     '    projectCount: state.projects.length,',
     '    selectedProjectId: state.selectedProjectId,',
     '    selectedSkillFamilyId: state.selectedSkillFamilyId,',
+    '    selectedConfigSubTab: state.selectedConfigSubTab,',
     '  });',
     '  return { hydrated: true, record: record };',
     '}',
@@ -388,6 +402,7 @@ export function renderDashboardBootstrapCacheSource(): string {
     "      selectedMainTab: state.selectedMainTab === 'project' || state.selectedMainTab === 'config' ? state.selectedMainTab : 'skills',",
     '      selectedSkillFamilyId: selectedFamilyId,',
     "      selectedRuntimeTab: state.selectedRuntimeTab === 'codex' || state.selectedRuntimeTab === 'claude' || state.selectedRuntimeTab === 'opencode' ? state.selectedRuntimeTab : 'all',",
+    "      selectedConfigSubTab: state.selectedConfigSubTab === 'evolution' ? 'evolution' : 'model',",
     "      searchQuery: typeof state.searchQuery === 'string' ? state.searchQuery : '',",
     "      sortBy: state.sortBy === 'updated' ? 'updated' : 'name',",
     "      sortOrder: state.sortOrder === 'desc' ? 'desc' : 'asc',",
@@ -406,6 +421,7 @@ export function renderDashboardBootstrapCacheSource(): string {
     '      reason: reason || \'unknown\',',
     '      selectedProjectId: record.ui.selectedProjectId,',
     '      selectedSkillFamilyId: record.ui.selectedSkillFamilyId,',
+    '      selectedConfigSubTab: record.ui.selectedConfigSubTab,',
     '    });',
     '  } catch (error) {',
     "    console.warn('[dashboard] bootstrap cache save failed', { reason: reason || 'unknown', error: String(error) });",

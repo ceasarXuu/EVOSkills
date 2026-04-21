@@ -4,6 +4,7 @@ import { renderDashboardSidebarSource } from '../../src/dashboard/web/sidebar/so
 import { renderDashboardCostSource } from '../../src/dashboard/web/cost/source.js';
 import { renderDashboardMainPanelSource } from '../../src/dashboard/web/main-panel/source.js';
 import { renderDashboardConfigSource } from '../../src/dashboard/web/config/source.js';
+import { renderDashboardConfigSubtabsSource } from '../../src/dashboard/web/config/subtabs.js';
 import { renderDashboardSkillsSource } from '../../src/dashboard/web/skills/source.js';
 
 describe('dashboard ui source modules', () => {
@@ -42,6 +43,13 @@ describe('dashboard ui source modules', () => {
     const source = renderDashboardConfigSource();
     expect(source).toContain('function renderConfigPanel');
     expect(source).toContain('async function checkProvidersConnectivity');
+  });
+
+  it('returns config subtab helpers', () => {
+    const source = renderDashboardConfigSubtabsSource();
+    expect(source).toContain('function selectConfigSubTab');
+    expect(source).toContain('normalizeConfigSubTab');
+    expect(source).toContain('selectedConfigSubTab');
   });
 
   it('returns skills and modal helpers', () => {

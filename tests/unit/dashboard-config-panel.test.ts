@@ -7,42 +7,53 @@ function createDeps() {
   };
 }
 
+function createPanelInput(overrides: Record<string, unknown> = {}) {
+  return {
+    deps: createDeps(),
+    connectivityHtml: '<div>connectivity</div>',
+    llmSafety: {
+      enabled: true,
+      windowMs: 60000,
+      maxRequestsPerWindow: 12,
+      maxConcurrentRequests: 2,
+      maxEstimatedTokensPerWindow: 48000,
+    },
+    loading: false,
+    loadError: '',
+    promptDefaults: {
+      skillCallAnalyzer: 'builtin analyzer',
+      decisionExplainer: 'builtin explainer',
+      readinessProbe: 'builtin probe',
+    },
+    promptOverrides: {
+      skillCallAnalyzer: 'custom analyzer prompt',
+      decisionExplainer: 'custom decision prompt',
+      readinessProbe: 'custom probe prompt',
+    },
+    promptSources: {
+      skillCallAnalyzer: 'built_in',
+      decisionExplainer: 'custom',
+      readinessProbe: 'built_in',
+    },
+    providerCatalogError: '',
+    providerCatalogLoading: false,
+    rowsHtml: '<div class="provider-row">provider row</div>',
+    saveHint: '',
+    ...overrides,
+  };
+}
+
 describe('dashboard config panel', () => {
   it('renders config banners and the provider editor shell', async () => {
     const { renderDashboardConfigPanel } = await import('../../src/dashboard/web/panels/config-panel.js');
 
-    const html = renderDashboardConfigPanel({
-      deps: createDeps(),
-      connectivityHtml: '<div>connectivity</div>',
-      llmSafety: {
-        enabled: true,
-        windowMs: 60000,
-        maxRequestsPerWindow: 12,
-        maxConcurrentRequests: 2,
-        maxEstimatedTokensPerWindow: 48000,
-      },
+    const html = renderDashboardConfigPanel(createPanelInput({
       loading: true,
       loadError: 'load failed',
-      promptDefaults: {
-        skillCallAnalyzer: 'builtin analyzer',
-        decisionExplainer: 'builtin explainer',
-        readinessProbe: 'builtin probe',
-      },
-      promptOverrides: {
-        skillCallAnalyzer: 'custom analyzer prompt',
-        decisionExplainer: 'custom decision prompt',
-        readinessProbe: 'custom probe prompt',
-      },
-      promptSources: {
-        skillCallAnalyzer: 'built_in',
-        decisionExplainer: 'custom',
-        readinessProbe: 'built_in',
-      },
       providerCatalogError: 'catalog failed',
       providerCatalogLoading: true,
-      rowsHtml: '<div class="provider-row">provider row</div>',
       saveHint: 'Saved',
-    });
+    }));
 
     expect(html).toContain('configCatalogLoading');
     expect(html).toContain('configCatalogErrorPrefix');
@@ -55,11 +66,10 @@ describe('dashboard config panel', () => {
     expect(html).not.toContain('configIntro');
   });
 
-  it('renders prompt override editors and llm safety controls', async () => {
+  it('renders prompt override editors in the evolution strategy subtab', async () => {
     const { renderDashboardConfigPanel } = await import('../../src/dashboard/web/panels/config-panel.js');
 
-    const html = renderDashboardConfigPanel({
-      deps: createDeps(),
+    const html = renderDashboardConfigPanel(createPanelInput({
       connectivityHtml: '',
       llmSafety: {
         enabled: false,
@@ -68,31 +78,16 @@ describe('dashboard config panel', () => {
         maxConcurrentRequests: 4,
         maxEstimatedTokensPerWindow: 96000,
       },
-      loading: false,
-      loadError: '',
-      promptDefaults: {
-        skillCallAnalyzer: 'builtin analyzer',
-        decisionExplainer: 'builtin explainer',
-        readinessProbe: 'builtin probe',
-      },
-      promptOverrides: {
-        skillCallAnalyzer: 'custom analyzer prompt',
-        decisionExplainer: 'custom decision prompt',
-        readinessProbe: 'custom probe prompt',
-      },
       promptSources: {
         skillCallAnalyzer: 'built_in',
         decisionExplainer: 'custom',
         readinessProbe: 'custom',
       },
-      providerCatalogError: '',
-      providerCatalogLoading: false,
       rowsHtml: '<div class="config-help">configNoProviders</div>',
-      saveHint: '',
-    });
+      selectedConfigSubTab: 'evolution',
+    }));
 
-    expect(html).toContain('id="cfg_llm_safety_enabled" type="checkbox"');
-    expect(html).not.toContain('id="cfg_llm_safety_enabled" type="checkbox" checked');
+    expect(html).not.toContain('id="cfg_llm_safety_enabled" type="checkbox"');
     expect(html).toContain('class="config-prompt-grid"');
     expect(html).toContain('id="cfg_prompt_skill_call_analyzer_source_built_in"');
     expect(html).toContain('id="cfg_prompt_skill_call_analyzer_source_custom"');
@@ -105,5 +100,27 @@ describe('dashboard config panel', () => {
     expect(html).toContain('custom decision prompt');
     expect(html).toContain('id="cfg_prompt_readiness_probe"');
     expect(html).toContain('custom probe prompt');
+  });
+
+  it('separates model provider controls from evolution strategy prompt controls', async () => {
+    const { renderDashboardConfigPanel } = await import('../../src/dashboard/web/panels/config-panel.js');
+
+    const modelHtml = renderDashboardConfigPanel(createPanelInput({ selectedConfigSubTab: 'model' }));
+    expect(modelHtml).toContain('role="tablist"');
+    expect(modelHtml).toContain("selectConfigSubTab('model')");
+    expect(modelHtml).toContain('configSubTabModel');
+    expect(modelHtml).toContain('configSubTabEvolutionStrategy');
+    expect(modelHtml).toContain('id="cfg_providers_rows"');
+    expect(modelHtml).toContain('id="cfg_llm_safety_enabled" type="checkbox"');
+    expect(modelHtml).not.toContain('id="cfg_prompt_skill_call_analyzer"');
+
+    const evolutionHtml = renderDashboardConfigPanel(createPanelInput({ selectedConfigSubTab: 'evolution' }));
+    expect(evolutionHtml).toContain('role="tablist"');
+    expect(evolutionHtml).toContain("selectConfigSubTab('evolution')");
+    expect(evolutionHtml).toContain('class="config-subtab active"');
+    expect(evolutionHtml).toContain('id="cfg_prompt_skill_call_analyzer"');
+    expect(evolutionHtml).toContain('custom analyzer prompt');
+    expect(evolutionHtml).not.toContain('id="cfg_providers_rows"');
+    expect(evolutionHtml).not.toContain('id="cfg_llm_safety_enabled" type="checkbox"');
   });
 });

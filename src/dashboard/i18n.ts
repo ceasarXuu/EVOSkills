@@ -57,6 +57,9 @@ export interface I18nStrings {
   configAutoSaved: string;
   configSaveFailed: string;
   configLoading: string;
+  configSubTabsLabel: string;
+  configSubTabModel: string;
+  configSubTabEvolutionStrategy: string;
   configLogLevelLabel: string;
   configLogLevelHelp: string;
   configDefaultProviderLabel: string;
@@ -454,6 +457,9 @@ const en: I18nStrings = {
   configAutoSaved: 'Auto-saved',
   configSaveFailed: 'Failed to save config',
   configLoading: 'Loading config...',
+  configSubTabsLabel: 'Config sections',
+  configSubTabModel: 'Model',
+  configSubTabEvolutionStrategy: 'Evolution Strategy',
   configLogLevelLabel: 'Log Level',
   configLogLevelHelp: 'Controls Ornn host-side log verbosity written into settings.toml.',
   configDefaultProviderLabel: 'Default Provider',
@@ -867,6 +873,9 @@ const zh: I18nStrings = {
   configAutoSaved: '已自动保存',
   configSaveFailed: '配置保存失败',
   configLoading: '配置加载中...',
+  configSubTabsLabel: '配置分区',
+  configSubTabModel: '模型',
+  configSubTabEvolutionStrategy: '演进策略',
   configLogLevelLabel: '日志级别',
   configLogLevelHelp: '控制写入 settings.toml 的宿主日志详细程度。',
   configDefaultProviderLabel: '默认模型服务',

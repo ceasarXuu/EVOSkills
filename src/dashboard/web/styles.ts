@@ -1176,6 +1176,36 @@ export function renderDashboardStylesSource(): string {
   /* Config */
   .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   @media (max-width: 900px) { .config-grid { grid-template-columns: 1fr; } }
+  .config-subtabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 2px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(48,54,61,.7);
+  }
+  .config-subtab {
+    font-family: var(--font);
+    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg1);
+    color: var(--muted);
+    cursor: pointer;
+    transition: border-color .15s, background .15s, color .15s;
+  }
+  .config-subtab:hover {
+    border-color: rgba(88,166,255,.58);
+    color: var(--text);
+  }
+  .config-subtab.active {
+    border-color: rgba(88,166,255,.5);
+    background: rgba(88,166,255,.12);
+    color: var(--blue);
+  }
+  .config-subpanel { display: flex; flex-direction: column; gap: 6px; }
   .config-field { display: flex; flex-direction: column; gap: 6px; }
   .config-label { font-size: 11px; color: var(--muted); }
   .config-help { font-size: 11px; color: var(--muted); line-height: 1.45; }

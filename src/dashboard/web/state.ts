@@ -25,6 +25,7 @@ export function createDashboardState<TActivityColumnWidths>(
     sortOrder: 'asc',
     selectedMainTab: 'skills',
     selectedSkillsSubTab: 'skill_library',
+    selectedConfigSubTab: 'model',
     currentSkillRuntime: 'codex',
     currentSkillVersion: null,
     currentSkillEffectiveVersion: null,

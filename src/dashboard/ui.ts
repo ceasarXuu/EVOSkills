@@ -14,6 +14,7 @@ import { renderDashboardSidebarSource } from './web/sidebar/source.js';
 import { renderDashboardCostSource } from './web/cost/source.js';
 import { renderDashboardMainPanelSource } from './web/main-panel/source.js';
 import { renderDashboardConfigSource } from './web/config/source.js';
+import { renderDashboardConfigSubtabsSource } from './web/config/subtabs.js';
 import { renderDashboardSkillsSource } from './web/skills/source.js';
 import { renderDashboardActivityBusinessSource } from './web/activity/business-events.js';
 import { renderDashboardActivityDetailSource } from './web/activity/detail-view.js';
@@ -73,6 +74,7 @@ export function getDashboardScriptSource(): string {
   const dashboardCostSource = renderDashboardCostSource();
   const dashboardMainPanelSource = renderDashboardMainPanelSource();
   const dashboardConfigSource = renderDashboardConfigSource();
+  const dashboardConfigSubtabsSource = renderDashboardConfigSubtabsSource();
   const dashboardSkillsSource = renderDashboardSkillsSource();
   const dashboardActivityDetailSource = renderDashboardActivityDetailSource();
   const dashboardActivityListingSource = renderDashboardActivityListingSource();
@@ -124,6 +126,7 @@ ${dashboardSidebarSource}
 ${dashboardCostSource}
 ${dashboardMainPanelSource}
 ${dashboardConfigSource}
+${dashboardConfigSubtabsSource}
 ${dashboardSkillsSource}
 ${dashboardTraceBarsSource}
 

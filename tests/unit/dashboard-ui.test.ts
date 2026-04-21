@@ -302,7 +302,7 @@ function loadDashboardTestHarness(
   const script = `${getDashboardInlineBootScript(lang, 'test-build-id')}\n${getDashboardScriptSource()}`
     .replace(/\binit\(\);\s*$/, '')
     .concat(
-      '\n;globalThis.__dashboardTest = { state, init, fetchJsonWithTimeout, switchLang, selectProject, selectMainTab, renderMainPanel, safeRenderMainPanel, renderSidebar, buildActivityRows, copyActivityDetail, openActivityDetail, renderCostPanel, viewSkill, switchSkillRuntime, loadVersion, handleUpdate, openApplyToAllSkillModal, closeApplyToAllSkillModal, confirmApplyCurrentSkillToAll, saveCurrentSkill, triggerProjectPicker: openProjectPicker, toggleProjectMonitoring, saveProjectConfig };'
+      '\n;globalThis.__dashboardTest = { state, init, fetchJsonWithTimeout, switchLang, selectProject, selectMainTab, selectConfigSubTab, renderMainPanel, safeRenderMainPanel, renderSidebar, buildActivityRows, copyActivityDetail, openActivityDetail, renderCostPanel, viewSkill, switchSkillRuntime, loadVersion, handleUpdate, openApplyToAllSkillModal, closeApplyToAllSkillModal, confirmApplyCurrentSkillToAll, saveCurrentSkill, triggerProjectPicker: openProjectPicker, toggleProjectMonitoring, saveProjectConfig };'
     );
 
   vm.runInNewContext(script, runtime);
@@ -321,6 +321,7 @@ function loadDashboardTestHarness(
           switchLang: (lang: string) => Promise<void>;
           selectProject: (projectPath: string) => Promise<void>;
           selectMainTab: (tab: string) => void;
+          selectConfigSubTab: (tab: string) => void;
           renderMainPanel: (projectPath: string) => void;
           safeRenderMainPanel: (projectPath: string, source?: string) => boolean;
           renderSidebar: () => void;
@@ -3284,6 +3285,7 @@ describe('dashboard ui recovery', () => {
 
     getElement('mainPanel');
     dashboard.state.selectedMainTab = 'config';
+    dashboard.state.selectedConfigSubTab = 'model';
     dashboard.state.selectedProjectId = projectPath;
     dashboard.state.providerCatalog = [
       {
@@ -4120,6 +4122,7 @@ describe('dashboard ui recovery', () => {
 
     getElement('mainPanel');
     dashboard.state.selectedMainTab = 'config';
+    dashboard.state.selectedConfigSubTab = 'model';
     dashboard.state.selectedProjectId = projectPath;
     dashboard.state.providerCatalog = [
       {
@@ -4209,6 +4212,7 @@ describe('dashboard ui recovery', () => {
 
     getElement('mainPanel');
     dashboard.state.selectedMainTab = 'config';
+    dashboard.state.selectedConfigSubTab = 'model';
     dashboard.state.selectedProjectId = projectPath;
     dashboard.state.providerCatalog = [
       {
@@ -4268,12 +4272,88 @@ describe('dashboard ui recovery', () => {
     expect(html).toContain('display:none;');
   });
 
+  it('switches config subtabs between model and evolution strategy panels', () => {
+    const { dashboard, getElement } = loadDashboardTestHarness({}, { lang: 'zh' });
+    const projectPath = '/tmp/ornn-project';
+
+    getElement('mainPanel');
+    dashboard.state.selectedMainTab = 'config';
+    dashboard.state.selectedConfigSubTab = 'model';
+    dashboard.state.selectedProjectId = projectPath;
+    dashboard.state.configByProject = {
+      [projectPath]: {
+        autoOptimize: true,
+        userConfirm: false,
+        runtimeSync: true,
+        llmSafety: {
+          enabled: true,
+          windowMs: 60000,
+          maxRequestsPerWindow: 12,
+          maxConcurrentRequests: 2,
+          maxEstimatedTokensPerWindow: 48000,
+        },
+        promptOverrides: {
+          skillCallAnalyzer: '自定义分析提示词',
+          decisionExplainer: '',
+          readinessProbe: '',
+        },
+        promptSources: {
+          skillCallAnalyzer: 'custom',
+          decisionExplainer: 'built_in',
+          readinessProbe: 'built_in',
+        },
+        defaultProvider: '',
+        logLevel: 'info',
+        providers: [],
+      },
+    };
+    dashboard.state.projectData = {
+      [projectPath]: {
+        daemon: {},
+        skills: [],
+        traceStats: { total: 0, byRuntime: {}, byStatus: {}, byEventType: {} },
+        recentTraces: [],
+        decisionEvents: [],
+        agentUsage: {
+          callCount: 0,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          durationMsTotal: 0,
+          avgDurationMs: 0,
+          lastCallAt: null,
+          byModel: {},
+          byScope: {},
+          bySkill: {},
+        },
+      },
+    };
+
+    dashboard.renderMainPanel(projectPath);
+    let html = getElement('mainPanel').innerHTML;
+    expect(html).toContain('模型');
+    expect(html).toContain('演进策略');
+    expect(html).toContain('id="cfg_providers_rows"');
+    expect(html).toContain('id="cfg_llm_safety_enabled"');
+    expect(html).not.toContain('id="cfg_prompt_skill_call_analyzer"');
+
+    dashboard.selectConfigSubTab('evolution');
+    html = getElement('mainPanel').innerHTML;
+    expect(dashboard.state.selectedConfigSubTab).toBe('evolution');
+    expect(html).toContain('提示词配置');
+    expect(html).toContain('id="cfg_prompt_skill_call_analyzer"');
+    expect(html).toContain('自定义分析提示词');
+    expect(html).not.toContain('id="cfg_providers_rows"');
+    expect(html).not.toContain('id="cfg_llm_safety_enabled"');
+  });
+
   it('renders prompt override editors in the config panel', () => {
     const { dashboard, getElement } = loadDashboardTestHarness({}, { lang: 'zh' });
     const projectPath = '/tmp/ornn-project';
 
     getElement('mainPanel');
     dashboard.state.selectedMainTab = 'config';
+    dashboard.state.selectedConfigSubTab = 'evolution';
     dashboard.state.selectedProjectId = projectPath;
     dashboard.state.configByProject = {
       [projectPath]: {
@@ -4344,6 +4424,7 @@ describe('dashboard ui recovery', () => {
 
     getElement('mainPanel');
     dashboard.state.selectedMainTab = 'config';
+    dashboard.state.selectedConfigSubTab = 'evolution';
     dashboard.state.selectedProjectId = projectPath;
     dashboard.state.configByProject = {
       [projectPath]: {
@@ -4424,6 +4505,7 @@ describe('dashboard ui recovery', () => {
 
     dashboard.state.selectedProjectId = projectPath;
     dashboard.state.selectedMainTab = 'config';
+    dashboard.state.selectedConfigSubTab = 'evolution';
     dashboard.state.configByProject = {
       [projectPath]: {
         autoOptimize: true,
@@ -4479,6 +4561,110 @@ describe('dashboard ui recovery', () => {
           skillCallAnalyzer: 'You are a strict analyzer.',
           decisionExplainer: 'You are a concise explainer.',
           readinessProbe: 'You are a cautious readiness probe.',
+        },
+      },
+    });
+  });
+
+  it('preserves model config when saving edits from the evolution strategy config subtab', async () => {
+    const projectPath = '/tmp/ornn-project';
+    const { dashboard, getElement, getFetchRequests } = loadDashboardTestHarness(
+      {},
+      {
+        lang: 'en',
+        fetchMap: {
+          '/api/config': { ok: true },
+          '/api/provider-health': {
+            health: {
+              level: 'ok',
+              code: 'ok',
+              message: 'All providers are healthy',
+              checkedAt: '2026-04-10T00:00:00.000Z',
+              results: [],
+            },
+          },
+        },
+      }
+    );
+
+    dashboard.state.selectedProjectId = projectPath;
+    dashboard.state.selectedMainTab = 'config';
+    dashboard.state.selectedConfigSubTab = 'evolution';
+    dashboard.state.configByProject = {
+      [projectPath]: {
+        autoOptimize: true,
+        userConfirm: false,
+        runtimeSync: true,
+        llmSafety: {
+          enabled: false,
+          windowMs: 90000,
+          maxRequestsPerWindow: 9,
+          maxConcurrentRequests: 1,
+          maxEstimatedTokensPerWindow: 32000,
+        },
+        promptOverrides: {
+          skillCallAnalyzer: '',
+          decisionExplainer: '',
+          readinessProbe: '',
+        },
+        promptSources: {
+          skillCallAnalyzer: 'built_in',
+          decisionExplainer: 'built_in',
+          readinessProbe: 'built_in',
+        },
+        defaultProvider: 'deepseek',
+        logLevel: 'info',
+        providers: [
+          {
+            provider: 'deepseek',
+            modelName: 'deepseek/deepseek-reasoner',
+            apiKeyEnvVar: 'DEEPSEEK_API_KEY',
+            apiKey: 'saved-key',
+            hasApiKey: true,
+          },
+        ],
+      },
+    };
+
+    getElement('cfg_prompt_skill_call_analyzer_source_custom').checked = true;
+    getElement('cfg_prompt_decision_explainer_source_built_in').checked = true;
+    getElement('cfg_prompt_readiness_probe_source_built_in').checked = true;
+    getElement('cfg_prompt_skill_call_analyzer').value = 'Use strict evidence.';
+    getElement('cfg_prompt_decision_explainer').value = '';
+    getElement('cfg_prompt_readiness_probe').value = '';
+
+    await dashboard.saveProjectConfig();
+
+    const configRequest = getFetchRequests().find((entry) => entry.url === '/api/config');
+    expect(configRequest).toBeTruthy();
+    expect(JSON.parse(String(configRequest?.init?.body))).toMatchObject({
+      config: {
+        defaultProvider: 'deepseek',
+        llmSafety: {
+          enabled: false,
+          windowMs: 90000,
+          maxRequestsPerWindow: 9,
+          maxConcurrentRequests: 1,
+          maxEstimatedTokensPerWindow: 32000,
+        },
+        providers: [
+          {
+            provider: 'deepseek',
+            modelName: 'deepseek/deepseek-reasoner',
+            apiKeyEnvVar: 'DEEPSEEK_API_KEY',
+            apiKey: 'saved-key',
+            hasApiKey: true,
+          },
+        ],
+        promptSources: {
+          skillCallAnalyzer: 'custom',
+          decisionExplainer: 'built_in',
+          readinessProbe: 'built_in',
+        },
+        promptOverrides: {
+          skillCallAnalyzer: 'Use strict evidence.',
+          decisionExplainer: '',
+          readinessProbe: '',
         },
       },
     });

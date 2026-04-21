@@ -436,6 +436,7 @@ describe('dashboard ui live refresh', () => {
   it('hydrates dashboard bootstrap cache before the first network round-trip finishes', async () => {
     const projectPath = '/tmp/cached-project';
     const familyId = 'family-1';
+    const cachedAt = new Date().toISOString();
     let resolveProjectsResponse: ((value: FetchResponse) => void) | null = null;
 
     const harness = loadDashboardHarness(
@@ -465,7 +466,7 @@ describe('dashboard ui live refresh', () => {
           'ornn-dashboard-bootstrap-cache': JSON.stringify({
             version: 1,
             buildId: 'test-build-id',
-            cachedAt: '2026-04-21T00:00:00.000Z',
+            cachedAt,
             ui: {
               selectedProjectId: projectPath,
               selectedMainTab: 'skills',

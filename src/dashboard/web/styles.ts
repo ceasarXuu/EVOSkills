@@ -318,7 +318,6 @@ export function renderDashboardStylesSource(): string {
     border: 1px solid var(--border);
     border-radius: 6px;
   }
-  .skill-library-page-toolbar-main,
   .skill-library-page-toolbar-secondary {
     display: flex;
     align-items: center;
@@ -326,7 +325,6 @@ export function renderDashboardStylesSource(): string {
     gap: 12px;
     flex-wrap: wrap;
   }
-  .skill-library-page-toolbar-main .runtime-tabs,
   .skill-library-page-toolbar-secondary .sort-controls {
     flex-wrap: wrap;
   }
@@ -463,11 +461,9 @@ export function renderDashboardStylesSource(): string {
     .skill-library-page-toolbar {
       padding: 12px;
     }
-    .skill-library-page-toolbar-main,
     .skill-library-page-toolbar-secondary {
       align-items: stretch;
     }
-    .skill-library-page-toolbar-main .runtime-tabs,
     .skill-library-page-toolbar-secondary .sort-controls,
     .skill-library-page-toolbar-secondary .search-box {
       width: 100%;

@@ -222,14 +222,6 @@ function getSkillLibraryUpdatedTimestamp(family) {
 function getFilteredAndSortedSkillFamilies() {
   let families = getSkillLibraryFamilies().slice();
 
-  if (state.selectedRuntimeTab !== 'all') {
-    families = families.filter(function(family) {
-      return (Array.isArray(family && family.runtimes) ? family.runtimes : []).some(function(runtime) {
-        return normalizeSkillRuntime(runtime) === state.selectedRuntimeTab;
-      });
-    });
-  }
-
   families = families.filter(matchesFamilySearch);
   families.sort(function(a, b) {
     let comparison = 0;

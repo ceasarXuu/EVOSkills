@@ -3437,11 +3437,11 @@ describe('dashboard ui recovery', () => {
     dashboard.state.selectedSkillsSubTab = 'skill_library';
     dashboard.renderMainPanel(projectPath);
     let html = getElement('mainPanel').innerHTML;
-    expect(html).toContain('全部');
     expect(html).toContain('搜索技能...');
     expect(html).toContain('排序：');
     expect(html).toContain('名称');
     expect(html).toContain('更新时间');
+    expect(html).not.toContain("selectRuntimeTab('all')");
     expect(html).not.toContain('Search skills...');
     expect(html).not.toContain('Sort:');
 
@@ -3550,6 +3550,64 @@ describe('dashboard ui recovery', () => {
     expect(html).toContain('class="project-meta"');
     expect(html).not.toContain('skill-library-toolbar skill-library-runtime-bar');
     expect(html).not.toContain('card skill-library-nav-card');
+  });
+
+  it('does not render the obsolete skill library runtime filter toolbar', () => {
+    const { dashboard, getElement } = loadDashboardTestHarness({}, { lang: 'zh' });
+    const projectPath = '/tmp/ornn-project';
+    const codexFamily = {
+      familyId: 'family-codex',
+      familyName: 'codex-only-skill',
+      status: 'active',
+      runtimes: ['codex'],
+      instanceCount: 1,
+      projectCount: 1,
+      runtimeCount: 1,
+      usage: { observedCalls: 1 },
+      lastSeenAt: '2026-04-10T05:23:00.000Z',
+    };
+    const claudeFamily = {
+      familyId: 'family-claude',
+      familyName: 'claude-only-skill',
+      status: 'active',
+      runtimes: ['claude'],
+      instanceCount: 1,
+      projectCount: 1,
+      runtimeCount: 1,
+      usage: { observedCalls: 1 },
+      lastSeenAt: '2026-04-11T05:23:00.000Z',
+    };
+
+    getElement('mainPanel');
+    dashboard.state.selectedProjectId = projectPath;
+    dashboard.state.selectedMainTab = 'skills';
+    dashboard.state.selectedSkillsSubTab = 'skill_library';
+    dashboard.state.selectedRuntimeTab = 'codex';
+    dashboard.state.skillLibraryLoaded = true;
+    dashboard.state.skillFamilies = [codexFamily, claudeFamily];
+    dashboard.state.skillFamilyDetailsById = {
+      [codexFamily.familyId]: codexFamily,
+      [claudeFamily.familyId]: claudeFamily,
+    };
+    dashboard.state.skillFamilyInstancesById = {
+      [codexFamily.familyId]: [],
+      [claudeFamily.familyId]: [],
+    };
+    dashboard.state.selectedSkillFamilyId = codexFamily.familyId;
+
+    dashboard.renderMainPanel(projectPath);
+
+    const html = getElement('mainPanel').innerHTML;
+    expect(html).toContain('codex-only-skill');
+    expect(html).toContain('claude-only-skill');
+    expect(html).toContain('搜索技能...');
+    expect(html).toContain('排序：');
+    expect(html).not.toContain('skillsCountToolbar');
+    expect(html).not.toContain('skill-library-page-toolbar-main');
+    expect(html).not.toContain("selectRuntimeTab('all')");
+    expect(html).not.toContain("selectRuntimeTab('codex')");
+    expect(html).not.toContain("selectRuntimeTab('claude')");
+    expect(html).not.toContain("selectRuntimeTab('opencode')");
   });
 
   it('filters the skill instance strip by the selected inline runtime host', () => {

@@ -105,9 +105,9 @@ export function ProjectOverviewHero({
           </div>
           <div className="rounded-3xl border border-white/8 bg-white/4 p-5">
             <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">Shadcn Core</p>
-            <p className="mt-4 text-lg font-semibold text-white">React + Tailwind + Radix Slot</p>
+            <p className="mt-4 text-lg font-semibold text-white">React + Tailwind + Radix primitives</p>
             <p className="mt-3 text-sm leading-6 text-slate-300/72">
-              当前已先落 `Button / Badge / Card / cn()`，后续再用 shadcn CLI 补齐 table、dialog、tabs、sheet。
+              当前已经接入 `Button / Badge / Card / Tabs / Table / Dialog`，后续继续补 sheet 与更重的表单控件。
             </p>
           </div>
         </div>

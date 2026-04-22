@@ -13,6 +13,24 @@ interface DashboardV2StaticAsset {
   cacheControl: string;
 }
 
+export function isDashboardV2DocumentRequest(requestPath: string): boolean {
+  if (requestPath === '/v2' || requestPath === '/v2/') {
+    return true;
+  }
+
+  if (!requestPath.startsWith('/v2/')) {
+    return false;
+  }
+
+  const relativePath = requestPath.slice('/v2/'.length);
+  if (relativePath.length === 0 || relativePath.startsWith('assets/')) {
+    return false;
+  }
+
+  const lastSegment = relativePath.split('/').pop() ?? '';
+  return !lastSegment.includes('.');
+}
+
 function getDashboardV2DistRoot(): string {
   if (typeof process.env.ORNNSKILLS_DASHBOARD_V2_DIST_DIR === 'string') {
     const customRoot = process.env.ORNNSKILLS_DASHBOARD_V2_DIST_DIR.trim();

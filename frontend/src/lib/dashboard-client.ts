@@ -38,6 +38,13 @@ async function reportClientError(payload: Record<string, unknown>) {
   }
 }
 
+export function logDashboardUiEvent(
+  eventName: string,
+  attributes: Record<string, unknown> = {},
+) {
+  console.info('[dashboard-v2]', eventName, attributes)
+}
+
 export async function fetchDashboardProjects() {
   const data = await fetchJson<DashboardProjectsResponse>('/api/projects')
   return Array.isArray(data.projects) ? data.projects : []

@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createServer } from 'node:net';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const mocks = vi.hoisted(() => ({
   listProjects: vi.fn(),
@@ -1141,6 +1144,32 @@ describe('dashboard server sse bootstrap', () => {
       expect(revalidatedResponse.status).toBe(304);
       expect(revalidatedResponse.headers.get('etag')).toBe(etag);
     } finally {
+      await dashboard.stop();
+    }
+  });
+
+  it('serves the v2 document for nested frontend routes under /v2', async () => {
+    const port = await getFreePort();
+    const customRoot = mkdtempSync(join(tmpdir(), 'ornn-dashboard-v2-routes-'));
+    const originalDistDir = process.env.ORNNSKILLS_DASHBOARD_V2_DIST_DIR;
+    process.env.ORNNSKILLS_DASHBOARD_V2_DIST_DIR = customRoot;
+    mkdirSync(join(customRoot, 'assets'), { recursive: true });
+    writeFileSync(join(customRoot, 'index.html'), '<html><body>dashboard v2 routes</body></html>');
+
+    const { createDashboardServer } = await import('../../src/dashboard/server.js');
+    const dashboard = createDashboardServer(port, 'zh');
+    await dashboard.start();
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/v2/skills`);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toContain('text/html');
+      expect(response.headers.get('x-dashboard-v2')).toBe('built');
+      await expect(response.text()).resolves.toContain('dashboard v2 routes');
+    } finally {
+      process.env.ORNNSKILLS_DASHBOARD_V2_DIST_DIR = originalDistDir;
+      rmSync(customRoot, { recursive: true, force: true });
       await dashboard.stop();
     }
   });

@@ -53,7 +53,7 @@
 ### 3.3 这层隔离还没有解决什么
 
 - API contract 仍然沿用旧 snapshot 结构，字段粒度偏粗
-- `Skill 视角 / 项目视角 / 活动视角` 还没拆成独立 route
+- `Skill 视角 / 项目视角 / 活动视角` 已拆成独立 route，但还只是只读工作台
 - 成本、配置、编辑器等高交互页面尚未迁入 v2
 
 ## 4. View Rewrite Decision
@@ -85,11 +85,20 @@ frontend/
         badge.tsx
         button.tsx
         card.tsx
+        dialog.tsx
+        table.tsx
+        tabs.tsx
       activity-feed.tsx
+      dashboard-view-panels.tsx
       model-usage-panel.tsx
       project-overview-hero.tsx
       project-sidebar.tsx
+      skill-detail-dialog.tsx
       skill-inventory.tsx
+    features/
+      dashboard/
+        use-dashboard-workspace.ts
+        workspace-state.ts
     lib/
       dashboard-client.ts
       formatters.ts
@@ -198,13 +207,15 @@ frontend/
   - skill inventory
   - activity feed
   - model usage
+- 拆出 `/v2/projects`、`/v2/skills`、`/v2/activity`
+- 建立前端状态层，避免继续把 SSE、路由、快照缓存堆进单个 `App.tsx`
 
 ### Phase 2: Shared Controls
 
 - 引入并稳定：
-  - `table`
-  - `tabs`
-  - `dialog`
+  - `table` ✅
+  - `tabs` ✅
+  - `dialog` ✅
   - `sheet`
   - `select`
 - 目标：让 v2 的大部分可见交互先落入 shadcn 的成熟组件覆盖面，再继续迁页面
@@ -228,8 +239,10 @@ frontend/
 - `npm --prefix frontend run build`
 - `npm run typecheck`
 - `npx vitest run tests/unit/dashboard-v2-assets.test.ts tests/unit/dashboard-server.test.ts`
+- `npx vitest run tests/unit/dashboard-v2-workspace-state.test.ts tests/unit/dashboard-server.test.ts`
 - 实际 HTTP 冒烟：
   - `/v2` -> `200`
+  - `/v2/skills` -> `200`
   - `X-Dashboard-V2: built`
   - `/v2/assets/*` -> `200`
 

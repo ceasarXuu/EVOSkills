@@ -1,143 +1,99 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
-import { ActivityFeed } from '@/components/activity-feed'
-import { ModelUsagePanel } from '@/components/model-usage-panel'
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useNavigate,
+  useParams,
+} from 'react-router-dom'
+import { DashboardViewPanels } from '@/components/dashboard-view-panels'
 import { ProjectOverviewHero } from '@/components/project-overview-hero'
 import { ProjectSidebar } from '@/components/project-sidebar'
-import { SkillInventory } from '@/components/skill-inventory'
+import { SkillDetailDialog } from '@/components/skill-detail-dialog'
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useDashboardWorkspace } from '@/features/dashboard/use-dashboard-workspace'
 import {
-  connectDashboardEvents,
-  fetchDashboardProjects,
-  fetchProjectSnapshot,
-  installDashboardErrorReporting,
-} from '@/lib/dashboard-client'
-import type {
-  ConnectionState,
-  DashboardProject,
-  DashboardSsePayload,
-  ProjectSnapshot,
-} from '@/types/dashboard'
-
-function pickNextProject(
-  projects: DashboardProject[],
-  currentProjectId: string,
-): string {
-  if (projects.length === 0) {
-    return ''
-  }
-
-  if (currentProjectId && projects.some((project) => project.path === currentProjectId)) {
-    return currentProjectId
-  }
-
-  const preferredProject = projects.find((project) => project.monitoringState !== 'paused')
-  return preferredProject?.path ?? projects[0]?.path ?? ''
-}
+  DEFAULT_DASHBOARD_VIEW,
+  normalizeDashboardView,
+  type DashboardView,
+} from '@/features/dashboard/workspace-state'
+import { logDashboardUiEvent } from '@/lib/dashboard-client'
+import type { DashboardSkill } from '@/types/dashboard'
 
 function App() {
-  const [projects, setProjects] = useState<DashboardProject[]>([])
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('')
-  const [snapshotMap, setSnapshotMap] = useState<Record<string, ProjectSnapshot>>({})
-  const [connectionState, setConnectionState] = useState<ConnectionState>('connecting')
-  const [isLoadingProjects, setIsLoadingProjects] = useState(true)
-  const [isLoadingSnapshot, setIsLoadingSnapshot] = useState(false)
-  const [loadError, setLoadError] = useState<string>('')
-  const [lastSyncedAt, setLastSyncedAt] = useState<string>('')
+  return (
+    <BrowserRouter basename="/v2">
+      <Routes>
+        <Route path="/" element={<Navigate replace to={`/${DEFAULT_DASHBOARD_VIEW}`} />} />
+        <Route path="/:view/*" element={<DashboardWorkspacePage />} />
+        <Route path="*" element={<Navigate replace to={`/${DEFAULT_DASHBOARD_VIEW}`} />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
 
-  const selectedProject = useMemo(
-    () => projects.find((project) => project.path === selectedProjectId) ?? null,
-    [projects, selectedProjectId],
+function DashboardWorkspacePage() {
+  const navigate = useNavigate()
+  const { view } = useParams<{ view?: string }>()
+  const currentView = normalizeDashboardView(view)
+  const [selectedSkill, setSelectedSkill] = useState<DashboardSkill | null>(null)
+  const {
+    connectionState,
+    isLoadingProjects,
+    isLoadingSnapshot,
+    lastSyncedAt,
+    loadError,
+    projects,
+    refreshWorkspace,
+    selectedProject,
+    selectedProjectId,
+    selectedSnapshot,
+    setSelectedProjectId,
+  } = useDashboardWorkspace()
+
+  useEffect(() => {
+    if (view !== currentView) {
+      navigate(`/${currentView}`, { replace: true })
+    }
+  }, [currentView, navigate, view])
+
+  useEffect(() => {
+    logDashboardUiEvent('workspace.view_changed', { view: currentView })
+  }, [currentView])
+
+  useEffect(() => {
+    setSelectedSkill(null)
+  }, [selectedProjectId])
+
+  const selectedSkillKey = useMemo(() => {
+    if (!selectedSkill) {
+      return ''
+    }
+
+    return `${selectedSkill.skillId}:${selectedSkill.runtime ?? 'unknown'}`
+  }, [selectedSkill])
+
+  const handleViewChange = useCallback(
+    (nextView: string) => {
+      navigate(`/${normalizeDashboardView(nextView)}`)
+    },
+    [navigate],
   )
 
-  const selectedSnapshot = useMemo(
-    () => (selectedProjectId ? snapshotMap[selectedProjectId] ?? null : null),
-    [selectedProjectId, snapshotMap],
+  const handleSkillSelect = useCallback(
+    (skill: DashboardSkill) => {
+      setSelectedSkill(skill)
+      logDashboardUiEvent('workspace.skill_dialog_opened', {
+        skillId: skill.skillId,
+        runtime: skill.runtime ?? 'unknown',
+        view: currentView,
+      })
+    },
+    [currentView],
   )
-
-  const loadProjects = useCallback(async () => {
-    setIsLoadingProjects(true)
-    setLoadError('')
-    try {
-      const nextProjects = await fetchDashboardProjects()
-      setProjects(nextProjects)
-      setSelectedProjectId((currentProjectId) => pickNextProject(nextProjects, currentProjectId))
-      setLastSyncedAt(new Date().toISOString())
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : String(error))
-    } finally {
-      setIsLoadingProjects(false)
-    }
-  }, [])
-
-  const loadSnapshot = useCallback(async (projectId: string, force = false) => {
-    if (!projectId) {
-      return
-    }
-
-    if (!force && snapshotMap[projectId]) {
-      return
-    }
-
-    setIsLoadingSnapshot(true)
-    setLoadError('')
-    try {
-      const snapshot = await fetchProjectSnapshot(projectId)
-      setSnapshotMap((current) => ({
-        ...current,
-        [projectId]: snapshot,
-      }))
-      setLastSyncedAt(new Date().toISOString())
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : String(error))
-    } finally {
-      setIsLoadingSnapshot(false)
-    }
-  }, [snapshotMap])
-
-  const handleRefresh = useCallback(async () => {
-    await loadProjects()
-    if (selectedProjectId) {
-      await loadSnapshot(selectedProjectId, true)
-    }
-  }, [loadProjects, loadSnapshot, selectedProjectId])
-
-  useEffect(() => {
-    installDashboardErrorReporting()
-    void loadProjects()
-  }, [loadProjects])
-
-  useEffect(() => {
-    if (!selectedProjectId) {
-      return
-    }
-
-    void loadSnapshot(selectedProjectId)
-  }, [loadSnapshot, selectedProjectId])
-
-  useEffect(() => {
-    const dispose = connectDashboardEvents(
-      async (payload: DashboardSsePayload) => {
-        if (Array.isArray(payload.projects)) {
-          setProjects(payload.projects)
-          setSelectedProjectId((currentProjectId) =>
-            pickNextProject(payload.projects ?? [], currentProjectId),
-          )
-        }
-
-        if (
-          selectedProjectId &&
-          Array.isArray(payload.changedProjects) &&
-          payload.changedProjects.includes(selectedProjectId)
-        ) {
-          await loadSnapshot(selectedProjectId, true)
-        }
-      },
-      setConnectionState,
-    )
-
-    return dispose
-  }, [loadSnapshot, selectedProjectId])
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -145,76 +101,82 @@ function App() {
         <ProjectSidebar
           connectionState={connectionState}
           isLoading={isLoadingProjects}
-          onRefresh={handleRefresh}
+          onRefresh={refreshWorkspace}
+          onSelect={setSelectedProjectId}
           projects={projects}
           selectedProjectId={selectedProjectId}
-          onSelect={setSelectedProjectId}
         />
         <main className="relative overflow-hidden border-l border-white/6">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(65,208,255,0.18),transparent_28%),radial-gradient(circle_at_84%_12%,rgba(233,173,73,0.14),transparent_26%),radial-gradient(circle_at_70%_90%,rgba(97,197,122,0.12),transparent_22%)]" />
-          <div className="relative flex min-h-screen flex-col gap-8 px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-cyan-200/72">
-                  Dashboard V2 Preview
-                </p>
-                <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-                  独立前端隔离层
-                </h1>
-              </div>
-              <Button variant="secondary" size="sm" onClick={() => void handleRefresh()}>
-                <RefreshCw className="size-4" />
-                刷新
-              </Button>
-            </div>
-
-            <ProjectOverviewHero
-              connectionState={connectionState}
-              isLoading={isLoadingSnapshot}
-              lastSyncedAt={lastSyncedAt}
-              project={selectedProject}
-              snapshot={selectedSnapshot}
-            />
-
-            {loadError ? (
-              <div className="rounded-3xl border border-amber-300/25 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">
-                {loadError}
-              </div>
-            ) : null}
-
-            <section className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_360px]">
-              <div className="grid gap-6">
-                <SkillInventory isLoading={isLoadingSnapshot} snapshot={selectedSnapshot} />
-                <ActivityFeed isLoading={isLoadingSnapshot} snapshot={selectedSnapshot} />
-              </div>
-              <div className="grid gap-6">
-                <ModelUsagePanel isLoading={isLoadingSnapshot} snapshot={selectedSnapshot} />
-                <div className="rounded-3xl border border-white/8 bg-white/6 p-5 shadow-[0_30px_80px_rgba(3,8,20,0.36)] backdrop-blur-xl">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-cyan-200/70">
-                    Cutover
+          <div className="relative flex min-h-screen flex-col gap-6 px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
+            <Tabs className="gap-6" onValueChange={handleViewChange} value={currentView}>
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-cyan-200/72">
+                    Dashboard V2 Workspace
                   </p>
-                  <div className="mt-4 space-y-3 text-sm text-slate-200/80">
-                    <p>当前入口只消费现有 REST + SSE，不复用旧字符串 DOM 和全局类名。</p>
-                    <p>下一阶段先迁 `Button / Badge / Card / Dialog / Table / Tabs` 六类核心件，再切 `技能 / 项目 / 活动` 三个主视图。</p>
-                  </div>
-                  <div className="mt-5 flex flex-wrap gap-3">
-                    <Button asChild variant="secondary" size="sm">
-                      <a href="/">打开旧版</a>
-                    </Button>
-                    <Button asChild size="sm">
-                      <a href="https://ui.shadcn.com/docs/installation/vite" target="_blank" rel="noreferrer">
-                        shadcn Vite 文档
-                      </a>
-                    </Button>
-                  </div>
+                  <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                    独立前端工作台
+                  </h1>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <TabsList className="h-auto flex-wrap rounded-2xl bg-black/20 p-1.5" variant="default">
+                    <ViewTrigger value="projects">项目</ViewTrigger>
+                    <ViewTrigger value="skills">技能</ViewTrigger>
+                    <ViewTrigger value="activity">活动</ViewTrigger>
+                  </TabsList>
+                  <Button onClick={() => void refreshWorkspace()} size="sm" variant="secondary">
+                    <RefreshCw data-icon="inline-start" />
+                    刷新
+                  </Button>
                 </div>
               </div>
-            </section>
+
+              <ProjectOverviewHero
+                connectionState={connectionState}
+                isLoading={isLoadingSnapshot}
+                lastSyncedAt={lastSyncedAt}
+                project={selectedProject}
+                snapshot={selectedSnapshot}
+              />
+
+              {loadError ? (
+                <div className="rounded-3xl border border-amber-300/25 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">
+                  {loadError}
+                </div>
+              ) : null}
+
+              <DashboardViewPanels
+                isLoadingSnapshot={isLoadingSnapshot}
+                onSelectSkill={handleSkillSelect}
+                selectedSkillKey={selectedSkillKey}
+                snapshot={selectedSnapshot}
+              />
+            </Tabs>
           </div>
         </main>
       </div>
+
+      <SkillDetailDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedSkill(null)
+          }
+        }}
+        open={Boolean(selectedSkill)}
+        skill={selectedSkill}
+      />
     </div>
   )
+}
+
+interface ViewTriggerProps {
+  children: string
+  value: DashboardView
+}
+
+function ViewTrigger({ children, value }: ViewTriggerProps) {
+  return <TabsTrigger value={value}>{children}</TabsTrigger>
 }
 
 export default App

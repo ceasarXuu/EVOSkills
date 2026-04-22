@@ -4,6 +4,12 @@
 
 ### 2026-04-22
 
+- ✅ 把 v2 preview 拆成真正的多视图工作台：`frontend/src/App.tsx` 不再直接承载全部状态和视图，现已拆成 `/v2/projects`、`/v2/skills`、`/v2/activity` 三个路由视图，并由独立的 `use-dashboard-workspace` 管理项目列表、快照缓存、SSE 刷新和手动刷新
+- ✅ 补齐第一批 shadcn 核心件并接入业务层：已通过 CLI 引入 `table / tabs / dialog`，技能列表改为 shadcn `Table`，主工作台导航改为 `Tabs`，技能详情入口改为 `Dialog`，不再继续在 v2 里手搓新的列表/切页/弹层基础件
+- ✅ 打通 `/v2/*` 前端路由的服务端回退：dashboard server 现在会把 `/v2/skills` 这类无扩展名子路径回退到 v2 `index.html`，刷新多视图路由不再 404
+- 📝 记录工作台路由经验：当 v2 开始使用真正的前端路由时，只完成 React 侧 `BrowserRouter` 还不够；服务端必须同步区分“构建资源请求”和“无扩展名应用路由”，否则本地点击能用，但浏览器刷新会直接掉回 404
+- 📝 记录组件迁移经验：从 shadcn 覆盖主题继续往前推进时，优先补 `table / tabs / dialog` 这类结构型基础件，比继续打磨 hero 样式更值；因为只要列表、路由和弹层还在自定义壳层里，后续高交互页面就无法稳定复用
+
 - ✅ 对 `frontend/` 执行 shadcn preset overwrite：已直接应用 `b4NKaHect`，当前前端风格切到 `radix-vega`，并把基础配置同步成 `olive` base color 与 `hugeicons` icon library
 - ✅ 收口 overwrite 后的组件契约漂移：preset 覆盖把 `badge/button/card` 直接替换成 shadcn 标准实现后，业务层已从自定义 `tone` 语义切回标准 `variant` 契约，`frontend build` 与根仓 `build` 均恢复通过
 - 📝 记录 preset 迁移经验：shadcn 的 overwrite 不只是换主题变量，它会连同现有基础件源码一起覆盖；如果业务层提前包了非标准 props（例如自定义 `tone`），覆盖后最先炸的通常不是样式，而是编译期接口漂移。正确做法是把业务层语义尽量贴近 shadcn 标准 API，减少 overwrite 的适配面

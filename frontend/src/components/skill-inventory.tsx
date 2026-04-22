@@ -1,10 +1,21 @@
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { formatRelativeTime } from '@/lib/formatters'
 import type { DashboardSkill, ProjectSnapshot } from '@/types/dashboard'
 
 interface SkillInventoryProps {
   isLoading: boolean
+  limit?: number
+  onSelectSkill?: (skill: DashboardSkill) => void
+  selectedSkillKey?: string
   snapshot: ProjectSnapshot | null
 }
 
@@ -32,54 +43,71 @@ function getStatusTone(status: string | undefined) {
   }
 }
 
-export function SkillInventory({ isLoading, snapshot }: SkillInventoryProps) {
-  const skills = sortSkills(snapshot?.skills ?? []).slice(0, 8)
+function getSkillKey(skill: DashboardSkill) {
+  return `${skill.skillId}:${skill.runtime ?? 'unknown'}`
+}
+
+export function SkillInventory({
+  isLoading,
+  limit = 12,
+  onSelectSkill,
+  selectedSkillKey = '',
+  snapshot,
+}: SkillInventoryProps) {
+  const skills = sortSkills(snapshot?.skills ?? []).slice(0, limit)
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>技能库存</CardTitle>
-        <CardDescription>独立视图先把 Skill Family 的主列表和热度排序做干净。</CardDescription>
+        <CardDescription>先把 Skill Family 列表、热度排序和只读详情入口做干净。</CardDescription>
       </CardHeader>
       <CardContent className="overflow-x-auto p-0">
         {isLoading ? (
-          <div className="px-5 py-10 text-sm text-slate-300/70">正在拉取技能快照…</div>
+          <div className="px-5 py-10 text-sm text-muted-foreground">正在拉取技能快照...</div>
         ) : skills.length === 0 ? (
-          <div className="px-5 py-10 text-sm text-slate-300/70">当前项目还没有可展示的技能。</div>
+          <div className="px-5 py-10 text-sm text-muted-foreground">当前项目还没有可展示的技能。</div>
         ) : (
-          <table className="w-full text-left">
-            <thead className="border-b border-white/6 text-[11px] uppercase tracking-[0.24em] text-slate-400">
-              <tr>
-                <th className="px-5 py-3 font-medium">Skill</th>
-                <th className="px-5 py-3 font-medium">Host</th>
-                <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium">Traces</th>
-                <th className="px-5 py-3 font-medium">Updated</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border/60 text-[11px] uppercase tracking-[0.24em] text-muted-foreground hover:bg-transparent">
+                <TableHead className="px-5 py-3">Skill</TableHead>
+                <TableHead className="px-5 py-3">Host</TableHead>
+                <TableHead className="px-5 py-3">Status</TableHead>
+                <TableHead className="px-5 py-3 text-right">Traces</TableHead>
+                <TableHead className="px-5 py-3">Updated</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {skills.map((skill) => (
-                <tr className="border-b border-white/6 last:border-b-0" key={`${skill.skillId}-${skill.runtime}`}>
-                  <td className="px-5 py-4">
+                <TableRow
+                  className="cursor-pointer border-border/60"
+                  data-state={getSkillKey(skill) === selectedSkillKey ? 'selected' : undefined}
+                  key={getSkillKey(skill)}
+                  onClick={() => onSelectSkill?.(skill)}
+                >
+                  <TableCell className="px-5 py-4 whitespace-normal">
                     <div>
-                      <p className="text-sm font-medium text-white">{skill.skillId}</p>
-                      <p className="mt-1 text-xs text-slate-400">
+                      <p className="text-sm font-medium text-foreground">{skill.skillId}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
                         rev {skill.current_revision ?? '—'}
                       </p>
                     </div>
-                  </td>
-                  <td className="px-5 py-4 text-sm text-slate-300/72">{skill.runtime ?? 'unknown'}</td>
-                  <td className="px-5 py-4">
+                  </TableCell>
+                  <TableCell className="px-5 py-4 text-sm">{skill.runtime ?? 'unknown'}</TableCell>
+                  <TableCell className="px-5 py-4">
                     <Badge variant={getStatusTone(skill.status)}>{skill.status ?? 'unknown'}</Badge>
-                  </td>
-                  <td className="px-5 py-4 text-sm text-slate-200">{skill.traceCount ?? 0}</td>
-                  <td className="px-5 py-4 text-sm text-slate-300/72">
+                  </TableCell>
+                  <TableCell className="px-5 py-4 text-right text-sm">
+                    {skill.traceCount ?? 0}
+                  </TableCell>
+                  <TableCell className="px-5 py-4 text-sm text-muted-foreground">
                     {formatRelativeTime(skill.updatedAt ?? skill.lastUsedAt)}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
       </CardContent>
     </Card>

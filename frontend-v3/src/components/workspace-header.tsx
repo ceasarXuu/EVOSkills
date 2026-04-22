@@ -28,11 +28,8 @@ export function WorkspaceHeader({ currentView }: WorkspaceHeaderProps) {
               <TabsTrigger asChild value="skills">
                 <Link to="/skills">技能</Link>
               </TabsTrigger>
-              <TabsTrigger asChild value="projects">
-                <Link to="/projects">项目</Link>
-              </TabsTrigger>
-              <TabsTrigger asChild value="activity">
-                <Link to="/activity">活动</Link>
+              <TabsTrigger asChild value="project">
+                <Link to="/project">项目</Link>
               </TabsTrigger>
               <TabsTrigger asChild value="config">
                 <Link to="/config">配置</Link>

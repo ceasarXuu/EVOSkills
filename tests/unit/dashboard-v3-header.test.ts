@@ -20,4 +20,12 @@ describe('dashboard v3 workspace header', () => {
     expect(workspaceHeaderSource).not.toContain('formatRelativeTime')
     expect(workspaceHeaderSource).not.toContain('getConnectionBadgeVariant')
   })
+
+  it('restores the v1-aligned top-level navigation contract', () => {
+    expect(workspaceHeaderSource).toContain('to="/skills"')
+    expect(workspaceHeaderSource).toContain('to="/project"')
+    expect(workspaceHeaderSource).toContain('to="/config"')
+    expect(workspaceHeaderSource).not.toContain('to="/projects"')
+    expect(workspaceHeaderSource).not.toContain('to="/activity"')
+  })
 })

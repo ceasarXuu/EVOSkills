@@ -1,6 +1,8 @@
 export type MonitoringState = 'active' | 'paused'
 export type ConnectionState = 'connecting' | 'connected' | 'reconnecting' | 'error'
-export type DashboardView = 'skills' | 'projects' | 'activity' | 'config'
+export type DashboardView = 'skills' | 'project' | 'config'
+export type SkillDomainRuntime = 'codex' | 'claude' | 'opencode'
+export type SkillUsageStatus = 'active' | 'idle' | 'unused' | 'partial'
 
 export interface DashboardProject {
   path: string
@@ -14,9 +16,90 @@ export interface DashboardProject {
   skillCount?: number
 }
 
+export interface DashboardSkillUsageSummary {
+  observedCalls: number
+  analyzedTouches: number
+  optimizedCount: number
+  firstSeenAt: string | null
+  lastSeenAt: string | null
+  lastUsedAt: string | null
+  status: SkillUsageStatus
+}
+
+export interface DashboardSkillFamily {
+  familyId: string
+  familyName: string
+  skillKey?: string
+  normalizedName?: string
+  projectCount: number
+  instanceCount: number
+  runtimeCount: number
+  revisionCount: number
+  projectPaths?: string[]
+  runtimes: SkillDomainRuntime[]
+  installedAt?: string | null
+  firstSeenAt?: string | null
+  lastSeenAt?: string | null
+  lastUsedAt?: string | null
+  status?: SkillUsageStatus
+  hasDivergedContent?: boolean
+  usage: DashboardSkillUsageSummary
+}
+
+export interface DashboardSkillInstance {
+  instanceId: string
+  familyId: string
+  familyName: string
+  projectPath: string
+  skillId: string
+  runtime: SkillDomainRuntime
+  status: string
+  lastUsedAt?: string | null
+  updatedAt?: string | null
+  effectiveVersion: number | null
+  versionCount?: number
+  usage: DashboardSkillUsageSummary
+}
+
+export interface DashboardSkillVersionMetadata {
+  version: number
+  createdAt: string
+  reason: string
+  traceIds: string[]
+  previousVersion: number | null
+  isDisabled?: boolean
+  disabledAt?: string | null
+  activityScopeId?: string
+}
+
+export interface DashboardSkillVersionRecord {
+  content: string
+  metadata: DashboardSkillVersionMetadata
+}
+
+export interface DashboardSkillDetail {
+  skillId: string
+  runtime: SkillDomainRuntime
+  content: string
+  versions: number[]
+  effectiveVersion: number | null
+  status?: string
+}
+
+export interface DashboardSkillApplyPreviewTarget {
+  projectPath: string
+  runtime: SkillDomainRuntime
+}
+
+export interface DashboardSkillApplyPreview {
+  instanceId?: string
+  totalTargets: number
+  targets: DashboardSkillApplyPreviewTarget[]
+}
+
 export interface DashboardSkill {
   skillId: string
-  runtime?: string
+  runtime?: SkillDomainRuntime
   status?: string
   traceCount?: number
   current_revision?: number
@@ -29,7 +112,7 @@ export interface DashboardSkill {
 export interface DashboardTrace {
   trace_id?: string
   session_id?: string
-  runtime?: string
+  runtime?: SkillDomainRuntime
   timestamp?: string
   event_type?: string
   skill_refs?: string[]
@@ -41,7 +124,7 @@ export interface DashboardDecisionEvent {
   timestamp?: string
   tag?: string
   skillId?: string
-  runtime?: string
+  runtime?: SkillDomainRuntime
   status?: string
   reason?: string
   ruleName?: string
@@ -107,6 +190,18 @@ export interface ProjectSnapshot {
 
 export interface DashboardProjectsResponse {
   projects: DashboardProject[]
+}
+
+export interface DashboardSkillFamiliesResponse {
+  families: DashboardSkillFamily[]
+}
+
+export interface DashboardSkillFamilyResponse {
+  family: DashboardSkillFamily
+}
+
+export interface DashboardSkillFamilyInstancesResponse {
+  instances: DashboardSkillInstance[]
 }
 
 export interface DashboardSsePayload {

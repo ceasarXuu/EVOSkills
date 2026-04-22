@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const files = [
-  '../../frontend-v3/src/components/skills-hero-band.tsx',
-  '../../frontend-v3/src/components/skills-scope-sidebar.tsx',
+  '../../frontend-v3/src/components/skill-family-list.tsx',
+  '../../frontend-v3/src/components/skill-family-detail.tsx',
+  '../../frontend-v3/src/components/skills-workspace.tsx',
   '../../frontend-v3/src/components/skills-table.tsx',
-  '../../frontend-v3/src/components/skills-insight-rail.tsx',
 ].map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'))
 
 const combinedSource = files.join('\n')

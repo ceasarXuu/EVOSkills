@@ -11,21 +11,13 @@ describe('dashboard v3 view layout rules', () => {
     });
   });
 
-  it('uses the project view for summary-heavy chrome', () => {
-    expect(resolveDashboardViewLayout('projects')).toEqual({
+  it('uses the singular project view for summary-heavy chrome', () => {
+    expect(resolveDashboardViewLayout('project')).toEqual({
       showProjectRail: true,
       showHero: true,
       showMetrics: true,
     });
   });
-
-  it('keeps the activity view focused on the event stream', () => {
-    expect(resolveDashboardViewLayout('activity')).toEqual({
-      showProjectRail: true,
-      showHero: false,
-      showMetrics: false,
-    })
-  })
 
   it('keeps config free of project chrome', () => {
     expect(resolveDashboardViewLayout('config')).toEqual({

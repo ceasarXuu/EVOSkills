@@ -4,12 +4,18 @@
 
 ### 2026-04-23
 
+- ✅ 纠正 v3 顶层路由契约：`frontend-v3` 已从错误的 `skills / projects / activity / config` 收回到与 v1 对齐的 `skills / project / config`；旧 `/v3/projects`、`/v3/activity` 现在都由前端路由兼容回退到 `/v3/project`
+- ✅ 重建 v3 的技能页主模型：`/v3/skills` 已不再消费 `selectedProject.snapshot.skills[]`，而是改走 `Skill Family -> Skill Instance -> Skill Revision` 数据链；v3 前端现已补齐 `/api/skills/families`、`/api/skills/families/:id/instances`、`/api/projects/:id/skills/:skillId`、版本读取/停用、apply preview、apply-to-family` 等 client 与状态层
+- ✅ 恢复技能页核心交互闭环：当前 skills 工作台已重新具备 family 列表、实例条、runtime 切换、正文编辑、版本历史、版本停用/恢复、传播预览与 apply-to-family；旧的 `skills-hero-band / skills-scope-sidebar / skills-insight-rail` 三块错误页面结构已从 v3 删除
+- ✅ 收回活动页到项目工作台：`activity` 不再作为 v3 顶层 tab 单独存在，当前活动流已并回 `project workbench`，和项目状态、项目内技能列表一起回到项目视角
+- 📝 记录 IA 经验：dashboard 的错不在“卡片太碎”，而在“对象模型错位”。只要 skills 页继续以 `selectedProject.snapshot.skills[]` 为主源，页面再漂亮也还是项目视角；必须先恢复 `family / instance / revision` 三层语义，UI 才有正确骨架
+
 - ✅ 重做 v3 技能页框架层：`/v3/skills` 已从“多张大卡竖堆”改成 `sticky workspace header + hero band + scope / table / insight` 的稳定工作台结构；header 现在只负责全局导航和运行状态，页面标题与主视觉已下沉到独立 hero
 - ✅ 补齐技能页页面级交互底板：技能表已接入受控分页、内滚动容器和统一 footer；全局滚动条也已按暗色主题收口，不再依赖浏览器默认样式
 - 📝 记录前端经验：用了 shadcn 组件，不等于页面就自动符合 shadcn 的组织原则。真正决定观感的是页面级骨架是否稳定，例如 header 是否只做全局层、hero 是否独立、内容区是否有固定网格、分页和滚动是否收在主表面里
 - 📝 记录响应式经验：技能工作台在 `xl` 就必须形成至少两栏结构，不能等到 `2xl` 才建立 scope + main 的页面骨架，否则 1280 一类常见桌面宽度仍会退化成纵向卡片堆栈
 
-- ✅ 恢复 v3 的一级 `配置` 工作区：`/v3/config` 已重新回到顶层导航，`config` 现在和 `技能 / 项目 / 活动` 一样是显式一级视图，不再通过默认 fallback 间接兜底
+- ✅ 恢复 v3 的一级 `配置` 工作区：`/v3/config` 已重新回到顶层导航，`config` 现在和 `技能 / 项目` 一样是显式一级视图，不再通过默认 fallback 间接兜底
 - ✅ 接回真实配置工作台：v3 已补齐 `GET/POST /api/config`、`/api/providers/catalog`、`/api/provider-health`、`/api/config/providers/connectivity` 的前端 client 和独立状态层；当前可直接查看 provider stack、默认 provider、LLM safety、prompt source/override，并保存配置
 - ✅ 补齐 shadcn 表单基件：v3 新增 `select / switch / textarea / label / alert`，配置页继续沿用 `Card / Button / Badge / Tabs / Input` 组合，不再为表单场景手写私有控件
 - 📝 记录 IA 经验：对 dashboard 这种多工作区产品，`config` 不能只算“将来会补”的附属页；只要它是主路径之一，就必须在 `DashboardView`、header tabs、view copy、layout rule 这四层同时显式存在，否则后续清理布局时很容易被静默删掉
@@ -19,7 +25,7 @@
 
 - ✅ 启动完全隔离的 dashboard v3：新增 `frontend-v3/` 子工程和 `/v3` 独立入口，服务端已支持 `/v3`、`/v3/*`、`/v3/assets/*`，构建产物输出到 `dist/dashboard-v3`；这次不再复用 `frontend/` 里的业务 UI 文件，只保留 API / SSE 合同
 - ✅ 用 seed `b4NKaHect` 重写 v3 工作台骨架：v3 已直接基于 `radix-vega + olive + DM Sans + hugeicons` 落地项目侧栏、技能总览、项目视角、活动视图和技能详情弹层，页面视觉不再叠加 v2 那套私有蓝青皮肤
-- ✅ 收紧 v3 信息架构：顶层 `技能 / 项目 / 活动` 导航已提升到首屏头部；`/v3/skills` 不再渲染项目 hero 和 metric cards，首屏直接进入 `技能工作台 + 项目范围过滤 + 技能目录`；项目摘要 chrome 只保留在 `/v3/projects`
+- ✅ 收紧 v3 信息架构：顶层 `技能 / 项目 / 配置` 导航已提升到首屏头部；`/v3/skills` 不再渲染项目 hero 和 metric cards，首屏直接进入技能主工作区；项目摘要 chrome 只保留在 `/v3/project`
 - 📝 记录隔离经验：独立路由和独立构建产物只能隔离“资源入口”，并不能自动隔离“业务层自带的视觉判断”；如果新页面继续复用上一轮业务组件文件，最终仍会把旧视觉习惯带回来。真正想切干净，就必须连业务展示层一起从新目录重建
 - 📝 记录信息架构经验：对于 `skills are first-class citizens` 的产品，技能页不能再把项目总览模块摆在技能列表之前；一旦首屏先展示 daemon、queue、trace 摘要，用户看到的就是“项目监控台”，不是“技能工作台”
 - 📝 记录清理经验：新前端从 Vite 脚手架起步时，默认 `README / favicon / icons.svg / App.css / src/assets/*` 很容易跟着进仓库；这类模板残留要在第一次成型前就收掉，否则后续即使页面能跑，仓库里仍然会混着与产品无关的脚手架噪音

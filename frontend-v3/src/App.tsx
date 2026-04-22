@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
-import { ActivityStream } from '@/components/activity-stream'
 import { ConfigWorkspace } from '@/components/config-workspace'
 import { DashboardHero } from '@/components/dashboard-hero'
-import { InsightStack } from '@/components/insight-stack'
 import { MetricGrid } from '@/components/metric-grid'
 import { ProjectRail } from '@/components/project-rail'
-import { ProjectStatusPanel } from '@/components/project-status-panel'
+import { ProjectWorkbench } from '@/components/project-workbench'
 import { SkillDetailDialog } from '@/components/skill-detail-dialog'
 import { SkillsWorkspace } from '@/components/skills-workspace'
 import { WorkspaceHeader } from '@/components/workspace-header'
@@ -21,7 +19,7 @@ import type {
   ProjectSnapshot,
 } from '@/types/dashboard'
 
-const DASHBOARD_VIEWS: DashboardView[] = ['skills', 'projects', 'activity', 'config']
+const DASHBOARD_VIEWS: DashboardView[] = ['skills', 'project', 'config']
 
 function normalizeDashboardView(view?: string): DashboardView {
   if (view && DASHBOARD_VIEWS.includes(view as DashboardView)) {
@@ -36,6 +34,8 @@ function App() {
     <BrowserRouter basename="/v3">
       <Routes>
         <Route element={<Navigate replace to="/skills" />} path="/" />
+        <Route element={<Navigate replace to="/project" />} path="/projects" />
+        <Route element={<Navigate replace to="/project" />} path="/activity" />
         <Route element={<DashboardWorkspacePage />} path="/:view" />
         <Route element={<Navigate replace to="/skills" />} path="*" />
       </Routes>
@@ -218,28 +218,23 @@ function ViewContent({
 
       {currentView === 'skills' ? (
         <SkillsWorkspace
-          filteredSkills={filteredSkills}
-          isLoading={isLoadingSnapshot}
-          onQueryChange={onQueryChange}
           onSelectProject={onSelectProject}
-          onSelectSkill={onSelectSkill}
           projects={projects}
-          query={query}
           selectedProjectId={selectedProjectId}
-          selectedSkillKey={selectedSkillKey}
-          snapshot={snapshot}
         />
       ) : null}
 
-      {currentView === 'projects' ? (
-        <ProjectStatusPanel project={project} snapshot={snapshot} />
-      ) : null}
-
-      {currentView === 'activity' ? (
-        <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.35fr)_360px]">
-          <ActivityStream isLoading={isLoadingSnapshot} snapshot={snapshot} />
-          <InsightStack snapshot={snapshot} />
-        </div>
+      {currentView === 'project' ? (
+        <ProjectWorkbench
+          isLoading={isLoadingSnapshot}
+          onQueryChange={onQueryChange}
+          onSelectSkill={onSelectSkill}
+          project={project}
+          query={query}
+          selectedSkillKey={selectedSkillKey}
+          skills={filteredSkills}
+          snapshot={snapshot}
+        />
       ) : null}
 
       {currentView === 'config' ? <ConfigWorkspace /> : null}

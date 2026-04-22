@@ -1,8 +1,15 @@
 import type {
   ConnectionState,
+  DashboardSkillApplyPreview,
+  DashboardSkillDetail,
+  DashboardSkillFamiliesResponse,
+  DashboardSkillFamilyInstancesResponse,
+  DashboardSkillFamilyResponse,
+  DashboardSkillVersionRecord,
   DashboardProjectsResponse,
   DashboardSsePayload,
   ProjectSnapshot,
+  SkillDomainRuntime,
 } from '@/types/dashboard'
 import type {
   DashboardConfig,
@@ -36,6 +43,40 @@ async function fetchJson<T>(path: string): Promise<T> {
 async function postJson<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(path, {
     method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+  }
+
+  return (await response.json()) as T
+}
+
+async function putJson<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(path, {
+    method: 'PUT',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+  }
+
+  return (await response.json()) as T
+}
+
+async function patchJson<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(path, {
+    method: 'PATCH',
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
@@ -89,6 +130,131 @@ export async function fetchDashboardProjects() {
 export async function fetchProjectSnapshot(projectPath: string) {
   return await fetchJson<ProjectSnapshot>(
     `/api/projects/${encodeProjectPath(projectPath)}/snapshot`,
+  )
+}
+
+export async function fetchDashboardSkillFamilies() {
+  const data = await fetchJson<DashboardSkillFamiliesResponse>('/api/skills/families')
+  return Array.isArray(data.families) ? data.families : []
+}
+
+export async function fetchDashboardSkillFamily(familyId: string) {
+  const data = await fetchJson<DashboardSkillFamilyResponse>(
+    `/api/skills/families/${encodeURIComponent(familyId)}`,
+  )
+  return data.family
+}
+
+export async function fetchDashboardSkillFamilyInstances(familyId: string) {
+  const data = await fetchJson<DashboardSkillFamilyInstancesResponse>(
+    `/api/skills/families/${encodeURIComponent(familyId)}/instances`,
+  )
+  return Array.isArray(data.instances) ? data.instances : []
+}
+
+export async function fetchDashboardSkillDetail(
+  projectPath: string,
+  skillId: string,
+  runtime: SkillDomainRuntime,
+) {
+  return await fetchJson<DashboardSkillDetail>(
+    `/api/projects/${encodeProjectPath(projectPath)}/skills/${encodeURIComponent(skillId)}?runtime=${encodeURIComponent(runtime)}`,
+  )
+}
+
+export async function fetchDashboardSkillVersion(
+  projectPath: string,
+  skillId: string,
+  runtime: SkillDomainRuntime,
+  version: number,
+  instanceId?: string | null,
+) {
+  const path = instanceId
+    ? `/api/projects/${encodeProjectPath(projectPath)}/skill-instances/${encodeURIComponent(instanceId)}/versions/${version}`
+    : `/api/projects/${encodeProjectPath(projectPath)}/skills/${encodeURIComponent(skillId)}/versions/${version}?runtime=${encodeURIComponent(runtime)}`
+
+  return await fetchJson<DashboardSkillVersionRecord>(path)
+}
+
+interface SaveDashboardSkillDetailInput {
+  content: string
+  instanceId?: string | null
+  projectPath: string
+  reason: string
+  runtime: SkillDomainRuntime
+  skillId: string
+}
+
+export async function saveDashboardSkillDetail(input: SaveDashboardSkillDetailInput) {
+  const path = input.instanceId
+    ? `/api/projects/${encodeProjectPath(input.projectPath)}/skill-instances/${encodeURIComponent(input.instanceId)}`
+    : `/api/projects/${encodeProjectPath(input.projectPath)}/skills/${encodeURIComponent(input.skillId)}?runtime=${encodeURIComponent(input.runtime)}`
+
+  return await putJson<{
+    ok: boolean
+    unchanged?: boolean
+    version?: number
+  }>(path, {
+    content: input.content,
+    reason: input.reason,
+    runtime: input.runtime,
+  })
+}
+
+interface ToggleDashboardSkillVersionInput {
+  disabled: boolean
+  instanceId?: string | null
+  projectPath: string
+  runtime: SkillDomainRuntime
+  skillId: string
+  version: number
+}
+
+export async function toggleDashboardSkillVersionDisabled(
+  input: ToggleDashboardSkillVersionInput,
+) {
+  const path = input.instanceId
+    ? `/api/projects/${encodeProjectPath(input.projectPath)}/skill-instances/${encodeURIComponent(input.instanceId)}/versions/${input.version}`
+    : `/api/projects/${encodeProjectPath(input.projectPath)}/skills/${encodeURIComponent(input.skillId)}/versions/${input.version}?runtime=${encodeURIComponent(input.runtime)}`
+
+  return await patchJson<{
+    effectiveVersion?: number | null
+    metadata?: DashboardSkillVersionRecord['metadata']
+    ok: boolean
+  }>(path, {
+    disabled: input.disabled,
+  })
+}
+
+export async function fetchDashboardSkillApplyPreview(
+  projectPath: string,
+  instanceId: string,
+) {
+  return await fetchJson<DashboardSkillApplyPreview>(
+    `/api/projects/${encodeProjectPath(projectPath)}/skill-instances/${encodeURIComponent(instanceId)}/apply-preview`,
+  )
+}
+
+interface ApplyDashboardSkillToFamilyInput {
+  content: string
+  instanceId: string
+  projectPath: string
+  reason: string
+}
+
+export async function applyDashboardSkillToFamily(input: ApplyDashboardSkillToFamilyInput) {
+  return await postJson<{
+    failedTargets?: number
+    ok: boolean
+    skippedTargets?: number
+    totalTargets?: number
+    updatedTargets?: number
+  }>(
+    `/api/projects/${encodeProjectPath(input.projectPath)}/skill-instances/${encodeURIComponent(input.instanceId)}/apply-to-family`,
+    {
+      content: input.content,
+      reason: input.reason,
+    },
   )
 }
 

@@ -77,13 +77,13 @@ function buildFeed(
 function getTone(tone: FeedItem['tone']) {
   switch (tone) {
     case 'accent':
-      return 'accent' as const
+      return 'default' as const
     case 'success':
-      return 'success' as const
+      return 'default' as const
     case 'warning':
-      return 'warning' as const
+      return 'destructive' as const
     default:
-      return 'neutral' as const
+      return 'secondary' as const
   }
 }
 
@@ -122,7 +122,7 @@ export function ActivityFeed({ isLoading, snapshot }: ActivityFeedProps) {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate text-sm font-medium text-white">{item.title}</p>
-                    <Badge tone={getTone(item.tone)}>{item.kind}</Badge>
+                    <Badge variant={getTone(item.tone)}>{item.kind}</Badge>
                   </div>
                   <p className="mt-2 text-sm leading-6 text-slate-300/72">{item.detail}</p>
                   <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">

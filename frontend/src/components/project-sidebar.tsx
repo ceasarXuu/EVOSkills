@@ -16,13 +16,13 @@ interface ProjectSidebarProps {
 function getConnectionCopy(state: ConnectionState) {
   switch (state) {
     case 'connected':
-      return { label: 'SSE 已连接', tone: 'success' as const }
+      return { label: 'SSE 已连接', variant: 'default' as const }
     case 'reconnecting':
-      return { label: '正在重连', tone: 'warning' as const }
+      return { label: '正在重连', variant: 'outline' as const }
     case 'error':
-      return { label: '连接异常', tone: 'warning' as const }
+      return { label: '连接异常', variant: 'destructive' as const }
     default:
-      return { label: '正在连接', tone: 'neutral' as const }
+      return { label: '正在连接', variant: 'secondary' as const }
   }
 }
 
@@ -58,8 +58,8 @@ export function ProjectSidebar({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <Badge tone={connection.tone}>{connection.label}</Badge>
-          <Badge>{projects.length} Projects</Badge>
+          <Badge variant={connection.variant}>{connection.label}</Badge>
+          <Badge variant="secondary">{projects.length} Projects</Badge>
         </div>
 
         <div className="rounded-3xl border border-white/8 bg-black/16 p-4">

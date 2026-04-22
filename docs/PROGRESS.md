@@ -4,6 +4,10 @@
 
 ### 2026-04-22
 
+- ✅ 对 `frontend/` 执行 shadcn preset overwrite：已直接应用 `b4NKaHect`，当前前端风格切到 `radix-vega`，并把基础配置同步成 `olive` base color 与 `hugeicons` icon library
+- ✅ 收口 overwrite 后的组件契约漂移：preset 覆盖把 `badge/button/card` 直接替换成 shadcn 标准实现后，业务层已从自定义 `tone` 语义切回标准 `variant` 契约，`frontend build` 与根仓 `build` 均恢复通过
+- 📝 记录 preset 迁移经验：shadcn 的 overwrite 不只是换主题变量，它会连同现有基础件源码一起覆盖；如果业务层提前包了非标准 props（例如自定义 `tone`），覆盖后最先炸的通常不是样式，而是编译期接口漂移。正确做法是把业务层语义尽量贴近 shadcn 标准 API，减少 overwrite 的适配面
+
 - ✅ 建立 dashboard v2 独立前端隔离层：新增 `frontend/` 子工程，使用 `React + Vite + Tailwind v4 + shadcn core libs` 构建新 UI，构建产物输出到 `dist/dashboard-v2`，现有字符串式 dashboard 不再与 v2 共用 DOM、类名或静态资源入口
 - ✅ 打通独立入口 `/v2`：dashboard server 现在会优先服务 `dist/dashboard-v2/index.html` 与 `/v2/assets/*`，构建缺失时返回明确 fallback shell；旧入口 `/` 和旧 `/assets/dashboard.*` 保持不变，具备双入口并存的安全切换条件
 - ✅ 完成 shadcn 可用性校验：本机 `shadcn` MCP 已处于 enabled 状态，`npx shadcn@latest mcp --help` 可执行；`frontend/` 已补齐 `components.json`、Tailwind v4 样式入口和 `@/` alias，`npx shadcn@latest info --json --cwd frontend` 已能识别项目并列出 `button / badge / card`

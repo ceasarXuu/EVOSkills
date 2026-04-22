@@ -24,11 +24,11 @@ function getStatusTone(status: string | undefined) {
   switch (status) {
     case 'optimized':
     case 'active':
-      return 'success' as const
+      return 'default' as const
     case 'pending':
-      return 'warning' as const
+      return 'outline' as const
     default:
-      return 'neutral' as const
+      return 'secondary' as const
   }
 }
 
@@ -70,7 +70,7 @@ export function SkillInventory({ isLoading, snapshot }: SkillInventoryProps) {
                   </td>
                   <td className="px-5 py-4 text-sm text-slate-300/72">{skill.runtime ?? 'unknown'}</td>
                   <td className="px-5 py-4">
-                    <Badge tone={getStatusTone(skill.status)}>{skill.status ?? 'unknown'}</Badge>
+                    <Badge variant={getStatusTone(skill.status)}>{skill.status ?? 'unknown'}</Badge>
                   </td>
                   <td className="px-5 py-4 text-sm text-slate-200">{skill.traceCount ?? 0}</td>
                   <td className="px-5 py-4 text-sm text-slate-300/72">

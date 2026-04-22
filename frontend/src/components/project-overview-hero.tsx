@@ -13,9 +13,9 @@ interface ProjectOverviewHeroProps {
 }
 
 function getConnectionTone(state: ConnectionState) {
-  if (state === 'connected') return 'success' as const
-  if (state === 'reconnecting') return 'warning' as const
-  return 'neutral' as const
+  if (state === 'connected') return 'default' as const
+  if (state === 'reconnecting') return 'outline' as const
+  return 'secondary' as const
 }
 
 export function ProjectOverviewHero({
@@ -34,11 +34,11 @@ export function ProjectOverviewHero({
       <div className="grid gap-7 xl:grid-cols-[minmax(0,1.5fr)_420px]">
         <div className="space-y-5">
           <div className="flex flex-wrap items-center gap-3">
-            <Badge tone={getConnectionTone(connectionState)}>
+            <Badge variant={getConnectionTone(connectionState)}>
               {connectionState === 'connected' ? 'Live' : connectionState === 'reconnecting' ? 'Retrying' : 'Booting'}
             </Badge>
-            <Badge>{project?.monitoringState === 'paused' ? 'Paused' : 'Active'}</Badge>
-            <Badge>{isLoading ? 'Loading snapshot' : `同步于 ${formatRelativeTime(lastSyncedAt)}`}</Badge>
+            <Badge variant="secondary">{project?.monitoringState === 'paused' ? 'Paused' : 'Active'}</Badge>
+            <Badge variant="secondary">{isLoading ? 'Loading snapshot' : `同步于 ${formatRelativeTime(lastSyncedAt)}`}</Badge>
           </div>
           <div className="space-y-3">
             <div className="flex flex-wrap items-end justify-between gap-4">

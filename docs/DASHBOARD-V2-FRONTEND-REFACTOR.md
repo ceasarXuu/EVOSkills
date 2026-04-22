@@ -119,6 +119,9 @@ frontend/
   - `components.json`
   - Tailwind v4 样式入口 `src/styles/globals.css`
   - `@/` alias
+  - 当前 preset: `b4NKaHect`
+  - 当前 style: `radix-vega`
+  - 当前 icon library: `hugeicons`
 
 ## 5.2.1 新增实现约束
 

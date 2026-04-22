@@ -1,19 +1,16 @@
 import type { ComponentProps } from 'react'
-import { AiBrain03Icon, Clock01Icon, RefreshIcon, Settings02Icon } from '@hugeicons/core-free-icons'
+import { AiBrain03Icon, Clock01Icon, Settings02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCompactNumber, formatRelativeTime, getMonitoringBadgeVariant, getViewCopy } from '@/lib/format'
-import type { DashboardProject, DashboardView, ProjectSnapshot } from '@/types/dashboard'
+import type { DashboardProject, ProjectSnapshot } from '@/types/dashboard'
 
 interface DashboardHeroProps {
-  currentView: DashboardView
+  currentView: 'projects'
   isLoading: boolean
-  lastSyncedAt: string | null
-  onRefresh: () => void | Promise<void>
   project: DashboardProject | null
   snapshot: ProjectSnapshot | null
 }
@@ -21,8 +18,6 @@ interface DashboardHeroProps {
 export function DashboardHero({
   currentView,
   isLoading,
-  lastSyncedAt,
-  onRefresh,
   project,
   snapshot,
 }: DashboardHeroProps) {
@@ -62,15 +57,7 @@ export function DashboardHero({
                 <Badge variant={getMonitoringBadgeVariant(project?.monitoringState)}>
                   {project?.monitoringState === 'paused' ? '监控暂停' : '监控开启'}
                 </Badge>
-                <Badge variant="outline">
-                  <HugeiconsIcon icon={Clock01Icon} size={12} strokeWidth={2} />
-                  {formatRelativeTime(lastSyncedAt)}
-                </Badge>
               </div>
-              <Button onClick={() => void onRefresh()} variant="outline">
-                <HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.8} />
-                刷新快照
-              </Button>
             </div>
           </div>
         </CardHeader>

@@ -92,8 +92,8 @@ export function getViewCopy(view: DashboardView) {
     case 'skills':
       return {
         eyebrow: 'Skill Workspace',
-        title: '技能总览',
-        description: '从全局技能库切入，优先判断活跃度、版本有效性和最近使用证据。',
+        title: '技能工作台',
+        description: '先看技能清单、版本有效性和最近使用证据，项目只作为当前过滤范围。',
       }
     case 'projects':
       return {
@@ -105,7 +105,7 @@ export function getViewCopy(view: DashboardView) {
       return {
         eyebrow: 'Activity Workspace',
         title: '活动与决策',
-        description: '聚焦最近 trace、评估事件和模型用量，判断哪里该继续跟踪。',
+        description: '聚焦最近 trace 和 decision event，快速判断哪个项目上下文值得继续跟踪。',
       }
     default:
       return {

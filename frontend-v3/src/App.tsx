@@ -1,18 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { ActivityStream } from '@/components/activity-stream'
 import { DashboardHero } from '@/components/dashboard-hero'
 import { InsightStack } from '@/components/insight-stack'
 import { MetricGrid } from '@/components/metric-grid'
 import { ProjectRail } from '@/components/project-rail'
+import { ProjectScopeBar } from '@/components/project-scope-bar'
 import { ProjectStatusPanel } from '@/components/project-status-panel'
 import { SkillDetailDialog } from '@/components/skill-detail-dialog'
 import { SkillsTable } from '@/components/skills-table'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { WorkspaceHeader } from '@/components/workspace-header'
 import { useDashboardV3Workspace } from '@/features/dashboard/use-dashboard-v3-workspace'
 import { logDashboardV3Event } from '@/lib/dashboard-api'
 import { sortSkills } from '@/lib/format'
-import type { DashboardSkill, DashboardView } from '@/types/dashboard'
+import { resolveDashboardViewLayout } from '@/lib/view-layout'
+import type {
+  DashboardProject,
+  DashboardSkill,
+  DashboardView,
+  ProjectSnapshot,
+} from '@/types/dashboard'
 
 const DASHBOARD_VIEWS: DashboardView[] = ['skills', 'projects', 'activity']
 
@@ -84,6 +91,7 @@ function DashboardWorkspacePage() {
   const selectedSkillKey = selectedSkill
     ? `${selectedSkill.skillId}:${selectedSkill.runtime ?? 'unknown'}`
     : ''
+  const layout = resolveDashboardViewLayout(currentView)
 
   useEffect(() => {
     logDashboardV3Event('workspace.view_changed', { view: currentView })
@@ -91,65 +99,69 @@ function DashboardWorkspacePage() {
 
   return (
     <div className="dark min-h-screen bg-background text-foreground">
-      <div className="mx-auto grid min-h-screen max-w-[1680px] gap-6 px-4 py-4 lg:grid-cols-[320px_minmax(0,1fr)] xl:px-6">
-        <ProjectRail
+      <div className="mx-auto max-w-[1680px] space-y-6 px-4 py-4 xl:px-6">
+        <WorkspaceHeader
           connectionState={connectionState}
-          isLoading={isLoadingProjects}
+          currentView={currentView}
+          lastSyncedAt={lastSyncedAt}
           onRefresh={() => refreshWorkspace('manual')}
-          onSelect={selectProject}
-          projects={projects}
-          selectedProjectId={selectedProjectId}
+          projectCount={projects.length}
+          selectedProject={selectedProject}
         />
 
-        <main className="space-y-6 py-1">
-          <DashboardHero
-            currentView={currentView}
-            isLoading={isLoadingSnapshot}
-            lastSyncedAt={lastSyncedAt}
-            onRefresh={() => refreshWorkspace('manual')}
-            project={selectedProject}
-            snapshot={selectedSnapshot}
+        {loadError ? (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {loadError}
+          </div>
+        ) : null}
+
+        {layout.showProjectScopeBar ? (
+          <ProjectScopeBar
+            onSelect={selectProject}
+            projects={projects}
+            selectedProjectId={selectedProjectId}
           />
+        ) : null}
 
-          <MetricGrid
-            isLoading={isLoadingSnapshot}
-            project={selectedProject}
-            snapshot={selectedSnapshot}
-          />
-
-          <ViewTabs currentView={currentView} />
-
-          {loadError ? (
-            <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {loadError}
-            </div>
-          ) : null}
-
-          {currentView === 'skills' ? (
-            <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.5fr)_360px]">
-              <SkillsTable
-                isLoading={isLoadingSnapshot}
+        {layout.showProjectRail ? (
+          <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+            <ProjectRail
+              isLoading={isLoadingProjects}
+              onSelect={selectProject}
+              projects={projects}
+              selectedProjectId={selectedProjectId}
+            />
+            <main className="space-y-6">
+              <ViewContent
+                currentView={currentView}
+                filteredSkills={filteredSkills}
+                isLoadingSnapshot={isLoadingSnapshot}
+                layout={layout}
                 onQueryChange={setQuery}
                 onSelectSkill={setSelectedSkill}
+                project={selectedProject}
                 query={query}
                 selectedSkillKey={selectedSkillKey}
-                skills={filteredSkills}
+                snapshot={selectedSnapshot}
               />
-              <InsightStack snapshot={selectedSnapshot} />
-            </div>
-          ) : null}
-
-          {currentView === 'projects' ? (
-            <ProjectStatusPanel project={selectedProject} snapshot={selectedSnapshot} />
-          ) : null}
-
-          {currentView === 'activity' ? (
-            <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.35fr)_360px]">
-              <ActivityStream isLoading={isLoadingSnapshot} snapshot={selectedSnapshot} />
-              <InsightStack snapshot={selectedSnapshot} />
-            </div>
-          ) : null}
-        </main>
+            </main>
+          </div>
+        ) : (
+          <main className="space-y-6">
+            <ViewContent
+              currentView={currentView}
+              filteredSkills={filteredSkills}
+              isLoadingSnapshot={isLoadingSnapshot}
+              layout={layout}
+              onQueryChange={setQuery}
+              onSelectSkill={setSelectedSkill}
+              project={selectedProject}
+              query={query}
+              selectedSkillKey={selectedSkillKey}
+              snapshot={selectedSnapshot}
+            />
+          </main>
+        )}
       </div>
 
       <SkillDetailDialog
@@ -165,21 +177,75 @@ function DashboardWorkspacePage() {
   )
 }
 
-function ViewTabs({ currentView }: { currentView: DashboardView }) {
+interface ViewContentProps {
+  currentView: DashboardView
+  filteredSkills: DashboardSkill[]
+  isLoadingSnapshot: boolean
+  layout: ReturnType<typeof resolveDashboardViewLayout>
+  onQueryChange: (value: string) => void
+  onSelectSkill: (skill: DashboardSkill) => void
+  project: DashboardProject | null
+  query: string
+  selectedSkillKey: string
+  snapshot: ProjectSnapshot | null
+}
+
+function ViewContent({
+  currentView,
+  filteredSkills,
+  isLoadingSnapshot,
+  layout,
+  onQueryChange,
+  onSelectSkill,
+  project,
+  query,
+  selectedSkillKey,
+  snapshot,
+}: ViewContentProps) {
   return (
-    <Tabs value={currentView}>
-      <TabsList variant="default">
-        <TabsTrigger asChild value="skills">
-          <Link to="/skills">技能</Link>
-        </TabsTrigger>
-        <TabsTrigger asChild value="projects">
-          <Link to="/projects">项目</Link>
-        </TabsTrigger>
-        <TabsTrigger asChild value="activity">
-          <Link to="/activity">活动</Link>
-        </TabsTrigger>
-      </TabsList>
-    </Tabs>
+    <>
+      {layout.showHero ? (
+        <DashboardHero
+          currentView="projects"
+          isLoading={isLoadingSnapshot}
+          project={project}
+          snapshot={snapshot}
+        />
+      ) : null}
+
+      {layout.showMetrics ? (
+        <MetricGrid
+          isLoading={isLoadingSnapshot}
+          project={project}
+          snapshot={snapshot}
+        />
+      ) : null}
+
+      {currentView === 'skills' ? (
+        <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.5fr)_360px]">
+          <SkillsTable
+            isLoading={isLoadingSnapshot}
+            onQueryChange={onQueryChange}
+            onSelectSkill={onSelectSkill}
+            query={query}
+            selectedSkillKey={selectedSkillKey}
+            skills={filteredSkills}
+          />
+          <InsightStack snapshot={snapshot} />
+        </div>
+      ) : null}
+
+      {currentView === 'projects' ? (
+        <ProjectStatusPanel project={project} snapshot={snapshot} />
+      ) : null}
+
+      {currentView === 'activity' ? (
+        <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.35fr)_360px]">
+          <ActivityStream isLoading={isLoadingSnapshot} snapshot={snapshot} />
+          <InsightStack snapshot={snapshot} />
+        </div>
+      ) : null}
+    </>
   )
 }
 

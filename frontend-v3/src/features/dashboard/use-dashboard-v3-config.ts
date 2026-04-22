@@ -1,12 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   buildProviderDraft,
   DEFAULT_DASHBOARD_CONFIG,
-  getProviderCatalogEntry,
-  getProviderModelOptions,
   normalizeDashboardConfig,
   normalizeProviderHealthSummary,
 } from '@/lib/dashboard-config'
+import {
+  CONFIG_TEXT,
+  getConnectivityProviders,
+  guessApiKeyEnvVar,
+  resolveDefaultProvider,
+} from '@/lib/config-workspace'
 import {
   checkDashboardProvidersConnectivity,
   fetchDashboardConfig,
@@ -48,6 +52,16 @@ export function useDashboardV3Config() {
   const [catalogError, setCatalogError] = useState<string | null>(null)
   const [healthError, setHealthError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveHint, setSaveHint] = useState('')
+  const [apiKeyVisibilityByRow, setApiKeyVisibilityByRow] = useState<Record<string, boolean>>({})
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autoSaveInFlightRef = useRef(false)
+  const autoSaveQueuedRef = useRef(false)
+  const latestConfigRef = useRef(config)
+
+  useEffect(() => {
+    latestConfigRef.current = config
+  }, [config])
 
   const refresh = useCallback(async () => {
     setIsLoading(true)
@@ -66,6 +80,7 @@ export function useDashboardV3Config() {
       const normalized = normalizeDashboardConfig(configResult.value)
       setConfig(normalized)
       setSavedSnapshot(JSON.stringify(normalized))
+      setSaveHint('')
       setSaveError(null)
     } else {
       setLoadError(getErrorMessage(configResult.reason, '加载配置失败。'))
@@ -116,7 +131,10 @@ export function useDashboardV3Config() {
 
   const setDefaultProvider = useCallback(
     (value: string) => {
-      patchConfig((current) => ({ ...current, defaultProvider: value }))
+      patchConfig((current) => ({
+        ...current,
+        defaultProvider: resolveDefaultProvider(current.providers, value),
+      }))
     },
     [patchConfig],
   )
@@ -128,7 +146,7 @@ export function useDashboardV3Config() {
       return {
         ...current,
         providers,
-        defaultProvider: current.defaultProvider || draft.provider,
+        defaultProvider: resolveDefaultProvider(providers, current.defaultProvider || draft.provider),
       }
     })
   }, [patchConfig, providerCatalog])
@@ -141,30 +159,34 @@ export function useDashboardV3Config() {
             return provider
           }
 
-          const nextProvider = { ...provider, ...patch }
+          const nextProvider = {
+            ...provider,
+            ...patch,
+          }
+
           if (typeof patch.provider === 'string') {
-            const catalogEntry = getProviderCatalogEntry(providerCatalog, patch.provider)
-            const modelOptions = getProviderModelOptions(providerCatalog, patch.provider)
-            if (!modelOptions.includes(nextProvider.modelName)) {
-              nextProvider.modelName = catalogEntry?.defaultModel || modelOptions[0] || ''
-            }
-            if (!patch.apiKeyEnvVar && catalogEntry?.apiKeyEnvVar) {
-              nextProvider.apiKeyEnvVar = catalogEntry.apiKeyEnvVar
+            const catalogEntry = providerCatalog.find((entry) => entry.id === patch.provider) ?? null
+            const modelOptions = catalogEntry?.models ?? []
+            if (patch.provider.trim().length === 0) {
+              nextProvider.modelName = nextProvider.modelName || ''
+              nextProvider.apiKeyEnvVar = nextProvider.apiKeyEnvVar || ''
+            } else {
+              if (!modelOptions.includes(nextProvider.modelName)) {
+                nextProvider.modelName = catalogEntry?.defaultModel || modelOptions[0] || ''
+              }
+              if (!patch.apiKeyEnvVar) {
+                nextProvider.apiKeyEnvVar =
+                  catalogEntry?.apiKeyEnvVar || guessApiKeyEnvVar(patch.provider)
+              }
             }
           }
 
           return nextProvider
         })
 
-        const nextDefaultProvider = providers.some(
-          (provider) => provider.provider === current.defaultProvider,
-        )
-          ? current.defaultProvider
-          : providers[0]?.provider || ''
-
         return {
           ...current,
-          defaultProvider: nextDefaultProvider,
+          defaultProvider: resolveDefaultProvider(providers, current.defaultProvider),
           providers,
         }
       })
@@ -176,21 +198,36 @@ export function useDashboardV3Config() {
     (index: number) => {
       patchConfig((current) => {
         const providers = current.providers.filter((_, providerIndex) => providerIndex !== index)
-        const defaultProvider = providers.some(
-          (provider) => provider.provider === current.defaultProvider,
-        )
-          ? current.defaultProvider
-          : providers[0]?.provider || ''
-
         return {
           ...current,
-          defaultProvider,
+          defaultProvider: resolveDefaultProvider(providers, current.defaultProvider),
           providers,
         }
+      })
+      setApiKeyVisibilityByRow((current) => {
+        const nextEntries = Object.entries(current)
+          .map(([key, visible]) => {
+            const rowIndex = Number(key)
+            if (!Number.isInteger(rowIndex) || rowIndex === index) {
+              return null
+            }
+
+            return [String(rowIndex > index ? rowIndex - 1 : rowIndex), visible] as const
+          })
+          .filter((entry): entry is readonly [string, boolean] => entry !== null)
+
+        return Object.fromEntries(nextEntries)
       })
     },
     [patchConfig],
   )
+
+  const toggleApiKeyVisibility = useCallback((index: number) => {
+    setApiKeyVisibilityByRow((current) => ({
+      ...current,
+      [String(index)]: !current[String(index)],
+    }))
+  }, [])
 
   const setPromptSource = useCallback(
     (key: DashboardPromptKey, value: DashboardPromptSource) => {
@@ -241,60 +278,135 @@ export function useDashboardV3Config() {
     }
   }, [])
 
-  const checkConnectivity = useCallback(async () => {
+  const reloadProviderCatalog = useCallback(async () => {
+    setCatalogError(null)
+
+    try {
+      const catalog = await fetchDashboardProviderCatalog()
+      setProviderCatalog(catalog)
+    } catch (error) {
+      setCatalogError(getErrorMessage(error, '加载 provider catalog 失败。'))
+    }
+  }, [])
+
+  const persistConfig = useCallback(
+    async (mode: 'auto' | 'manual') => {
+      if (mode === 'auto' && autoSaveInFlightRef.current) {
+        autoSaveQueuedRef.current = true
+        return
+      }
+
+      const normalized = normalizeDashboardConfig(latestConfigRef.current)
+      if (JSON.stringify(normalized) === savedSnapshot) {
+        return
+      }
+
+      if (mode === 'auto') {
+        autoSaveInFlightRef.current = true
+      }
+
+      setIsSaving(true)
+      setSaveError(null)
+      setSaveHint(CONFIG_TEXT.saveSaving)
+      logDashboardV3Event('config.save_started', {
+        mode,
+        providerCount: normalized.providers.length,
+        defaultProvider: normalized.defaultProvider,
+      })
+
+      try {
+        await saveDashboardConfig(normalized)
+        setConfig(normalized)
+        setSavedSnapshot(JSON.stringify(normalized))
+        setSaveHint(mode === 'auto' ? CONFIG_TEXT.saveAuto : CONFIG_TEXT.saveAuto)
+        await reloadHealth()
+        logDashboardV3Event('config.save_completed', {
+          mode,
+          providerCount: normalized.providers.length,
+          defaultProvider: normalized.defaultProvider,
+        })
+      } catch (error) {
+        const message = getErrorMessage(error, '保存配置失败。')
+        setSaveError(message)
+        setSaveHint(`${CONFIG_TEXT.saveFailed}: ${message}`)
+        logDashboardV3Event('config.save_failed', {
+          mode,
+          message,
+        })
+      } finally {
+        setIsSaving(false)
+        if (mode === 'auto') {
+          autoSaveInFlightRef.current = false
+          if (autoSaveQueuedRef.current) {
+            autoSaveQueuedRef.current = false
+            autoSaveTimerRef.current = setTimeout(() => {
+              autoSaveTimerRef.current = null
+              void persistConfig('auto')
+            }, 150)
+          }
+        }
+      }
+    },
+    [reloadHealth, savedSnapshot],
+  )
+
+  const checkConnectivity = useCallback(async (rowIndex?: number | null) => {
     setIsCheckingConnectivity(true)
     setSaveError(null)
+    setSaveHint(CONFIG_TEXT.connectivityCheckingHint)
+    const providersToCheck = getConnectivityProviders(config.providers, rowIndex)
     logDashboardV3Event('config.connectivity_started', {
-      providerCount: config.providers.length,
+      providerCount: providersToCheck.length,
+      rowIndex: rowIndex ?? null,
     })
 
     try {
-      const results = await checkDashboardProvidersConnectivity(config.providers)
+      const results = await checkDashboardProvidersConnectivity(providersToCheck)
       setConnectivityResults(results)
+      setSaveHint(CONFIG_TEXT.connectivityDone)
       await reloadHealth()
       logDashboardV3Event('config.connectivity_completed', {
         providerCount: results.length,
         failedCount: results.filter((result) => !result.ok).length,
       })
     } catch (error) {
-      setSaveError(getErrorMessage(error, '检查 provider 连通性失败。'))
+      const message = getErrorMessage(error, '检查 provider 连通性失败。')
+      setSaveError(message)
+      setSaveHint(`${CONFIG_TEXT.connectivityFailed}: ${message}`)
       logDashboardV3Event('config.connectivity_failed', {
-        message: getErrorMessage(error, 'unknown'),
+        message,
       })
     } finally {
       setIsCheckingConnectivity(false)
     }
   }, [config.providers, reloadHealth])
 
-  const save = useCallback(async () => {
-    setIsSaving(true)
-    setSaveError(null)
-    logDashboardV3Event('config.save_started', {
-      providerCount: config.providers.length,
-      defaultProvider: config.defaultProvider,
-      autoOptimize: config.autoOptimize,
-      runtimeSync: config.runtimeSync,
-    })
-
-    try {
-      const normalized = normalizeDashboardConfig(config)
-      await saveDashboardConfig(normalized)
-      setConfig(normalized)
-      setSavedSnapshot(JSON.stringify(normalized))
-      await reloadHealth()
-      logDashboardV3Event('config.save_completed', {
-        providerCount: normalized.providers.length,
-        defaultProvider: normalized.defaultProvider,
-      })
-    } catch (error) {
-      setSaveError(getErrorMessage(error, '保存配置失败。'))
-      logDashboardV3Event('config.save_failed', {
-        message: getErrorMessage(error, 'unknown'),
-      })
-    } finally {
-      setIsSaving(false)
+  useEffect(() => {
+    if (isLoading) {
+      return
     }
-  }, [config, reloadHealth])
+
+    const normalizedSnapshot = JSON.stringify(normalizeDashboardConfig(config))
+    if (normalizedSnapshot === savedSnapshot) {
+      return
+    }
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current)
+    }
+    setSaveHint(CONFIG_TEXT.saveSaving)
+    autoSaveTimerRef.current = setTimeout(() => {
+      autoSaveTimerRef.current = null
+      void persistConfig('auto')
+    }, 450)
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+        autoSaveTimerRef.current = null
+      }
+    }
+  }, [config, isLoading, persistConfig, savedSnapshot])
 
   const hasUnsavedChanges = useMemo(
     () => JSON.stringify(normalizeDashboardConfig(config)) !== savedSnapshot,
@@ -309,6 +421,7 @@ export function useDashboardV3Config() {
     connectivityResults,
     hasUnsavedChanges,
     healthError,
+    isApiKeyVisible: (index: number) => Boolean(apiKeyVisibilityByRow[String(index)]),
     isCheckingConnectivity,
     isLoading,
     isSaving,
@@ -316,15 +429,17 @@ export function useDashboardV3Config() {
     providerCatalog,
     providerHealth,
     refresh,
+    reloadProviderCatalog,
     removeProvider,
-    save,
     saveError,
+    saveHint,
     setBooleanFlag,
     setDefaultProvider,
     setLogLevel,
     setPromptOverride,
     setPromptSource,
     setSafetyField,
+    toggleApiKeyVisibility,
     updateProvider,
   }
 }

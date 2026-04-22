@@ -18,6 +18,9 @@
 - ✅ 恢复 v3 的一级 `配置` 工作区：`/v3/config` 已重新回到顶层导航，`config` 现在和 `技能 / 项目` 一样是显式一级视图，不再通过默认 fallback 间接兜底
 - ✅ 接回真实配置工作台：v3 已补齐 `GET/POST /api/config`、`/api/providers/catalog`、`/api/provider-health`、`/api/config/providers/connectivity` 的前端 client 和独立状态层；当前可直接查看 provider stack、默认 provider、LLM safety、prompt source/override，并保存配置
 - ✅ 补齐 shadcn 表单基件：v3 新增 `select / switch / textarea / label / alert`，配置页继续沿用 `Card / Button / Badge / Tabs / Input` 组合，不再为表单场景手写私有控件
+- ✅ 收回 v3 配置页到 v1 可见合同：`/v3/config` 现已改回 `模型 / 演进策略` 两个子页签，provider 行内重新具备 `启用 / 检查连通性 / 删除 / API Key 显示隐藏`，并恢复底部自动保存提示；此前自造的 `配置控制台 / Provider Health / Runtime Policy / 保存配置` 等非 v1 可见模块已从页面删除
+- ✅ 补齐配置页对照测试：新增 `dashboard-v3-config-contract` 与 `dashboard-v3-config-workspace` 两组测试，约束 v3 配置页只能出现 v1 的可见文案和交互入口，避免后续再次混入自解释文案或额外控制台模块
+- 📝 记录复刻经验：`100% 功能性复刻` 的边界是“对象、入口、按钮、提示、保存行为都和 v1 一致”，不是把旧样式整页搬回来；因此 v3 配置页这次只复用 v1 的可见合同和交互语义，样式层仍保持独立实现
 - 📝 记录 IA 经验：对 dashboard 这种多工作区产品，`config` 不能只算“将来会补”的附属页；只要它是主路径之一，就必须在 `DashboardView`、header tabs、view copy、layout rule 这四层同时显式存在，否则后续清理布局时很容易被静默删掉
 - 📝 记录浏览器验证经验：v3 页面常驻 SSE，做 Playwright/浏览器脚本冒烟时不要等 `networkidle`，否则很容易被长连接拖到超时；更稳的做法是 `domcontentloaded + 固定等待 + 抓取 body 文本/控制台`
 

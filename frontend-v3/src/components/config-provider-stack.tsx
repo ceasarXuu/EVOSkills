@@ -1,276 +1,370 @@
-import type { ReactNode } from 'react'
-import {
-  Add01Icon,
-  ArrowReloadHorizontalIcon,
-  CheckmarkCircle02Icon,
-  DatabaseIcon,
-  Delete02Icon,
-} from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  getConfiguredProviderOptions,
-  getProviderDisplayName,
-  maskApiKey,
-} from '@/lib/dashboard-config'
-import { cn } from '@/lib/utils'
+  CONFIG_TEXT,
+  getConnectivityProviders,
+  guessApiKeyEnvVar,
+  isKnownModel,
+  isKnownProvider,
+} from '@/lib/config-workspace'
+import { getProviderCatalogEntry, getProviderDisplayName, getProviderModelOptions } from '@/lib/dashboard-config'
 import type {
   DashboardConfig,
   DashboardProviderCatalogEntry,
   DashboardProviderConfig,
   DashboardProviderHealthResult,
-  DashboardProviderHealthSummary,
 } from '@/types/config'
 
 interface ConfigProviderStackProps {
-  catalogError: string | null
+  apiKeyVisibilityByRow: Record<string, boolean>
   config: DashboardConfig
   connectivityResults: DashboardProviderHealthResult[]
+  isCatalogLoading: boolean
   isCheckingConnectivity: boolean
   onAddProvider: () => void
-  onCheckConnectivity: () => void | Promise<void>
+  onCheckConnectivity: (rowIndex?: number | null) => void | Promise<void>
   onRemoveProvider: (index: number) => void
   onSetDefaultProvider: (value: string) => void
+  onSetSafetyField: (field: keyof DashboardConfig['llmSafety'], value: boolean | number) => void
+  onToggleApiKeyVisibility: (index: number) => void
   onUpdateProvider: (index: number, patch: Partial<DashboardProviderConfig>) => void
   providerCatalog: DashboardProviderCatalogEntry[]
-  providerHealth: DashboardProviderHealthSummary
-}
-
-function getProviderStatus(
-  provider: DashboardProviderConfig,
-  connectivityResults: DashboardProviderHealthResult[],
-  providerHealth: DashboardProviderHealthSummary,
-) {
-  const key = `${provider.provider}:${provider.modelName}`
-  const connectivityMap = new Map(
-    connectivityResults.map((result) => [`${result.provider}:${result.modelName}`, result]),
-  )
-  const healthMap = new Map(
-    providerHealth.results.map((result) => [`${result.provider}:${result.modelName}`, result]),
-  )
-
-  return connectivityMap.get(key) ?? healthMap.get(key) ?? null
 }
 
 export function ConfigProviderStack({
-  catalogError,
+  apiKeyVisibilityByRow,
   config,
   connectivityResults,
+  isCatalogLoading,
   isCheckingConnectivity,
   onAddProvider,
   onCheckConnectivity,
   onRemoveProvider,
   onSetDefaultProvider,
+  onSetSafetyField,
+  onToggleApiKeyVisibility,
   onUpdateProvider,
   providerCatalog,
-  providerHealth,
 }: ConfigProviderStackProps) {
-  const defaultProvider = config.defaultProvider || config.providers[0]?.provider || ''
-  const configuredProviders = getConfiguredProviderOptions(config)
-
   return (
-    <Card className="border-border/70">
-      <CardHeader className="gap-4">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-          <div className="flex items-center gap-2">
-            <HugeiconsIcon icon={DatabaseIcon} size={18} strokeWidth={1.8} />
-            <CardTitle>Provider Stack</CardTitle>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={onAddProvider} variant="secondary">
-              <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={1.8} />
-              添加 Provider
-            </Button>
-            <Button
-              disabled={config.providers.length === 0 || isCheckingConnectivity}
-              onClick={() => void onCheckConnectivity()}
-              variant="outline"
-            >
-              <HugeiconsIcon icon={ArrowReloadHorizontalIcon} size={16} strokeWidth={1.8} />
-              {isCheckingConnectivity ? '检查中' : '检查连通性'}
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-5">
-        <div className="grid gap-4 rounded-xl border border-border/70 bg-muted/20 p-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-          <div className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Default Provider</div>
-          <Select onValueChange={onSetDefaultProvider} value={defaultProvider}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="选择默认 provider" />
-            </SelectTrigger>
-            <SelectContent>
-              {configuredProviders.map((provider) => (
-                <SelectItem key={provider} value={provider}>
-                  {provider || '未命名 provider'}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    <div className="space-y-6">
+      <section className="space-y-3">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-foreground">{CONFIG_TEXT.providersLabel}</p>
+          <p className="text-sm text-muted-foreground">{CONFIG_TEXT.providersHelp}</p>
         </div>
 
-        {catalogError ? (
-          <div className="rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
-            Provider catalog 暂时不可用，仍然可以编辑已加载的配置。{catalogError}
+        {isCatalogLoading ? (
+          <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+            {CONFIG_TEXT.catalogLoading}
           </div>
         ) : null}
 
         {config.providers.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-            暂无 provider 配置。
+          <div className="rounded-lg border border-dashed border-border px-4 py-8 text-sm text-muted-foreground">
+            {CONFIG_TEXT.noProviders}
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4" id="cfg_providers_rows">
             {config.providers.map((provider, index) => (
               <ProviderRow
                 index={index}
+                isApiKeyVisible={Boolean(apiKeyVisibilityByRow[String(index)])}
+                isCheckingConnectivity={isCheckingConnectivity}
                 key={`${provider.provider}:${provider.modelName}:${index}`}
+                onCheckConnectivity={onCheckConnectivity}
                 onRemove={onRemoveProvider}
+                onSetDefaultProvider={onSetDefaultProvider}
+                onToggleApiKeyVisibility={onToggleApiKeyVisibility}
                 onUpdate={onUpdateProvider}
                 provider={provider}
                 providerCatalog={providerCatalog}
-                status={getProviderStatus(provider, connectivityResults, providerHealth)}
+                result={findConnectivityResult(connectivityResults, provider)}
+                selectedDefaultProvider={config.defaultProvider}
               />
             ))}
           </div>
         )}
-      </CardContent>
-    </Card>
+
+        <div className="flex items-center gap-3">
+          <Button onClick={onAddProvider} type="button" variant="secondary">
+            {CONFIG_TEXT.addProvider}
+          </Button>
+        </div>
+
+        <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 px-4 py-3">
+          <p className="text-sm font-medium text-foreground">{CONFIG_TEXT.connectivityTitle}</p>
+          {connectivityResults.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{CONFIG_TEXT.connectivityEmpty}</p>
+          ) : (
+            <div className="space-y-2">
+              {connectivityResults.map((result) => (
+                <div className="text-sm text-muted-foreground" key={`${result.provider}:${result.modelName}`}>
+                  <span className={result.ok ? 'text-emerald-500' : 'text-destructive'}>
+                    [{result.ok ? 'OK' : 'FAIL'}]
+                  </span>{' '}
+                  {result.provider} / {result.modelName} ({result.durationMs}ms)
+                  <div>{result.message}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-foreground">{CONFIG_TEXT.llmSafetyLabel}</p>
+          <p className="text-sm text-muted-foreground">{CONFIG_TEXT.llmSafetyHelp}</p>
+        </div>
+
+        <div className="grid gap-4 rounded-lg border border-border/70 bg-muted/20 p-4 md:grid-cols-2 xl:grid-cols-5">
+          <label className="flex items-start gap-3 rounded-md border border-border/60 bg-background/50 px-3 py-2 text-sm">
+            <input
+              checked={config.llmSafety.enabled}
+              className="mt-1"
+              onChange={(event) => onSetSafetyField('enabled', event.target.checked)}
+              type="checkbox"
+            />
+            <span>{CONFIG_TEXT.llmSafetyEnabled}</span>
+          </label>
+
+          <NumericField
+            label={CONFIG_TEXT.llmSafetyWindow}
+            onChange={(value) => onSetSafetyField('windowMs', value)}
+            value={config.llmSafety.windowMs}
+          />
+          <NumericField
+            label={CONFIG_TEXT.llmSafetyRequests}
+            onChange={(value) => onSetSafetyField('maxRequestsPerWindow', value)}
+            value={config.llmSafety.maxRequestsPerWindow}
+          />
+          <NumericField
+            label={CONFIG_TEXT.llmSafetyConcurrent}
+            onChange={(value) => onSetSafetyField('maxConcurrentRequests', value)}
+            value={config.llmSafety.maxConcurrentRequests}
+          />
+          <NumericField
+            label={CONFIG_TEXT.llmSafetyTokens}
+            onChange={(value) => onSetSafetyField('maxEstimatedTokensPerWindow', value)}
+            value={config.llmSafety.maxEstimatedTokensPerWindow}
+          />
+        </div>
+      </section>
+    </div>
   )
 }
 
 function ProviderRow({
   index,
+  isApiKeyVisible,
+  isCheckingConnectivity,
+  onCheckConnectivity,
   onRemove,
+  onSetDefaultProvider,
+  onToggleApiKeyVisibility,
   onUpdate,
   provider,
   providerCatalog,
-  status,
+  result,
+  selectedDefaultProvider,
 }: {
   index: number
+  isApiKeyVisible: boolean
+  isCheckingConnectivity: boolean
+  onCheckConnectivity: (rowIndex?: number | null) => void | Promise<void>
   onRemove: (index: number) => void
+  onSetDefaultProvider: (value: string) => void
+  onToggleApiKeyVisibility: (index: number) => void
   onUpdate: (index: number, patch: Partial<DashboardProviderConfig>) => void
   provider: DashboardProviderConfig
   providerCatalog: DashboardProviderCatalogEntry[]
-  status: DashboardProviderHealthResult | null
+  result: DashboardProviderHealthResult | null
+  selectedDefaultProvider: string
 }) {
-  const providerValue = provider.provider || providerCatalog[0]?.id || ''
-  const maskedApiKey = maskApiKey(provider.apiKey)
+  const providerIsKnown = isKnownProvider(providerCatalog, provider.provider)
+  const providerSelectValue = providerIsKnown ? provider.provider : '__custom__'
+  const providerOptions = providerCatalog.length > 0 ? providerCatalog : []
+  const modelOptions = getProviderModelOptions(providerCatalog, provider.provider)
+  const modelIsKnown = isKnownModel(providerCatalog, provider.provider, provider.modelName)
+  const modelSelectValue = modelIsKnown ? provider.modelName : '__custom__'
+  const apiKeyEnvVar = provider.apiKeyEnvVar || guessApiKeyEnvVar(provider.provider)
+  const isSelectedDefault =
+    provider.provider.trim().length > 0 && provider.provider === selectedDefaultProvider
 
   return (
-    <div className="rounded-xl border border-border/70 bg-card/70 p-4">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium">
-              {getProviderDisplayName(providerCatalog, provider.provider || providerValue)}
-            </p>
-            <Badge variant={status?.ok ? 'default' : status ? 'destructive' : 'secondary'}>
-              {status?.ok ? 'Healthy' : status ? 'Attention' : 'Unchecked'}
-            </Badge>
-            {provider.hasApiKey || provider.apiKey ? (
-              <Badge variant="outline">
-                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={12} strokeWidth={1.8} />
-                {maskedApiKey || 'API key ready'}
-              </Badge>
-            ) : null}
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {status?.message || '等待检查'}
-          </p>
-        </div>
-        <Button
-          aria-label="删除 provider"
-          onClick={() => onRemove(index)}
-          size="icon"
-          variant="ghost"
-        >
-          <HugeiconsIcon icon={Delete02Icon} size={16} strokeWidth={1.8} />
-        </Button>
-      </div>
-
-      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Field label="Provider">
+    <div className="space-y-4 rounded-lg border border-border/70 bg-card/70 p-4">
+      <div className="grid gap-4 xl:grid-cols-[180px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_220px]">
+        <div className="space-y-2">
           <Select
-            onValueChange={(value) => onUpdate(index, { provider: value })}
-            value={providerValue}
+            onValueChange={(value) => {
+              if (value === '__custom__') {
+                onUpdate(index, {
+                  provider: '',
+                  apiKeyEnvVar: provider.apiKeyEnvVar || '',
+                })
+                return
+              }
+
+              const catalogEntry = getProviderCatalogEntry(providerCatalog, value)
+              onUpdate(index, {
+                provider: value,
+                apiKeyEnvVar: catalogEntry?.apiKeyEnvVar || guessApiKeyEnvVar(value),
+              })
+            }}
+            value={providerSelectValue}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="选择 provider" />
+              <SelectValue placeholder={CONFIG_TEXT.catalogCustomOnly} />
             </SelectTrigger>
             <SelectContent>
-              {providerCatalog.map((entry) => (
+              {providerOptions.length === 0 ? (
+                <SelectItem value="__custom__">{CONFIG_TEXT.catalogCustomOnly}</SelectItem>
+              ) : null}
+              {providerOptions.map((entry) => (
                 <SelectItem key={entry.id} value={entry.id}>
-                  {entry.name}
+                  {getProviderDisplayName(providerCatalog, entry.id)}
                 </SelectItem>
               ))}
+              <SelectItem value="__custom__">{CONFIG_TEXT.customOption}</SelectItem>
             </SelectContent>
           </Select>
-        </Field>
+          {!providerIsKnown ? (
+            <Input
+              onChange={(event) => onUpdate(index, { provider: event.target.value })}
+              placeholder={CONFIG_TEXT.customProviderPlaceholder}
+              value={provider.provider}
+            />
+          ) : null}
+        </div>
 
-        <Field label="Model Name">
-          <Input
-            onChange={(event) => onUpdate(index, { modelName: event.target.value })}
-            placeholder="deepseek/deepseek-reasoner"
-            value={provider.modelName}
-          />
-        </Field>
+        <div className="space-y-2">
+          <Select
+            onValueChange={(value) => {
+              if (value === '__custom__') {
+                onUpdate(index, { modelName: '' })
+                return
+              }
 
-        <Field label="API Key Env">
+              onUpdate(index, { modelName: value })
+            }}
+            value={modelSelectValue}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={CONFIG_TEXT.customModelPlaceholder} />
+            </SelectTrigger>
+            <SelectContent>
+              {modelOptions.map((model) => (
+                <SelectItem key={model} value={model}>
+                  {model}
+                </SelectItem>
+              ))}
+              <SelectItem value="__custom__">{CONFIG_TEXT.customOption}</SelectItem>
+            </SelectContent>
+          </Select>
+          {!modelIsKnown ? (
+            <Input
+              onChange={(event) => onUpdate(index, { modelName: event.target.value })}
+              placeholder={CONFIG_TEXT.customModelPlaceholder}
+              value={provider.modelName}
+            />
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
           <Input
             onChange={(event) => onUpdate(index, { apiKeyEnvVar: event.target.value })}
-            placeholder="DEEPSEEK_API_KEY"
-            value={provider.apiKeyEnvVar}
+            placeholder={guessApiKeyEnvVar(provider.provider)}
+            value={apiKeyEnvVar}
           />
-        </Field>
+          {result ? (
+            <p className="text-xs text-muted-foreground">
+              [{result.ok ? 'OK' : 'FAIL'}] {result.message}
+            </p>
+          ) : null}
+        </div>
 
-        <Field label="API Key">
-          <Input
-            onChange={(event) =>
-              onUpdate(index, {
-                apiKey: event.target.value,
-                hasApiKey: event.target.value.trim().length > 0 || provider.hasApiKey,
-              })
-            }
-            placeholder="输入或覆盖 API key"
-            type="password"
-            value={provider.apiKey || ''}
-          />
-        </Field>
-      </div>
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <Input
+              onChange={(event) =>
+                onUpdate(index, {
+                  apiKey: event.target.value,
+                  hasApiKey: event.target.value.trim().length > 0 || provider.hasApiKey,
+                })
+              }
+              placeholder={CONFIG_TEXT.apiKeyPastePlaceholder}
+              type={isApiKeyVisible ? 'text' : 'password'}
+              value={provider.apiKey || ''}
+            />
+            <Button
+              onClick={() => onToggleApiKeyVisibility(index)}
+              type="button"
+              variant="outline"
+            >
+              {isApiKeyVisible ? CONFIG_TEXT.apiKeyHide : CONFIG_TEXT.apiKeyShow}
+            </Button>
+          </div>
+        </div>
 
-      <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
-        <span>Model: {provider.modelName || '未设置'}</span>
-        <span>Env: {provider.apiKeyEnvVar || '未设置'}</span>
-        {status ? <span>Latency: {status.durationMs} ms</span> : null}
+        <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input
+              checked={isSelectedDefault}
+              name="cfg_provider_active"
+              onChange={() => onSetDefaultProvider(provider.provider)}
+              type="radio"
+            />
+            <span>{CONFIG_TEXT.providerActiveLabel}</span>
+          </label>
+          <Button
+            disabled={getConnectivityProviders([provider], 0).length === 0 || isCheckingConnectivity}
+            onClick={() => void onCheckConnectivity(index)}
+            type="button"
+            variant="outline"
+          >
+            {isCheckingConnectivity ? CONFIG_TEXT.connectivityChecking : CONFIG_TEXT.checkConnectivity}
+          </Button>
+          <Button onClick={() => onRemove(index)} type="button" variant="destructive">
+            {CONFIG_TEXT.removeProvider}
+          </Button>
+        </div>
       </div>
     </div>
   )
 }
 
-function Field({
-  children,
+function findConnectivityResult(
+  results: DashboardProviderHealthResult[],
+  provider: DashboardProviderConfig,
+) {
+  return (
+    results.find(
+      (result) =>
+        result.provider === provider.provider && result.modelName === provider.modelName,
+    ) ?? null
+  )
+}
+
+function NumericField({
   label,
+  onChange,
+  value,
 }: {
-  children: ReactNode
   label: string
+  onChange: (value: number) => void
+  value: number
 }) {
   return (
-    <label className={cn('space-y-2')}>
-      <Label>{label}</Label>
-      {children}
+    <label className="space-y-2">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <Input
+        min={1}
+        onChange={(event) => onChange(Number(event.target.value) || 1)}
+        type="number"
+        value={value}
+      />
     </label>
   )
 }

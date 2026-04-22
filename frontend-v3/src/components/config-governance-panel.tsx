@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { AiBrain03Icon, KnightShieldIcon, Settings02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -46,7 +46,6 @@ export function ConfigGovernancePanel({
             <HugeiconsIcon icon={Settings02Icon} size={18} strokeWidth={1.8} />
             <CardTitle>Runtime Policy</CardTitle>
           </div>
-          <CardDescription>把运行策略、安全阈值和日志级别放在统一治理面板里。</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-4">
@@ -159,9 +158,6 @@ export function ConfigGovernancePanel({
             <HugeiconsIcon icon={AiBrain03Icon} size={18} strokeWidth={1.8} />
             <CardTitle>Evolution Prompt Strategy</CardTitle>
           </div>
-          <CardDescription>
-            内置 prompt 仍然是默认路径，只有在确实需要时才切到 custom。
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue={DASHBOARD_PROMPT_KEYS[0]} className="gap-4">

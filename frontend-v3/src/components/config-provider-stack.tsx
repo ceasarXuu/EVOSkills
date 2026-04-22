@@ -9,7 +9,7 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -83,14 +83,9 @@ export function ConfigProviderStack({
     <Card className="border-border/70">
       <CardHeader className="gap-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <HugeiconsIcon icon={DatabaseIcon} size={18} strokeWidth={1.8} />
-              <CardTitle>Provider Stack</CardTitle>
-            </div>
-            <CardDescription>
-              把默认 provider、模型和密钥都集中放在一个工作面里管理，不再散落到旧面板。
-            </CardDescription>
+          <div className="flex items-center gap-2">
+            <HugeiconsIcon icon={DatabaseIcon} size={18} strokeWidth={1.8} />
+            <CardTitle>Provider Stack</CardTitle>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button onClick={onAddProvider} variant="secondary">
@@ -111,12 +106,7 @@ export function ConfigProviderStack({
 
       <CardContent className="space-y-5">
         <div className="grid gap-4 rounded-xl border border-border/70 bg-muted/20 p-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Default Provider</p>
-            <p className="text-sm text-muted-foreground">
-              这里决定 dashboard 默认走哪条 provider/model 组合。
-            </p>
-          </div>
+          <div className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Default Provider</div>
           <Select onValueChange={onSetDefaultProvider} value={defaultProvider}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="选择默认 provider" />
@@ -139,7 +129,7 @@ export function ConfigProviderStack({
 
         {config.providers.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-            当前没有已配置 provider，先添加一条配置再保存。
+            暂无 provider 配置。
           </div>
         ) : (
           <div className="space-y-4">
@@ -198,7 +188,7 @@ function ProviderRow({
             ) : null}
           </div>
           <p className="text-sm text-muted-foreground">
-            {status?.message || '保存后可以继续做连通性检查和 provider health 校验。'}
+            {status?.message || '等待检查'}
           </p>
         </div>
         <Button

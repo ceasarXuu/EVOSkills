@@ -2,7 +2,6 @@ import type {
   ConnectionState,
   DashboardMetricBucket,
   DashboardSkill,
-  DashboardView,
 } from '@/types/dashboard'
 
 export function formatCompactNumber(value?: number | null): string {
@@ -85,41 +84,6 @@ export function formatRelativeTime(value?: string | null): string {
   }
 
   return formatter.format(Math.round(diffMs / 86_400_000), 'day')
-}
-
-export function getViewCopy(view: DashboardView) {
-  switch (view) {
-    case 'skills':
-      return {
-        eyebrow: 'Skill Workspace',
-        title: '技能工作台',
-        description: '先看技能清单、版本有效性和最近使用证据，项目只作为当前过滤范围。',
-      }
-    case 'projects':
-      return {
-        eyebrow: 'Project Workspace',
-        title: '项目视角',
-        description: '围绕单个项目看监控状态、daemon 进度、trace 分布和最近决策。',
-      }
-    case 'activity':
-      return {
-        eyebrow: 'Activity Workspace',
-        title: '活动与决策',
-        description: '聚焦最近 trace 和 decision event，快速判断哪个项目上下文值得继续跟踪。',
-      }
-    case 'config':
-      return {
-        eyebrow: 'Config Workspace',
-        title: '配置工作区',
-        description: '集中管理 provider、默认模型、LLM 安全阈值和演进提示词来源。',
-      }
-    default:
-      return {
-        eyebrow: 'Dashboard Workspace',
-        title: '独立工作台',
-        description: '隔离前端入口，专门承载技能生命周期管理。',
-      }
-  }
 }
 
 export function getConnectionBadgeVariant(state: ConnectionState) {

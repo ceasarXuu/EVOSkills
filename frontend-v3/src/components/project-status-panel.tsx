@@ -1,7 +1,7 @@
 import { Clock01Icon, DatabaseIcon, Settings02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCompactNumber, formatRelativeTime, getMonitoringBadgeVariant } from '@/lib/format'
 import type { DashboardProject, ProjectSnapshot } from '@/types/dashboard'
 
@@ -22,7 +22,6 @@ export function ProjectStatusPanel({ project, snapshot }: ProjectStatusPanelProp
             <HugeiconsIcon icon={Settings02Icon} size={18} strokeWidth={1.8} />
             <CardTitle>项目运行状态</CardTitle>
           </div>
-          <CardDescription>保留项目视角，只展示这个项目自己的 daemon 和监控状态。</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <StatusTile

@@ -29,9 +29,9 @@ import {
   getSkillStatusBadgeVariant,
 } from '@/lib/format'
 import {
-  getVisiblePaginationPages,
   paginateSkills,
 } from '@/lib/skills-workspace'
+import { getVisiblePaginationPages } from '@/lib/pagination'
 import { cn } from '@/lib/utils'
 import type { DashboardSkill } from '@/types/dashboard'
 

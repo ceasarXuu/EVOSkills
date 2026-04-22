@@ -1,5 +1,4 @@
 import {
-  ArrowReloadHorizontalIcon,
   CheckmarkCircle02Icon,
   Settings02Icon,
   TaskDone02Icon,
@@ -10,7 +9,7 @@ import { ConfigProviderStack } from '@/components/config-provider-stack'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useDashboardV3Config } from '@/features/dashboard/use-dashboard-v3-config'
 import { formatRelativeTime } from '@/lib/format'
 
@@ -29,7 +28,6 @@ export function ConfigWorkspace() {
     loadError,
     providerCatalog,
     providerHealth,
-    refresh,
     removeProvider,
     save,
     saveError,
@@ -52,9 +50,6 @@ export function ConfigWorkspace() {
                 <HugeiconsIcon icon={Settings02Icon} size={18} strokeWidth={1.8} />
                 <CardTitle>配置控制台</CardTitle>
               </div>
-              <CardDescription className="max-w-3xl">
-                这页只负责全局配置，不再混入项目摘要或技能列表。默认 provider、运行策略和演进 prompt 都从这里统一管理。
-              </CardDescription>
               <div className="flex flex-wrap gap-2">
                 <Badge variant="outline">{config.providers.length} Providers</Badge>
                 <Badge variant="outline">{config.defaultProvider || 'No default provider'}</Badge>
@@ -68,10 +63,6 @@ export function ConfigWorkspace() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => void refresh()} variant="outline">
-                <HugeiconsIcon icon={ArrowReloadHorizontalIcon} size={16} strokeWidth={1.8} />
-                重新加载
-              </Button>
               <Button disabled={isLoading || isSaving || !hasUnsavedChanges} onClick={() => void save()}>
                 <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} strokeWidth={1.8} />
                 {isSaving ? '保存中' : '保存配置'}
@@ -159,12 +150,12 @@ function ProviderHealthCard({
           <HugeiconsIcon icon={TaskDone02Icon} size={18} strokeWidth={1.8} />
           <CardTitle>Provider Health</CardTitle>
         </div>
-        <CardDescription>{message}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+          <span>{message}</span>
           <span>{checkedAt ? formatRelativeTime(checkedAt) : '暂无检查时间'}</span>
-          {isCheckingConnectivity ? <span>正在刷新连通性结果</span> : null}
+          {isCheckingConnectivity ? <span>正在检查连通性</span> : null}
         </div>
         {results.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border px-4 py-8 text-sm text-muted-foreground">

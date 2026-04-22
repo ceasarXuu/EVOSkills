@@ -1,7 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 
-import { getViewCopy } from '../../frontend-v3/src/lib/format.ts';
-import { resolveDashboardViewLayout } from '../../frontend-v3/src/lib/view-layout.ts';
+import { resolveDashboardViewLayout } from '../../frontend-v3/src/lib/view-layout.ts'
 
 describe('dashboard v3 view layout rules', () => {
   it('keeps the skills view focused on the skill workbench', () => {
@@ -25,14 +24,14 @@ describe('dashboard v3 view layout rules', () => {
       showProjectRail: true,
       showHero: false,
       showMetrics: false,
-    });
-  });
+    })
+  })
 
-  it('keeps config as a first-class workspace with its own copy', () => {
-    expect(getViewCopy('config' as never)).toEqual({
-      eyebrow: 'Config Workspace',
-      title: '配置工作区',
-      description: '集中管理 provider、默认模型、LLM 安全阈值和演进提示词来源。',
-    });
-  });
-});
+  it('keeps config free of project chrome', () => {
+    expect(resolveDashboardViewLayout('config')).toEqual({
+      showProjectRail: false,
+      showHero: false,
+      showMetrics: false,
+    })
+  })
+})

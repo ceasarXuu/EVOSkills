@@ -5,23 +5,16 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatCompactNumber, formatRelativeTime, getMonitoringBadgeVariant, getViewCopy } from '@/lib/format'
+import { formatCompactNumber, formatRelativeTime, getMonitoringBadgeVariant } from '@/lib/format'
 import type { DashboardProject, ProjectSnapshot } from '@/types/dashboard'
 
 interface DashboardHeroProps {
-  currentView: 'projects'
   isLoading: boolean
   project: DashboardProject | null
   snapshot: ProjectSnapshot | null
 }
 
-export function DashboardHero({
-  currentView,
-  isLoading,
-  project,
-  snapshot,
-}: DashboardHeroProps) {
-  const copy = getViewCopy(currentView)
+export function DashboardHero({ isLoading, project, snapshot }: DashboardHeroProps) {
   const queueSize = snapshot?.daemon?.optimizationStatus?.queueSize ?? 0
   const processedTraces = snapshot?.daemon?.processedTraces ?? 0
   const activeModels = Object.keys(snapshot?.agentUsage?.byModel ?? {}).length
@@ -32,9 +25,6 @@ export function DashboardHero({
         <CardHeader className="gap-3">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-3">
-              <div className="text-[11px] font-medium uppercase tracking-[0.32em] text-muted-foreground">
-                {copy.eyebrow}
-              </div>
               {isLoading && !project ? (
                 <div className="space-y-2">
                   <Skeleton className="h-9 w-48" />
@@ -46,7 +36,7 @@ export function DashboardHero({
                     {project?.name ?? '选择项目'}
                   </h1>
                   <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                    {project?.path ?? copy.description}
+                    {project?.path ?? '未选择项目'}
                   </p>
                 </div>
               )}
@@ -62,8 +52,6 @@ export function DashboardHero({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm leading-6 text-muted-foreground">{copy.description}</p>
-          <Separator />
           <div className="grid gap-4 sm:grid-cols-3">
             <HeroStat
               icon={AiBrain03Icon}

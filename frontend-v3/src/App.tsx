@@ -202,7 +202,6 @@ function ViewContent({
     <>
       {layout.showHero ? (
         <DashboardHero
-          currentView="projects"
           isLoading={isLoadingSnapshot}
           project={project}
           snapshot={snapshot}

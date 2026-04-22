@@ -120,6 +120,24 @@ frontend/
   - Tailwind v4 样式入口 `src/styles/globals.css`
   - `@/` alias
 
+## 5.2.1 新增实现约束
+
+- **90% 以上的可见 UI 必须直接复用 shadcn 的成熟组件或其标准组合方式**
+- 默认优先级：
+  1. 现成 shadcn 组件
+  2. shadcn 组件组合
+  3. 仅在缺失明确领域能力时，才允许少量自定义壳层
+- 允许自定义的范围应尽量收敛在：
+  - OrnnSkills 领域容器，例如 `ProjectOverviewHero` 这类业务编排层
+  - 后端数据适配层
+  - 少量主题 token 与布局容器
+- 不允许继续扩张的方向：
+  - 为了视觉差异重新手写一套 Button / Badge / Card / Table / Dialog
+  - 用纯自定义 div 结构替代 shadcn 已有的成熟交互组件
+  - 把“设计感”建立在脱离 shadcn 体系的私有组件库上
+
+结论：**v2 的设计表达可以有 OrnnSkills 自己的产品感，但主要通过 preset、token、布局和组件编排实现，而不是绕开 shadcn 另起炉灶。**
+
 ## 5.3 后续 shadcn 迁移顺序
 
 1. `table`
@@ -186,6 +204,7 @@ frontend/
   - `dialog`
   - `sheet`
   - `select`
+- 目标：让 v2 的大部分可见交互先落入 shadcn 的成熟组件覆盖面，再继续迁页面
 
 ### Phase 3: High-Interaction Pages
 

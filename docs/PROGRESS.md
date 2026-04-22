@@ -2,6 +2,14 @@
 
 ## 📊 总体进度：Phase 1 ✅ 完成
 
+### 2026-04-22
+
+- ✅ 建立 dashboard v2 独立前端隔离层：新增 `frontend/` 子工程，使用 `React + Vite + Tailwind v4 + shadcn core libs` 构建新 UI，构建产物输出到 `dist/dashboard-v2`，现有字符串式 dashboard 不再与 v2 共用 DOM、类名或静态资源入口
+- ✅ 打通独立入口 `/v2`：dashboard server 现在会优先服务 `dist/dashboard-v2/index.html` 与 `/v2/assets/*`，构建缺失时返回明确 fallback shell；旧入口 `/` 和旧 `/assets/dashboard.*` 保持不变，具备双入口并存的安全切换条件
+- ✅ 完成 shadcn 可用性校验：本机 `shadcn` MCP 已处于 enabled 状态，`npx shadcn@latest mcp --help` 可执行；`frontend/` 已补齐 `components.json`、Tailwind v4 样式入口和 `@/` alias，`npx shadcn@latest info --json --cwd frontend` 已能识别项目并列出 `button / badge / card`
+- 📝 记录前端迁移经验：当旧 UI 的 HTML shell、样式和运行时代码都耦合在一条字符串拼装链里时，问题已经不是“局部样式污染”，而是“表示层边界不存在”；这类场景必须先切独立入口和独立资产管线，再谈组件迁移，否则任何 shadcn 改造都会被旧结构反向绑死
+- 📝 记录静态资源经验：如果新前端走文件系统静态资源而旧前端走内存拼装资源，路径规范化要单独做校验；这次 `/v2/assets/*` 首轮 404 的根因不是路由没接上，而是 `fileURLToPath()` 尾斜杠导致安全前缀校验误判，说明“可访问”与“可安全访问”要分别验证
+
 ### 2026-04-21
 
 - ✅ 拆分 dashboard 配置页二级子 tab：`模型` 子 tab 只承载模型服务商列表与 LLM 安全闸门，`演进策略` 子 tab 承载提示词配置；当前子 tab 会写入 bootstrap cache，刷新后继续回到用户正在编辑的配置分区

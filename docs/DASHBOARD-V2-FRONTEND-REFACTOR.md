@@ -1,0 +1,229 @@
+# Dashboard V2 Frontend Refactor
+
+## 1. Refactor Boundary
+
+- 本次边界是 **dashboard 的独立 v2 入口**，不是整站一次性重写
+- 旧入口继续保留：
+  - HTML: `/`
+  - 静态资源: `/assets/dashboard.*`
+- 新入口独立存在：
+  - HTML: `/v2`
+  - 静态资源: `/v2/assets/*`
+- 数据层暂时复用现有能力：
+  - `GET /api/projects`
+  - `GET /api/projects/:id/snapshot`
+  - `GET /events`
+
+## 2. Legacy Contamination Map
+
+### 2.1 旧前端的污染源
+
+- `src/dashboard/ui.ts`
+  - 把 HTML shell、CSS、运行时脚本、各子模块源码都拼在一条字符串链里
+- `src/dashboard/web/styles.ts`
+  - 全局样式集中堆叠，类名大量复用 `card / modal / btn / project-* / skill-*`
+- `src/dashboard/web/main-panel/source.ts`
+  - 主面板通过 `innerHTML` 全量重绘，DOM 结构和视觉表达紧耦合
+- `src/dashboard/web/skills/source.ts`
+  - 单文件过大，既管数据加载、状态恢复，又直接拼 UI 片段
+
+### 2.2 旧结构带来的迁移阻力
+
+- 旧 UI 没有可靠的组件边界，只有字符串片段边界
+- 旧样式不是 scoped styles，而是整个 dashboard 的共享污染域
+- 旧视图依赖 `innerHTML` 重建，不适合直接接入 shadcn 组件树
+- 旧构建产物来自 Node 侧内联拼装，不是独立前端资产管线
+
+## 3. Recommended Isolation Strategy
+
+### 3.1 选择
+
+- **主隔离层**：独立子工程 `frontend/`
+- **入口隔离**：独立路由 `/v2`
+- **资产隔离**：独立构建输出 `dist/dashboard-v2`
+- **组件隔离**：React 组件树 + `@/components/ui/*`
+
+### 3.2 为什么这样足够
+
+- 旧 UI 与新 UI 不再共享 HTML 模板
+- 旧 UI 与新 UI 不再共享 CSS 文件
+- 旧 UI 与新 UI 不再共享 JS 运行时和 DOM 重绘策略
+- 新 UI 只复用 API 契约，不复用旧展示实现
+
+### 3.3 这层隔离还没有解决什么
+
+- API contract 仍然沿用旧 snapshot 结构，字段粒度偏粗
+- `Skill 视角 / 项目视角 / 活动视角` 还没拆成独立 route
+- 成本、配置、编辑器等高交互页面尚未迁入 v2
+
+## 4. View Rewrite Decision
+
+- **复用**
+  - 项目列表 API
+  - snapshot API
+  - SSE 变更通知
+  - 现有日志/错误上报接口
+- **重写**
+  - 页面结构
+  - 视觉系统
+  - 组件层
+  - 导航与布局
+  - 状态组织方式
+
+结论：**保留数据事实来源，重建表示层。**
+
+## 5. V2 Structure And Naming Plan
+
+## 5.1 当前目录
+
+```text
+frontend/
+  components.json
+  src/
+    components/
+      ui/
+        badge.tsx
+        button.tsx
+        card.tsx
+      activity-feed.tsx
+      model-usage-panel.tsx
+      project-overview-hero.tsx
+      project-sidebar.tsx
+      skill-inventory.tsx
+    lib/
+      dashboard-client.ts
+      formatters.ts
+      utils.ts
+    styles/
+      globals.css
+    types/
+      dashboard.ts
+```
+
+## 5.2 当前设计系统底座
+
+- 技术栈
+  - React
+  - Vite
+  - Tailwind CSS v4
+  - `@radix-ui/react-slot`
+  - `class-variance-authority`
+  - `clsx`
+  - `tailwind-merge`
+  - `lucide-react`
+- 已落地核心件
+  - `Button`
+  - `Badge`
+  - `Card`
+- 已落地项目配置
+  - `components.json`
+  - Tailwind v4 样式入口 `src/styles/globals.css`
+  - `@/` alias
+
+## 5.3 后续 shadcn 迁移顺序
+
+1. `table`
+2. `tabs`
+3. `dialog`
+4. `sheet`
+5. `select`
+6. `tooltip`
+
+优先迁移原因：
+
+- 这 6 类是 `技能 / 项目 / 活动 / 配置` 四大页面的共用骨架
+- 先统一基础件，后面迁页面时不会再回头改一遍视觉契约
+
+## 6. Tool Readiness
+
+### 6.1 shadcn MCP
+
+- 本机 Codex 配置已存在 `shadcn` MCP
+- 本次核验结果：
+  - `codex mcp list` -> `shadcn enabled`
+  - `codex mcp get shadcn` -> 条目可读
+  - `npx shadcn@latest mcp --help` -> 可执行
+
+### 6.2 shadcn skill
+
+- 本机磁盘上存在 `~/.agents/skills/shadcn/SKILL.md`
+- 但它 **不在当前会话显式暴露的 skill inventory 中**
+- 结论：
+  - 可以确认本机有 shadcn 相关 skill 文件
+  - 但本轮实现不依赖它作为“当前会话保证可用的 skill”
+  - 当前已通过 shadcn CLI 自检补足可用性验证
+
+### 6.3 frontend 项目当前自检
+
+- `npx shadcn@latest info --json --cwd frontend` 已成功输出：
+  - framework: `Vite`
+  - tailwindVersion: `v4`
+  - importAlias: `@`
+  - components: `button / badge / card`
+
+## 7. Migration And Cutover Sequence
+
+### Phase 0: Boundary
+
+- 完成 `frontend/` 子工程
+- 完成 `/v2` 独立入口
+- 完成独立静态资源输出
+
+### Phase 1: Read-Only Workbench
+
+- 先迁只读主看板
+  - 项目列表
+  - 总览 hero
+  - skill inventory
+  - activity feed
+  - model usage
+
+### Phase 2: Shared Controls
+
+- 引入并稳定：
+  - `table`
+  - `tabs`
+  - `dialog`
+  - `sheet`
+  - `select`
+
+### Phase 3: High-Interaction Pages
+
+- 迁移 `技能` 详情和版本历史
+- 迁移 `活动` 详情
+- 迁移 `配置` 子页
+
+### Phase 4: Default Route Switch
+
+- 当 v2 覆盖主工作流后，再评估是否把 `/` 默认切到 v2
+- 切换前必须保留 v1 fallback 窗口
+
+## 8. Verification And Deletion Gates
+
+### 8.1 当前已完成验证
+
+- `npm --prefix frontend run typecheck`
+- `npm --prefix frontend run build`
+- `npm run typecheck`
+- `npx vitest run tests/unit/dashboard-v2-assets.test.ts tests/unit/dashboard-server.test.ts`
+- 实际 HTTP 冒烟：
+  - `/v2` -> `200`
+  - `X-Dashboard-V2: built`
+  - `/v2/assets/*` -> `200`
+
+### 8.2 删除旧代码前必须满足
+
+- v2 覆盖 `技能 / 项目 / 活动 / 配置` 主路径
+- v2 不再依赖旧 DOM 或旧 CSS 类名
+- v2 的页面状态恢复、SSE 更新、自定义编辑器交互都完成回归
+- 有明确的旧依赖清单：
+  - 哪些 `renderDashboard*Source()` 不再需要
+  - 哪些 `styles.ts` 规则已无消费者
+  - 哪些 `innerHTML` 视图块可以删
+
+### 8.3 本阶段禁止做的事
+
+- 禁止把新 UI 再塞回 `src/dashboard/ui.ts` 的字符串拼装链
+- 禁止新增依赖旧 `card / modal / btn` 类名的 v2 样式
+- 禁止默认切换 `/` 到 v2
+- 禁止先删 v1 再补 v2

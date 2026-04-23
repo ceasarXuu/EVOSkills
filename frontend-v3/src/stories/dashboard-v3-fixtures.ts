@@ -170,12 +170,33 @@ export const storyApplyPreview: DashboardSkillApplyPreview = {
   ],
 }
 
-export const storyProjectSkills: DashboardSkill[] = Array.from({ length: 18 }, (_, index) => ({
+const storyProjectSkillSeeds = [
+  { runtime: 'codex', skillId: 'systematic-debugging', status: 'active' },
+  { runtime: 'claude', skillId: 'test-driven-development', status: 'pending' },
+  { runtime: 'codex', skillId: 'frontend-design', status: 'pending' },
+  { runtime: 'claude', skillId: 'trace-analysis', status: 'pending' },
+  { runtime: 'codex', skillId: 'api-contract-check', status: 'active' },
+  { runtime: 'claude', skillId: 'release-checklist', status: 'pending' },
+  { runtime: 'codex', skillId: 'performance-triage', status: 'pending' },
+  { runtime: 'claude', skillId: 'prompt-governance', status: 'pending' },
+  { runtime: 'codex', skillId: 'regression-hunting', status: 'active' },
+  { runtime: 'claude', skillId: 'design-token-sync', status: 'pending' },
+  { runtime: 'codex', skillId: 'workspace-audit', status: 'pending' },
+  { runtime: 'claude', skillId: 'story-map-curation', status: 'pending' },
+  { runtime: 'codex', skillId: 'incident-postmortem', status: 'active' },
+  { runtime: 'claude', skillId: 'visual-baseline-review', status: 'pending' },
+  { runtime: 'codex', skillId: 'dependency-upgrade', status: 'pending' },
+  { runtime: 'claude', skillId: 'accessibility-pass', status: 'pending' },
+  { runtime: 'codex', skillId: 'ci-hardening', status: 'active' },
+  { runtime: 'claude', skillId: 'docs-curation', status: 'pending' },
+] as const satisfies Array<Pick<DashboardSkill, 'runtime' | 'skillId' | 'status'>>
+
+export const storyProjectSkills: DashboardSkill[] = storyProjectSkillSeeds.map((seed, index) => ({
   current_revision: index % 4,
   effectiveVersion: index % 3 === 0 ? 2 : 1,
-  runtime: index % 2 === 0 ? 'codex' : 'claude',
-  skillId: ['systematic-debugging', 'test-driven-development', 'frontend-design'][index % 3],
-  status: index % 5 === 0 ? 'active' : 'pending',
+  runtime: seed.runtime,
+  skillId: seed.skillId,
+  status: seed.status,
   traceCount: 46 - index,
   updatedAt: `2026-04-${String(22 - (index % 4)).padStart(2, '0')}T08:00:00.000Z`,
   versionsAvailable: [1, 2, 3].slice(0, (index % 3) + 1),

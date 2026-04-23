@@ -34,6 +34,8 @@
 - 全局路由：所有 story 默认包裹 `MemoryRouter`
 - 全局画布：所有 story 默认包裹 `DashboardStoryFrame`
 - a11y：统一 `a11y.test = error`
+- 测试执行：`@storybook/addon-vitest` + Vitest browser mode + Playwright Chromium
+- 视觉基线：Chromatic workflow 负责 PR / main 分支视觉回归
 - Actions：统一匹配 `^on[A-Z].*`
 - Controls：默认展开，优先 required args
 - 排序：`Shell -> Skills -> Project -> Config -> Overlay`
@@ -45,6 +47,7 @@
 ```bash
 npx vitest run tests/unit/dashboard-v3-storybook.test.ts
 npm --prefix frontend-v3 run typecheck
+npm run test:storybook:dashboard-v3
 npm run build:storybook:dashboard-v3
 ```
 
@@ -54,9 +57,30 @@ npm run build:storybook:dashboard-v3
 npm run build
 ```
 
+CI 中对应两条自动门禁：
+
+- `.github/workflows/ci.yml` 运行 Storybook component + a11y tests
+- `.github/workflows/chromatic.yml` 运行 Chromatic visual baseline
+
+## Visual Baseline
+
+- 视觉基线接入方式：`chromaui/action`
+- 工作目录：`frontend-v3`
+- 认证方式：GitHub Actions secret `CHROMATIC_PROJECT_TOKEN`
+- 本地手动触发命令：`npm run chromatic:dashboard-v3`
+
+首次启用前，需要在仓库 Actions secrets 中配置：
+
+```text
+CHROMATIC_PROJECT_TOKEN
+```
+
+未配置 token 时，Chromatic workflow 会跳过，不会阻塞普通 CI。
+
 ## Definition Of Done
 
 - 用户可见组件变化必须带 story 变更
 - 新增交互型 Pattern 组件时，优先补 `play`
+- 稳定 story 必须保持 `stable` tag，进入 Storybook test 与视觉基线
 - 不为纯路由 wrapper 或 pass-through shell 单独建 story
 - 不在 story 中接真实 API、真实登录态、真实本地数据

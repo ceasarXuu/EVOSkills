@@ -20,11 +20,21 @@ describe('dashboard v3 Storybook setup', () => {
   it('exposes isolated Storybook scripts for frontend-v3 only', () => {
     expect(frontendPackage.scripts?.storybook).toBe('storybook dev -p 6006')
     expect(frontendPackage.scripts?.['build-storybook']).toBe('storybook build')
+    expect(frontendPackage.scripts?.['test-storybook']).toBe(
+      'vitest --config vitest.config.ts --project=storybook --run',
+    )
+    expect(frontendPackage.scripts?.chromatic).toBe('chromatic')
     expect(rootPackage.scripts?.['storybook:dashboard-v3']).toBe(
       'npm --prefix frontend-v3 run storybook',
     )
     expect(rootPackage.scripts?.['build:storybook:dashboard-v3']).toBe(
       'npm --prefix frontend-v3 run build-storybook',
+    )
+    expect(rootPackage.scripts?.['test:storybook:dashboard-v3']).toBe(
+      'npm --prefix frontend-v3 run test-storybook',
+    )
+    expect(rootPackage.scripts?.['chromatic:dashboard-v3']).toBe(
+      'npm --prefix frontend-v3 run chromatic',
     )
   })
 
@@ -32,12 +42,19 @@ describe('dashboard v3 Storybook setup', () => {
     expect(frontendPackage.devDependencies?.storybook).toBeTruthy()
     expect(frontendPackage.devDependencies?.['@storybook/react-vite']).toBeTruthy()
     expect(frontendPackage.devDependencies?.['@storybook/addon-a11y']).toBeTruthy()
+    expect(frontendPackage.devDependencies?.['@storybook/addon-vitest']).toBeTruthy()
+    expect(frontendPackage.devDependencies?.['@chromatic-com/storybook']).toBeTruthy()
+    expect(frontendPackage.devDependencies?.chromatic).toBeTruthy()
+    expect(frontendPackage.devDependencies?.playwright).toBeTruthy()
+    expect(frontendPackage.devDependencies?.['@vitest/browser-playwright']).toBeTruthy()
 
     const mainConfig = readWorkspaceFile('frontend-v3/.storybook/main.ts')
     expect(mainConfig).toContain("framework: {")
     expect(mainConfig).toContain("name: '@storybook/react-vite'")
     expect(mainConfig).toContain("../src/**/*.stories.@(ts|tsx)")
     expect(mainConfig).toContain("'@storybook/addon-a11y'")
+    expect(mainConfig).toContain("'@storybook/addon-vitest'")
+    expect(mainConfig).toContain("'@chromatic-com/storybook'")
   })
 
   it('loads the dashboard v3 theme styles and global story policies in previews', () => {
@@ -114,5 +131,29 @@ describe('dashboard v3 Storybook setup', () => {
     expect(readWorkspaceFile('frontend-v3/src/components/config-prompt-editor.stories.tsx')).toContain(
       'play:',
     )
+  })
+
+  it('configures Storybook tests to run stable stories in Vitest browser mode', () => {
+    const vitestConfig = readWorkspaceFile('frontend-v3/vitest.config.ts')
+    expect(vitestConfig).toContain("import { storybookTest } from '@storybook/addon-vitest/vitest-plugin'")
+    expect(vitestConfig).toContain("import { playwright } from '@vitest/browser-playwright'")
+    expect(vitestConfig).toContain("name: 'storybook'")
+    expect(vitestConfig).toContain("storybookUrl: 'http://127.0.0.1:6006'")
+    expect(vitestConfig).toContain("storybookScript: 'npm run storybook -- --ci --no-open'")
+    expect(vitestConfig).toContain("include: ['stable']")
+    expect(vitestConfig).toContain("provider: playwright({})")
+    expect(vitestConfig).toContain("instances: [{ browser: 'chromium' }]")
+  })
+
+  it('wires Storybook accessibility tests and Chromatic into CI', () => {
+    const ciWorkflow = readWorkspaceFile('.github/workflows/ci.yml')
+    expect(ciWorkflow).toContain('Storybook component and accessibility tests')
+    expect(ciWorkflow).toContain('npm run test:storybook:dashboard-v3')
+    expect(ciWorkflow).toContain('playwright install --with-deps chromium')
+
+    const chromaticWorkflow = readWorkspaceFile('.github/workflows/chromatic.yml')
+    expect(chromaticWorkflow).toContain('CHROMATIC_PROJECT_TOKEN')
+    expect(chromaticWorkflow).toContain('chromaui/action@latest')
+    expect(chromaticWorkflow).toContain('workingDir: frontend-v3')
   })
 })

@@ -32,5 +32,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Install Playwright browser for Storybook tests
+        run: npx --prefix frontend-v3 playwright install --with-deps chromium
+
+      - name: Storybook component and accessibility tests
+        run: npm run test:storybook:dashboard-v3
+
       - name: Test
         run: npm test -- --run

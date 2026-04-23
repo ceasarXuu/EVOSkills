@@ -31,7 +31,9 @@ export function SkillDetailDialog({
             <HugeiconsIcon icon={Layers01Icon} size={18} strokeWidth={1.8} />
             <DialogTitle>{skill?.skillId ?? 'Skill Detail'}</DialogTitle>
           </div>
-          <DialogDescription>只读详情，确认版本、状态和最近更新时间。</DialogDescription>
+          <DialogDescription className="text-foreground/72">
+            只读详情，确认版本、状态和最近更新时间。
+          </DialogDescription>
         </DialogHeader>
 
         {skill ? (

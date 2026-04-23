@@ -2,7 +2,7 @@ import { SparklesIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from 'react-router-dom'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 import type { DashboardView } from '@/types/dashboard'
 
 interface WorkspaceHeaderProps {
@@ -23,21 +23,42 @@ export function WorkspaceHeader({ currentView }: WorkspaceHeaderProps) {
             <div className="font-medium tracking-tight">OrnnSkills</div>
           </Link>
 
-          <Tabs value={currentView}>
-            <TabsList variant="line">
-              <TabsTrigger asChild value="skills">
-                <Link to="/skills">技能</Link>
-              </TabsTrigger>
-              <TabsTrigger asChild value="project">
-                <Link to="/project">项目</Link>
-              </TabsTrigger>
-              <TabsTrigger asChild value="config">
-                <Link to="/config">配置</Link>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <nav aria-label="主导航">
+            <div className="inline-flex items-center gap-1 rounded-none bg-transparent p-[3px] text-muted-foreground">
+              <HeaderNavLink currentView={currentView} label="技能" to="/skills" value="skills" />
+              <HeaderNavLink currentView={currentView} label="项目" to="/project" value="project" />
+              <HeaderNavLink currentView={currentView} label="配置" to="/config" value="config" />
+            </div>
+          </nav>
         </div>
       </div>
     </header>
+  )
+}
+
+function HeaderNavLink({
+  currentView,
+  label,
+  to,
+  value,
+}: {
+  currentView: DashboardView
+  label: string
+  to: `/${DashboardView}`
+  value: DashboardView
+}) {
+  const isActive = value === currentView
+
+  return (
+    <Link
+      aria-current={isActive ? 'page' : undefined}
+      className={cn(
+        'relative inline-flex h-8 items-center justify-center rounded-md border border-transparent px-2 py-1 text-sm font-medium text-foreground/60 transition-all hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring',
+        isActive && 'text-foreground after:absolute after:inset-x-0 after:bottom-[-5px] after:h-0.5 after:bg-foreground',
+      )}
+      to={to}
+    >
+      {label}
+    </Link>
   )
 }

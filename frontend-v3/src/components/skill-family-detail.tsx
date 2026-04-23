@@ -241,7 +241,7 @@ function DetailSelectors({
   return (
     <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_200px]">
       <Select onValueChange={onPreferredProjectChange} value={preferredProjectPath || undefined}>
-        <SelectTrigger className="w-full rounded-xl">
+        <SelectTrigger aria-label="选择优先项目" className="w-full rounded-xl">
           <SelectValue placeholder="选择优先项目" />
         </SelectTrigger>
         <SelectContent>
@@ -257,7 +257,7 @@ function DetailSelectors({
         onValueChange={(value) => onSwitchRuntime(value as SkillDomainRuntime)}
         value={selectedRuntime ?? preferredRuntime}
       >
-        <SelectTrigger className="w-full rounded-xl">
+        <SelectTrigger aria-label="切换 runtime" className="w-full rounded-xl">
           <SelectValue placeholder="切换 runtime" />
         </SelectTrigger>
         <SelectContent>

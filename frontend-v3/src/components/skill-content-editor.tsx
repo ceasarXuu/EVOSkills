@@ -66,6 +66,7 @@ export function SkillContentEditor({
         ) : null}
 
         <Textarea
+          aria-label="Skill 正文"
           className="min-h-[420px] rounded-xl border-border/80 bg-background/60 font-mono text-sm"
           onChange={(event) => onDraftChange(event.target.value)}
           value={draftContent}

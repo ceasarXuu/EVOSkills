@@ -25,6 +25,8 @@
     "dev:dashboard-v3": "npm --prefix frontend-v3 run dev",
     "storybook:dashboard-v3": "npm --prefix frontend-v3 run storybook",
     "build:storybook:dashboard-v3": "npm --prefix frontend-v3 run build-storybook",
+    "test:storybook:dashboard-v3": "npm --prefix frontend-v3 run test-storybook",
+    "chromatic:dashboard-v3": "npm --prefix frontend-v3 run chromatic",
     "start": "node dist/cli/index.js",
     "ensure:cli-exec": "sh -c 'if [ -f dist/cli/index.js ]; then chmod +x dist/cli/index.js; fi'",
     "prepack": "npm run build",

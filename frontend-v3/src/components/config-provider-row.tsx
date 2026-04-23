@@ -76,7 +76,7 @@ export function ConfigProviderRow({
             }}
             value={providerSelectValue}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger aria-label="选择 provider" className="w-full">
               <SelectValue placeholder={CONFIG_TEXT.catalogCustomOnly} />
             </SelectTrigger>
             <SelectContent>
@@ -112,7 +112,7 @@ export function ConfigProviderRow({
             }}
             value={modelSelectValue}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger aria-label="选择 model" className="w-full">
               <SelectValue placeholder={CONFIG_TEXT.customModelPlaceholder} />
             </SelectTrigger>
             <SelectContent>
@@ -149,6 +149,7 @@ export function ConfigProviderRow({
         <div className="space-y-2">
           <div className="flex gap-2">
             <Input
+              aria-label="粘贴 API Key"
               onChange={(event) =>
                 onUpdate(index, {
                   apiKey: event.target.value,
@@ -160,6 +161,7 @@ export function ConfigProviderRow({
               value={provider.apiKey || ''}
             />
             <Button
+              aria-label={isApiKeyVisible ? CONFIG_TEXT.apiKeyHide : CONFIG_TEXT.apiKeyShow}
               onClick={() => onToggleApiKeyVisibility(index)}
               type="button"
               variant="outline"

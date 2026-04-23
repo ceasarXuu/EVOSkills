@@ -38,7 +38,11 @@ export function ConfigPromptEditor({
             />
             <span>{CONFIG_TEXT.builtInPrompt}</span>
           </div>
-          <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md border border-border/70 bg-muted/20 px-4 py-3 text-xs leading-6 text-muted-foreground">
+          <pre
+            aria-label={`${label} ${CONFIG_TEXT.builtInPrompt}`}
+            className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md border border-border/70 bg-muted/20 px-4 py-3 text-xs leading-6 text-muted-foreground"
+            tabIndex={0}
+          >
             {defaultPrompt}
           </pre>
         </label>
@@ -54,6 +58,7 @@ export function ConfigPromptEditor({
             <span>{CONFIG_TEXT.customPrompt}</span>
           </div>
           <Textarea
+            aria-label={`${label} ${CONFIG_TEXT.customPrompt}`}
             className="min-h-64"
             disabled={source !== 'custom'}
             onChange={(event) => onSetPromptOverride(promptKey, event.target.value)}

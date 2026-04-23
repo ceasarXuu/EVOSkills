@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useMemo, useState, type ComponentProps } from 'react'
-import { expect, fn } from 'storybook/test'
+import { expect, fn, waitFor } from 'storybook/test'
 import { SkillsTable } from '@/components/skills-table'
 import { sortSkills } from '@/lib/format'
 import { dashboardStoryParameters } from '@/stories/dashboard-storybook'
@@ -81,7 +81,7 @@ export const SearchAndSelect: Story = {
     await userEvent.type(search, 'frontend-design')
     await expect(args.onQueryChange).toHaveBeenCalled()
 
-    const skillCell = canvas.getAllByText('frontend-design')[0]
+    const skillCell = canvas.getByText('frontend-design')
     const row = skillCell.closest('tr')
     expect(row).not.toBeNull()
     if (!row) {
@@ -90,7 +90,15 @@ export const SearchAndSelect: Story = {
 
     await userEvent.click(row)
     await expect(args.onSelectSkill).toHaveBeenCalled()
-    await expect(row).toHaveAttribute('data-state', 'selected')
+    await waitFor(() => {
+      const selectedRow = canvas.getByText('frontend-design').closest('tr')
+      expect(selectedRow).not.toBeNull()
+      if (!selectedRow) {
+        return
+      }
+
+      expect(selectedRow).toHaveAttribute('data-state', 'selected')
+    })
   },
 }
 

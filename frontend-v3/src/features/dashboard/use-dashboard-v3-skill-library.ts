@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   applyDashboardSkillToFamily,
   fetchDashboardSkillApplyPreview,
@@ -25,6 +25,27 @@ import type {
   SkillDomainRuntime,
 } from '@/types/dashboard'
 
+interface SkillLibraryCacheState {
+  actionMessage: string | null
+  applyPreview: DashboardSkillApplyPreview | null
+  detail: DashboardSkillDetail | null
+  detailError: string | null
+  draftContent: string
+  families: DashboardSkillFamily[]
+  familiesError: string | null
+  instances: DashboardSkillInstance[]
+  preferredProjectPath: string
+  preferredRuntime: SkillDomainRuntime
+  query: string
+  selectedFamily: DashboardSkillFamily | null
+  selectedFamilyId: string
+  selectedInstanceId: string
+  selectedVersion: number | null
+  versionMetadataByNumber: Record<number, DashboardSkillVersionMetadata>
+}
+
+let skillLibraryCache: SkillLibraryCacheState | null = null
+
 function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.trim()) {
     return error.message
@@ -33,23 +54,30 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
+function getInitialSkillLibraryState(preferredProjectPath: string) {
+  return skillLibraryCache?.preferredProjectPath === preferredProjectPath ? skillLibraryCache : null
+}
+
 export function useDashboardV3SkillLibrary(preferredProjectPath: string) {
-  const [families, setFamilies] = useState<DashboardSkillFamily[]>([])
-  const [selectedFamilyId, setSelectedFamilyId] = useState('')
-  const [selectedFamily, setSelectedFamily] = useState<DashboardSkillFamily | null>(null)
-  const [instances, setInstances] = useState<DashboardSkillInstance[]>([])
-  const [selectedInstanceId, setSelectedInstanceId] = useState('')
-  const [detail, setDetail] = useState<DashboardSkillDetail | null>(null)
-  const [draftContent, setDraftContent] = useState('')
-  const [selectedVersion, setSelectedVersion] = useState<number | null>(null)
-  const [versionMetadataByNumber, setVersionMetadataByNumber] = useState<Record<number, DashboardSkillVersionMetadata>>({})
-  const [preferredRuntime, setPreferredRuntime] = useState<SkillDomainRuntime>('codex')
-  const [query, setQuery] = useState('')
-  const [applyPreview, setApplyPreview] = useState<DashboardSkillApplyPreview | null>(null)
-  const [actionMessage, setActionMessage] = useState<string | null>(null)
-  const [familiesError, setFamiliesError] = useState<string | null>(null)
-  const [detailError, setDetailError] = useState<string | null>(null)
-  const [isLoadingFamilies, setIsLoadingFamilies] = useState(true)
+  const initialState = getInitialSkillLibraryState(preferredProjectPath)
+  const hasInitialCacheRef = useRef(Boolean(initialState))
+  const hasInitialCache = hasInitialCacheRef.current
+  const [families, setFamilies] = useState<DashboardSkillFamily[]>(initialState?.families ?? [])
+  const [selectedFamilyId, setSelectedFamilyId] = useState(initialState?.selectedFamilyId ?? '')
+  const [selectedFamily, setSelectedFamily] = useState<DashboardSkillFamily | null>(initialState?.selectedFamily ?? null)
+  const [instances, setInstances] = useState<DashboardSkillInstance[]>(initialState?.instances ?? [])
+  const [selectedInstanceId, setSelectedInstanceId] = useState(initialState?.selectedInstanceId ?? '')
+  const [detail, setDetail] = useState<DashboardSkillDetail | null>(initialState?.detail ?? null)
+  const [draftContent, setDraftContent] = useState(initialState?.draftContent ?? '')
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(initialState?.selectedVersion ?? null)
+  const [versionMetadataByNumber, setVersionMetadataByNumber] = useState<Record<number, DashboardSkillVersionMetadata>>(initialState?.versionMetadataByNumber ?? {})
+  const [preferredRuntime, setPreferredRuntime] = useState<SkillDomainRuntime>(initialState?.preferredRuntime ?? 'codex')
+  const [query, setQuery] = useState(initialState?.query ?? '')
+  const [applyPreview, setApplyPreview] = useState<DashboardSkillApplyPreview | null>(initialState?.applyPreview ?? null)
+  const [actionMessage, setActionMessage] = useState<string | null>(initialState?.actionMessage ?? null)
+  const [familiesError, setFamiliesError] = useState<string | null>(initialState?.familiesError ?? null)
+  const [detailError, setDetailError] = useState<string | null>(initialState?.detailError ?? null)
+  const [isLoadingFamilies, setIsLoadingFamilies] = useState(!hasInitialCache)
   const [isLoadingFamilyDetail, setIsLoadingFamilyDetail] = useState(false)
   const [isLoadingSkillDetail, setIsLoadingSkillDetail] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -64,6 +92,44 @@ export function useDashboardV3SkillLibrary(preferredProjectPath: string) {
     return instances.find((instance) => instance.instanceId === selectedInstanceId) ?? null
   }, [instances, selectedInstanceId])
 
+  useEffect(() => {
+    skillLibraryCache = {
+      actionMessage,
+      applyPreview,
+      detail,
+      detailError,
+      draftContent,
+      families,
+      familiesError,
+      instances,
+      preferredProjectPath,
+      preferredRuntime,
+      query,
+      selectedFamily,
+      selectedFamilyId,
+      selectedInstanceId,
+      selectedVersion,
+      versionMetadataByNumber,
+    }
+  }, [
+    actionMessage,
+    applyPreview,
+    detail,
+    detailError,
+    draftContent,
+    families,
+    familiesError,
+    instances,
+    preferredProjectPath,
+    preferredRuntime,
+    query,
+    selectedFamily,
+    selectedFamilyId,
+    selectedInstanceId,
+    selectedVersion,
+    versionMetadataByNumber,
+  ])
+
   const reload = useCallback(() => {
     setRefreshToken((current) => current + 1)
   }, [])
@@ -72,7 +138,9 @@ export function useDashboardV3SkillLibrary(preferredProjectPath: string) {
     let cancelled = false
 
     async function loadFamilies() {
-      setIsLoadingFamilies(true)
+      if (!hasInitialCache || refreshToken > 0) {
+        setIsLoadingFamilies(true)
+      }
       setFamiliesError(null)
 
       try {
@@ -103,7 +171,7 @@ export function useDashboardV3SkillLibrary(preferredProjectPath: string) {
     return () => {
       cancelled = true
     }
-  }, [refreshToken])
+  }, [hasInitialCache, refreshToken])
 
   useEffect(() => {
     if (!selectedFamilyId) {
@@ -116,7 +184,9 @@ export function useDashboardV3SkillLibrary(preferredProjectPath: string) {
     let cancelled = false
 
     async function loadFamilyDetail() {
-      setIsLoadingFamilyDetail(true)
+      if (!hasInitialCache || refreshToken > 0) {
+        setIsLoadingFamilyDetail(true)
+      }
       setDetailError(null)
 
       try {
@@ -150,7 +220,7 @@ export function useDashboardV3SkillLibrary(preferredProjectPath: string) {
     return () => {
       cancelled = true
     }
-  }, [preferredProjectPath, preferredRuntime, selectedFamilyId, refreshToken])
+  }, [hasInitialCache, preferredProjectPath, preferredRuntime, selectedFamilyId, refreshToken])
 
   useEffect(() => {
     if (!selectedInstance) {
@@ -166,7 +236,9 @@ export function useDashboardV3SkillLibrary(preferredProjectPath: string) {
     let cancelled = false
 
     async function loadSkillDetail() {
-      setIsLoadingSkillDetail(true)
+      if (!hasInitialCache || refreshToken > 0) {
+        setIsLoadingSkillDetail(true)
+      }
       setDetailError(null)
 
       try {
@@ -218,7 +290,7 @@ export function useDashboardV3SkillLibrary(preferredProjectPath: string) {
     return () => {
       cancelled = true
     }
-  }, [selectedInstance, refreshToken])
+  }, [hasInitialCache, selectedInstance, refreshToken])
 
   const selectFamily = useCallback((familyId: string) => {
     setSelectedFamilyId(familyId)

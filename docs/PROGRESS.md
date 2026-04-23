@@ -8,6 +8,7 @@
 - 📝 记录启动经验：`ornn restart` 只会重启 daemon/dashboard 后端，不会替 `frontend-v3` 的 Vite dev server自动接管 `/api`；只要本地是用 `vite` 看 `/v3`，就必须显式代理 `/api` 和 `/events` 到 daemon 端口，否则前端一定表现成“页面起来了，但数据全 404”
 - ✅ 配置页接入模块级缓存：首次进入仍显示加载提示，但从其他 tab 返回 `config` 时直接复用上次已加载的配置与 provider 列表，只做后台静默刷新，不再每次都闪出“配置加载中...”
 - 📝 前端经验：配置类只读/低频编辑工作区应采用 `stale-while-revalidate`，不要在每次 tab 切换时把整页重新打回首屏 loading
+- ✅ 技能页接入同样的模块级缓存：从其他 tab 返回 `skills` 时复用 family 列表、当前 family、实例详情和版本元数据，后台刷新不再触发列表 skeleton 或详情 loading
 
 ### 2026-04-23
 

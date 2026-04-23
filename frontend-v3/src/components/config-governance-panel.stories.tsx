@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { ConfigGovernancePanel } from '@/components/config-governance-panel'
+import { DashboardStoryFrame } from '@/stories/dashboard-story-frame'
 import { storyDashboardConfig } from '@/stories/dashboard-v3-fixtures'
 
 const meta = {
@@ -10,9 +11,9 @@ const meta = {
   },
   decorators: [
     (Story) => (
-      <div className="dark min-h-screen w-[1120px] bg-background p-4 text-foreground">
+      <DashboardStoryFrame width="1120px">
         <Story />
-      </div>
+      </DashboardStoryFrame>
     ),
   ],
 } satisfies Meta<typeof ConfigGovernancePanel>

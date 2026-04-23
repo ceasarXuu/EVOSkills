@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { SkillDetailDialog } from '@/components/skill-detail-dialog'
+import { DashboardStoryFrame } from '@/stories/dashboard-story-frame'
 import { storyProjectSkills } from '@/stories/dashboard-v3-fixtures'
 
 const meta = {
@@ -10,9 +11,9 @@ const meta = {
   },
   decorators: [
     (Story) => (
-      <div className="dark min-h-screen w-[720px] bg-background p-12 text-foreground">
+      <DashboardStoryFrame width="720px">
         <Story />
-      </div>
+      </DashboardStoryFrame>
     ),
   ],
 } satisfies Meta<typeof SkillDetailDialog>

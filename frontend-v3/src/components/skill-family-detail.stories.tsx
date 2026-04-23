@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
 import { SkillFamilyDetail } from '@/components/skill-family-detail'
+import { DashboardStoryFrame } from '@/stories/dashboard-story-frame'
 import {
   storyApplyPreview,
   storyProjects,
@@ -60,9 +61,9 @@ const meta = {
   },
   decorators: [
     (Story) => (
-      <div className="dark min-h-screen w-[1280px] bg-background p-4 text-foreground">
+      <DashboardStoryFrame width="1280px">
         <Story />
-      </div>
+      </DashboardStoryFrame>
     ),
   ],
 } satisfies Meta<typeof SkillFamilyDetail>

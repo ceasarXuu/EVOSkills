@@ -1,30 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { ProjectRail } from '@/components/project-rail'
-import type { DashboardProject } from '@/types/dashboard'
-
-const projects: DashboardProject[] = [
-  {
-    name: 'OrnnSkills',
-    path: '/Users/xuzhang/OrnnSkills',
-    lastSeenAt: '2026-04-23T06:30:00.000Z',
-    monitoringState: 'active',
-    skillCount: 112,
-  },
-  {
-    name: 'mili',
-    path: '/Users/xuzhang/mili',
-    lastSeenAt: '2026-04-23T06:12:00.000Z',
-    monitoringState: 'active',
-    skillCount: 118,
-  },
-  {
-    name: 'NBComic',
-    path: '/Users/xuzhang/NBComic',
-    lastSeenAt: '2026-04-23T05:58:00.000Z',
-    monitoringState: 'paused',
-    skillCount: 112,
-  },
-]
+import { DashboardStoryFrame } from '@/stories/dashboard-story-frame'
+import { storyProjects } from '@/stories/dashboard-v3-fixtures'
 
 const meta = {
   title: 'Dashboard V3/ProjectRail',
@@ -34,9 +11,9 @@ const meta = {
   },
   decorators: [
     (Story) => (
-      <div className="dark min-h-screen w-[360px] bg-background p-4 text-foreground">
+      <DashboardStoryFrame width="360px">
         <Story />
-      </div>
+      </DashboardStoryFrame>
     ),
   ],
 } satisfies Meta<typeof ProjectRail>
@@ -49,7 +26,7 @@ export const Default: Story = {
   args: {
     isLoading: false,
     onSelect: () => undefined,
-    projects,
+    projects: storyProjects,
     selectedProjectId: '/Users/xuzhang/OrnnSkills',
   },
 }

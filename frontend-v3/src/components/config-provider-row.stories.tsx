@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { ConfigProviderStack } from '@/components/config-provider-stack'
+import { ConfigProviderRow } from '@/components/config-provider-row'
 import { DashboardStoryFrame } from '@/stories/dashboard-story-frame'
 import {
   storyConnectivityResults,
@@ -7,9 +7,11 @@ import {
   storyProviderCatalog,
 } from '@/stories/dashboard-v3-fixtures'
 
+const provider = storyDashboardConfig.providers[0]
+
 const meta = {
-  title: 'Dashboard V3/ConfigProviderStack',
-  component: ConfigProviderStack,
+  title: 'Dashboard V3/ConfigProviderRow',
+  component: ConfigProviderRow,
   parameters: {
     layout: 'padded',
   },
@@ -20,7 +22,7 @@ const meta = {
       </DashboardStoryFrame>
     ),
   ],
-} satisfies Meta<typeof ConfigProviderStack>
+} satisfies Meta<typeof ConfigProviderRow>
 
 export default meta
 
@@ -28,38 +30,35 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
   args: {
-    apiKeyVisibilityByRow: { '0': false },
-    config: storyDashboardConfig,
-    connectivityResults: storyConnectivityResults,
-    isCatalogLoading: false,
+    index: 0,
+    isApiKeyVisible: false,
     isCheckingConnectivity: false,
-    onAddProvider: () => undefined,
     onCheckConnectivity: () => undefined,
-    onRemoveProvider: () => undefined,
+    onRemove: () => undefined,
     onSetDefaultProvider: () => undefined,
-    onSetSafetyField: () => undefined,
     onToggleApiKeyVisibility: () => undefined,
-    onUpdateProvider: () => undefined,
+    onUpdate: () => undefined,
+    provider,
     providerCatalog: storyProviderCatalog,
+    result: storyConnectivityResults[0],
+    selectedDefaultProvider: provider.provider,
   },
 }
 
-export const LoadingCatalog: Story = {
+export const ApiKeyVisible: Story = {
   args: {
     ...Default.args,
-    isCatalogLoading: true,
-    providerCatalog: [],
-  },
-}
-
-export const EmptyProviders: Story = {
-  args: {
-    ...Default.args,
-    config: {
-      ...storyDashboardConfig,
-      defaultProvider: '',
-      providers: [],
+    isApiKeyVisible: true,
+    provider: {
+      ...provider,
+      apiKey: 'sk-redacted-storybook',
     },
-    connectivityResults: [],
+  },
+}
+
+export const Checking: Story = {
+  args: {
+    ...Default.args,
+    isCheckingConnectivity: true,
   },
 }

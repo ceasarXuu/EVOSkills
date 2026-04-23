@@ -43,8 +43,10 @@ describe('dashboard v3 Storybook setup', () => {
     expect(previewConfig).toContain("import '../src/styles/globals.css'")
   })
 
-  it('contains contract stories for dashboard v3 core workbench components', () => {
-    const storyFiles = [
+  it('uses a shared dashboard story frame instead of per-story page chrome', () => {
+    expect(existsSync(new URL('frontend-v3/src/stories/dashboard-story-frame.tsx', root))).toBe(true)
+
+    const storySources = [
       'frontend-v3/src/components/workspace-header.stories.tsx',
       'frontend-v3/src/components/project-rail.stories.tsx',
       'frontend-v3/src/components/skill-family-list.stories.tsx',
@@ -52,6 +54,30 @@ describe('dashboard v3 Storybook setup', () => {
       'frontend-v3/src/components/project-workbench.stories.tsx',
       'frontend-v3/src/components/skill-detail-dialog.stories.tsx',
       'frontend-v3/src/components/config-provider-stack.stories.tsx',
+      'frontend-v3/src/components/config-governance-panel.stories.tsx',
+    ]
+
+    for (const storySourcePath of storySources) {
+      const storySource = readWorkspaceFile(storySourcePath)
+      expect(storySource).toContain('DashboardStoryFrame')
+      expect(storySource).not.toContain('dark min-h-screen')
+    }
+  })
+
+  it('contains contract stories for dashboard v3 core workbench components', () => {
+    const storyFiles = [
+      'frontend-v3/src/components/workspace-header.stories.tsx',
+      'frontend-v3/src/components/project-rail.stories.tsx',
+      'frontend-v3/src/components/skill-family-list.stories.tsx',
+      'frontend-v3/src/components/skill-family-detail.stories.tsx',
+      'frontend-v3/src/components/skills-table.stories.tsx',
+      'frontend-v3/src/components/project-workbench.stories.tsx',
+      'frontend-v3/src/components/skill-detail-dialog.stories.tsx',
+      'frontend-v3/src/components/skill-content-editor.stories.tsx',
+      'frontend-v3/src/components/skill-version-history.stories.tsx',
+      'frontend-v3/src/components/config-provider-row.stories.tsx',
+      'frontend-v3/src/components/config-provider-stack.stories.tsx',
+      'frontend-v3/src/components/config-prompt-editor.stories.tsx',
       'frontend-v3/src/components/config-governance-panel.stories.tsx',
     ]
 

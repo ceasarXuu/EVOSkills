@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { MemoryRouter } from 'react-router-dom'
 import { WorkspaceHeader } from '@/components/workspace-header'
+import { DashboardStoryFrame } from '@/stories/dashboard-story-frame'
 
 const meta = {
   title: 'Dashboard V3/WorkspaceHeader',
@@ -11,9 +12,9 @@ const meta = {
   decorators: [
     (Story) => (
       <MemoryRouter initialEntries={['/skills']}>
-        <div className="dark min-h-screen bg-background text-foreground">
+        <DashboardStoryFrame width="100vw">
           <Story />
-        </div>
+        </DashboardStoryFrame>
       </MemoryRouter>
     ),
   ],

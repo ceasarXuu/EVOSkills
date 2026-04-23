@@ -1,17 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
-import { ProjectWorkbench } from '@/components/project-workbench'
+import { SkillsTable } from '@/components/skills-table'
 import { DashboardStoryFrame } from '@/stories/dashboard-story-frame'
 import { storyProjectSkills } from '@/stories/dashboard-v3-fixtures'
 import type { DashboardSkill } from '@/types/dashboard'
 
-function InteractiveProjectWorkbench({ isLoading = false, skills = storyProjectSkills }) {
+function InteractiveSkillsTable({ skills = storyProjectSkills }) {
   const [query, setQuery] = useState('')
   const [selectedSkillKey, setSelectedSkillKey] = useState('systematic-debugging:codex')
 
   return (
-    <ProjectWorkbench
-      isLoading={isLoading}
+    <SkillsTable
+      isLoading={false}
       onQueryChange={setQuery}
       onSelectSkill={(skill: DashboardSkill) =>
         setSelectedSkillKey(`${skill.skillId}:${skill.runtime ?? 'unknown'}`)
@@ -24,8 +24,8 @@ function InteractiveProjectWorkbench({ isLoading = false, skills = storyProjectS
 }
 
 const meta = {
-  title: 'Dashboard V3/ProjectWorkbench',
-  component: ProjectWorkbench,
+  title: 'Dashboard V3/SkillsTable',
+  component: SkillsTable,
   parameters: {
     layout: 'padded',
   },
@@ -36,7 +36,7 @@ const meta = {
       </DashboardStoryFrame>
     ),
   ],
-} satisfies Meta<typeof ProjectWorkbench>
+} satisfies Meta<typeof SkillsTable>
 
 export default meta
 
@@ -51,7 +51,7 @@ export const Default: Story = {
     selectedSkillKey: 'systematic-debugging:codex',
     skills: storyProjectSkills,
   },
-  render: () => <InteractiveProjectWorkbench />,
+  render: () => <InteractiveSkillsTable />,
 }
 
 export const Loading: Story = {

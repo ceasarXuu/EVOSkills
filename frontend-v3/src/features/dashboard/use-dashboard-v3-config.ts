@@ -29,6 +29,19 @@ import type {
   DashboardProviderHealthSummary,
 } from '@/types/config'
 
+interface DashboardV3ConfigCacheSnapshot {
+  config: DashboardConfig
+  providerCatalog: DashboardProviderCatalogEntry[]
+  providerHealth: DashboardProviderHealthSummary
+  savedSnapshot: string
+}
+
+interface DashboardV3ConfigInitialState extends DashboardV3ConfigCacheSnapshot {
+  isLoading: boolean
+}
+
+let dashboardV3ConfigCache: DashboardV3ConfigCacheSnapshot | null = null
+
 function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.trim().length > 0) {
     return error.message
@@ -37,15 +50,43 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
+export function getInitialDashboardV3ConfigState(): DashboardV3ConfigInitialState {
+  if (dashboardV3ConfigCache) {
+    return {
+      ...dashboardV3ConfigCache,
+      isLoading: false,
+    }
+  }
+
+  return {
+    config: DEFAULT_DASHBOARD_CONFIG,
+    providerCatalog: [],
+    providerHealth: normalizeProviderHealthSummary(null),
+    savedSnapshot: JSON.stringify(DEFAULT_DASHBOARD_CONFIG),
+    isLoading: true,
+  }
+}
+
+export function __resetDashboardV3ConfigCacheForTests() {
+  dashboardV3ConfigCache = null
+}
+
+export function __primeDashboardV3ConfigCacheForTests(cache: DashboardV3ConfigCacheSnapshot) {
+  dashboardV3ConfigCache = cache
+}
+
 export function useDashboardV3Config() {
-  const [config, setConfig] = useState<DashboardConfig>(DEFAULT_DASHBOARD_CONFIG)
-  const [savedSnapshot, setSavedSnapshot] = useState(JSON.stringify(DEFAULT_DASHBOARD_CONFIG))
-  const [providerCatalog, setProviderCatalog] = useState<DashboardProviderCatalogEntry[]>([])
+  const initialState = getInitialDashboardV3ConfigState()
+  const [config, setConfig] = useState<DashboardConfig>(initialState.config)
+  const [savedSnapshot, setSavedSnapshot] = useState(initialState.savedSnapshot)
+  const [providerCatalog, setProviderCatalog] = useState<DashboardProviderCatalogEntry[]>(
+    initialState.providerCatalog,
+  )
   const [providerHealth, setProviderHealth] = useState<DashboardProviderHealthSummary>(
-    normalizeProviderHealthSummary(null),
+    initialState.providerHealth,
   )
   const [connectivityResults, setConnectivityResults] = useState<DashboardProviderHealthResult[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(initialState.isLoading)
   const [isSaving, setIsSaving] = useState(false)
   const [isCheckingConnectivity, setIsCheckingConnectivity] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -63,8 +104,19 @@ export function useDashboardV3Config() {
     latestConfigRef.current = config
   }, [config])
 
-  const refresh = useCallback(async () => {
-    setIsLoading(true)
+  useEffect(() => {
+    dashboardV3ConfigCache = {
+      config,
+      providerCatalog,
+      providerHealth,
+      savedSnapshot,
+    }
+  }, [config, providerCatalog, providerHealth, savedSnapshot])
+
+  const runRefresh = useCallback(async (options?: { showLoading?: boolean }) => {
+    if (options?.showLoading ?? true) {
+      setIsLoading(true)
+    }
     setLoadError(null)
     setCatalogError(null)
     setHealthError(null)
@@ -106,9 +158,13 @@ export function useDashboardV3Config() {
     setIsLoading(false)
   }, [])
 
+  const refresh = useCallback(async () => {
+    await runRefresh({ showLoading: true })
+  }, [runRefresh])
+
   useEffect(() => {
-    void refresh()
-  }, [refresh])
+    void runRefresh({ showLoading: dashboardV3ConfigCache === null })
+  }, [runRefresh])
 
   const patchConfig = useCallback((updater: (current: DashboardConfig) => DashboardConfig) => {
     setConfig((current) => normalizeDashboardConfig(updater(current)))

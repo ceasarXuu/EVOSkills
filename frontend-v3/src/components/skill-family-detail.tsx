@@ -4,7 +4,6 @@ import { SkillContentEditor } from '@/components/skill-content-editor'
 import { SkillVersionHistory } from '@/components/skill-version-history'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Select,
   SelectContent,
@@ -12,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   formatCompactNumber,
@@ -36,7 +34,6 @@ interface SkillFamilyDetailProps {
   detailError: string | null
   draftContent: string
   family: DashboardSkillFamily | null
-  instances: DashboardSkillInstance[]
   isApplying: boolean
   isLoading: boolean
   isSaving: boolean
@@ -44,7 +41,6 @@ interface SkillFamilyDetailProps {
   onDraftChange: (value: string) => void
   onLoadApplyPreview: () => void
   onPreferredProjectChange: (projectPath: string) => void
-  onSelectInstance: (instanceId: string) => void
   onSelectVersion: (version: number) => void
   onSave: () => void
   onSwitchRuntime: (runtime: SkillDomainRuntime) => void
@@ -64,7 +60,6 @@ export function SkillFamilyDetail({
   detailError,
   draftContent,
   family,
-  instances,
   isApplying,
   isLoading,
   isSaving,
@@ -72,7 +67,6 @@ export function SkillFamilyDetail({
   onDraftChange,
   onLoadApplyPreview,
   onPreferredProjectChange,
-  onSelectInstance,
   onSelectVersion,
   onSave,
   onSwitchRuntime,
@@ -154,40 +148,6 @@ export function SkillFamilyDetail({
             <Metric label="Analyzed Touches" value={formatCompactNumber(family.usage.analyzedTouches)} />
             <Metric label="Optimized" value={formatCompactNumber(family.usage.optimizedCount)} />
             <Metric label="Diverged Content" value={family.hasDivergedContent ? 'Yes' : 'No'} />
-          </div>
-
-          <Separator />
-
-          <div className="space-y-3">
-            <div className="text-sm font-medium">Instances</div>
-            <ScrollArea className="w-full whitespace-nowrap">
-              <div className="flex gap-3 pb-1">
-                {instances.map((instance) => {
-                  const isActive = instance.instanceId === selectedInstance?.instanceId
-                  return (
-                    <button
-                      className={`min-w-[220px] rounded-xl border px-4 py-3 text-left ${
-                        isActive
-                          ? 'border-primary/50 bg-primary/8'
-                          : 'border-border/70 bg-background/40 hover:border-primary/30 hover:bg-muted/40'
-                      }`}
-                      key={instance.instanceId}
-                      onClick={() => onSelectInstance(instance.instanceId)}
-                      type="button"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="font-medium">{instance.projectPath.split('/').at(-1) ?? instance.projectPath}</div>
-                        <Badge variant={getSkillStatusBadgeVariant(instance.status)}>{instance.status}</Badge>
-                      </div>
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        {instance.runtime} · effective v{instance.effectiveVersion ?? '--'} ·{' '}
-                        {formatRelativeTime(instance.lastUsedAt)}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </ScrollArea>
           </div>
         </CardContent>
       </Card>

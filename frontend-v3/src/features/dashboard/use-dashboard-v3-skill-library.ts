@@ -131,7 +131,6 @@ export function useDashboardV3SkillLibrary(preferredProjectPath: string) {
         setSelectedFamily(family)
         setInstances(nextInstances)
         const preferredInstance = selectPreferredSkillInstance(nextInstances, {
-          currentInstanceId: selectedInstanceId,
           preferredProjectPath,
           preferredRuntime,
         })
@@ -151,7 +150,7 @@ export function useDashboardV3SkillLibrary(preferredProjectPath: string) {
     return () => {
       cancelled = true
     }
-  }, [preferredProjectPath, preferredRuntime, selectedFamilyId, selectedInstanceId, refreshToken])
+  }, [preferredProjectPath, preferredRuntime, selectedFamilyId, refreshToken])
 
   useEffect(() => {
     if (!selectedInstance) {
@@ -225,12 +224,6 @@ export function useDashboardV3SkillLibrary(preferredProjectPath: string) {
     setSelectedFamilyId(familyId)
     setActionMessage(null)
     logDashboardV3Event('skill_library.family_selected', { familyId })
-  }, [])
-
-  const selectInstance = useCallback((instanceId: string) => {
-    setSelectedInstanceId(instanceId)
-    setActionMessage(null)
-    logDashboardV3Event('skill_library.instance_selected', { instanceId })
   }, [])
 
   const switchRuntime = useCallback(
@@ -417,7 +410,6 @@ export function useDashboardV3SkillLibrary(preferredProjectPath: string) {
     selectedInstanceId,
     selectedVersion,
     selectFamily,
-    selectInstance,
     setDraftContent,
     setQuery,
     switchRuntime,

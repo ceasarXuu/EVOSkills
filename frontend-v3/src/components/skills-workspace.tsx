@@ -37,7 +37,6 @@ export function SkillsWorkspace({
           detailError={skillLibrary.detailError}
           draftContent={skillLibrary.draftContent}
           family={skillLibrary.selectedFamily}
-          instances={skillLibrary.instances}
           isApplying={skillLibrary.isApplying}
           isLoading={skillLibrary.isLoadingFamilyDetail || skillLibrary.isLoadingSkillDetail}
           isSaving={skillLibrary.isSaving}
@@ -45,7 +44,6 @@ export function SkillsWorkspace({
           onDraftChange={skillLibrary.setDraftContent}
           onLoadApplyPreview={skillLibrary.loadApplyPreview}
           onPreferredProjectChange={onSelectProject}
-          onSelectInstance={skillLibrary.selectInstance}
           onSelectVersion={skillLibrary.loadVersion}
           onSave={skillLibrary.save}
           onSwitchRuntime={skillLibrary.switchRuntime}

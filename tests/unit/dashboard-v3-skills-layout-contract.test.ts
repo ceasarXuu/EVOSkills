@@ -21,4 +21,10 @@ describe('dashboard v3 skills layout contract', () => {
     expect(skillFamilyDetailSource).toContain('onPreferredProjectChange')
     expect(skillFamilyDetailSource).toContain('preferredProjectPath')
   })
+
+  it('removes the inline instances rail and keeps instance switching on the header selectors', () => {
+    expect(skillFamilyDetailSource).not.toContain('Instances')
+    expect(skillFamilyDetailSource).not.toContain('onSelectInstance')
+    expect(skillFamilyDetailSource).toContain('切换 runtime')
+  })
 })

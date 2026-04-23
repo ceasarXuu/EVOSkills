@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useMemo, useState, type ComponentProps } from 'react'
-import { fn } from 'storybook/test'
+import { expect, fn, within } from 'storybook/test'
 import { SkillFamilyDetail } from '@/components/skill-family-detail'
 import { dashboardStoryParameters } from '@/stories/dashboard-storybook'
 import {
@@ -11,28 +11,30 @@ import {
   storySkillInstances,
   storySkillVersions,
 } from '@/stories/dashboard-v3-fixtures'
-import type { SkillDomainRuntime } from '@/types/dashboard'
+import type { DashboardSkillInstance, SkillDomainRuntime } from '@/types/dashboard'
 
-type SkillFamilyDetailStoryArgs = ComponentProps<typeof SkillFamilyDetail>
+type SkillFamilyDetailStoryArgs = ComponentProps<typeof SkillFamilyDetail> & {
+  instances: DashboardSkillInstance[]
+}
 
 function InteractiveSkillFamilyDetail(args: SkillFamilyDetailStoryArgs) {
+  const { instances, ...componentArgs } = args
   const [draftContent, setDraftContent] = useState(args.draftContent)
   const [preferredProjectPath, setPreferredProjectPath] = useState(args.preferredProjectPath)
   const [preferredRuntime, setPreferredRuntime] = useState<SkillDomainRuntime>(args.preferredRuntime)
-  const [selectedInstanceId, setSelectedInstanceId] = useState(args.selectedInstance?.instanceId ?? '')
   const [selectedVersion, setSelectedVersion] = useState<number | null>(args.selectedVersion)
 
   const selectedInstance = useMemo(() => {
-    if (!selectedInstanceId) {
-      return null
-    }
-
-    return args.instances.find((instance) => instance.instanceId === selectedInstanceId) ?? null
-  }, [args.instances, selectedInstanceId])
+    return (
+      instances.find((instance) => {
+        return instance.projectPath === preferredProjectPath && instance.runtime === preferredRuntime
+      }) ?? null
+    )
+  }, [instances, preferredProjectPath, preferredRuntime])
 
   return (
     <SkillFamilyDetail
-      {...args}
+      {...componentArgs}
       draftContent={draftContent}
       onDraftChange={(value) => {
         setDraftContent(value)
@@ -41,10 +43,6 @@ function InteractiveSkillFamilyDetail(args: SkillFamilyDetailStoryArgs) {
       onPreferredProjectChange={(projectPath) => {
         setPreferredProjectPath(projectPath)
         args.onPreferredProjectChange(projectPath)
-      }}
-      onSelectInstance={(instanceId) => {
-        setSelectedInstanceId(instanceId)
-        args.onSelectInstance(instanceId)
       }}
       onSelectVersion={(version) => {
         setSelectedVersion(version)
@@ -85,7 +83,6 @@ const meta = {
     onLoadApplyPreview: fn(),
     onPreferredProjectChange: fn(),
     onSave: fn(),
-    onSelectInstance: fn(),
     onSelectVersion: fn(),
     onSwitchRuntime: fn(),
     onToggleVersionDisabled: fn(),
@@ -96,14 +93,31 @@ const meta = {
     selectedVersion: 6,
     versionMetadataByNumber: storySkillVersions,
   },
-} satisfies Meta<typeof SkillFamilyDetail>
+} satisfies Meta<SkillFamilyDetailStoryArgs>
 
 export default meta
 
-type Story = StoryObj<typeof meta>
+type Story = StoryObj<SkillFamilyDetailStoryArgs>
 
 export const Default: Story = {
   render: (args) => <InteractiveSkillFamilyDetail {...args} />,
+}
+
+export const FilteredBySelectors: Story = {
+  render: (args) => <InteractiveSkillFamilyDetail {...args} />,
+  play: async ({ args, canvas, canvasElement, userEvent }) => {
+    const documentScope = within(canvasElement.ownerDocument.body)
+
+    await userEvent.click(canvas.getByRole('combobox', { name: '选择优先项目' }))
+    await userEvent.click(documentScope.getByRole('option', { name: 'mili' }))
+    await expect(args.onPreferredProjectChange).toHaveBeenCalledWith(storyProjects[1].path)
+
+    await userEvent.click(canvas.getByRole('combobox', { name: '切换 runtime' }))
+    await userEvent.click(documentScope.getByRole('option', { name: 'codex' }))
+    await expect(args.onSwitchRuntime).toHaveBeenCalledWith('codex')
+
+    await expect(canvas.getByText('/Users/xuzhang/mili · codex')).toBeInTheDocument()
+  },
 }
 
 export const EmptySelection: Story = {

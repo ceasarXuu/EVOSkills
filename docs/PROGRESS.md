@@ -2,6 +2,11 @@
 
 ## 📊 总体进度：Phase 1 ✅ 完成
 
+### 2026-04-24
+
+- ✅ 补齐 v3 本地开发代理：`frontend-v3` dev server 现在会把 `/api/*` 和 `/events` 代理到 daemon dashboard 默认端口 `127.0.0.1:47432`，`ornn restart` 后再打开 `http://127.0.0.1:<vite-port>/v3/*` 不会再因为 dev server 自己接不到 API 而报 `HTTP 404`
+- 📝 记录启动经验：`ornn restart` 只会重启 daemon/dashboard 后端，不会替 `frontend-v3` 的 Vite dev server自动接管 `/api`；只要本地是用 `vite` 看 `/v3`，就必须显式代理 `/api` 和 `/events` 到 daemon 端口，否则前端一定表现成“页面起来了，但数据全 404”
+
 ### 2026-04-23
 
 - ✅ 接入 v3 Storybook 组件工作台：`frontend-v3` 已新增 Storybook React+Vite 配置、根目录启动脚本和第一批 `ProjectRail / SkillFamilyList` stories，用于把列表壳层、搜索、loading/empty/default 状态从整页中拆出来单独校验
@@ -508,6 +513,9 @@
 - ✅ 切换 daemon 进程架构：`ornn init` 负责把项目注册进全局注册表，`ornn start`/`ornn restart` 改为单个全局进程，统一监控所有已登记项目
 - ✅ `CodexObserver` 现在会保留 session `cwd` 到 trace `metadata.projectPath`，供全局 daemon 把 trace 路由到正确项目
 - 📝 运维经验：全局 daemon 的监控范围只依赖注册表，不再依赖当前 shell 所在目录；排查“为什么某项目没被监控”时，先确认该项目是否执行过 `ornn init`
+- ✅ Dashboard V3 skills 详情区移除独立 `Instances` 模块，实例切换统一收敛到头部“项目 / runtime”下拉框，避免同一语义在详情区重复出现
+- ✅ 同步更新 `SkillFamilyDetail` Storybook：改为用 story fixtures 驱动头部筛选，不再保留卡片式 instance rail 演示
+- 📝 前端经验：shadcn `Select` 在 Storybook 交互测试里默认通过 portal 渲染到 `document.body`；写 `play` 时不要只在 canvas 范围内找 `option`
 
 ---
 
@@ -522,5 +530,5 @@
 
 ---
 
-_最后更新：2026-04-17_
+_最后更新：2026-04-24_
 _更新人：OrnnSkills Team_

@@ -1,8 +1,13 @@
+import { Search01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCompactNumber, formatRelativeTime, getMonitoringBadgeVariant } from '@/lib/format'
+import { filterProjects } from '@/lib/project-rail'
 import type { DashboardProject } from '@/types/dashboard'
 
 interface ProjectRailProps {
@@ -18,6 +23,9 @@ export function ProjectRail({
   projects,
   selectedProjectId,
 }: ProjectRailProps) {
+  const [query, setQuery] = useState('')
+  const filteredProjects = useMemo(() => filterProjects(projects, query), [projects, query])
+
   return (
     <aside className="lg:sticky lg:top-24 lg:self-start">
       <Card className="border-border/70 bg-card/92">
@@ -28,6 +36,21 @@ export function ProjectRail({
               {formatCompactNumber(projects.length)} 个项目
             </div>
           </div>
+
+          <label className="relative block">
+            <HugeiconsIcon
+              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+              icon={Search01Icon}
+              size={16}
+              strokeWidth={1.8}
+            />
+            <Input
+              className="h-10 rounded-xl border-border/80 bg-background/60 pl-10"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="搜索 project / path / status"
+              value={query}
+            />
+          </label>
         </CardHeader>
 
         <CardContent className="px-0">
@@ -41,10 +64,14 @@ export function ProjectRail({
             <div className="px-6 py-16 text-center text-sm text-muted-foreground">
               当前没有可用项目。
             </div>
+          ) : filteredProjects.length === 0 ? (
+            <div className="px-6 py-16 text-center text-sm text-muted-foreground">
+              当前没有匹配的项目。
+            </div>
           ) : (
             <ScrollArea className="h-[min(72vh,920px)]">
               <div className="space-y-2 px-4 py-4">
-                {projects.map((project) => {
+                {filteredProjects.map((project) => {
                   const isActive = project.path === selectedProjectId
                   return (
                     <button

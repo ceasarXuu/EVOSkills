@@ -18,7 +18,7 @@ export function SkillsWorkspace({
 
   return (
     <div className="grid min-w-[1540px] grid-cols-[340px_minmax(0,1fr)] items-start gap-6">
-      <aside className="self-start">
+      <aside className="sticky top-24 self-start">
         <SkillFamilyList
           families={skillLibrary.families}
           isLoading={skillLibrary.isLoadingFamilies}

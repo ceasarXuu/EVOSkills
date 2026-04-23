@@ -44,12 +44,13 @@ describe('dashboard v3 skills layout contract', () => {
   })
 
   it('locks the skills workspace into a fixed two-column workbench instead of breakpoint reflow', () => {
-    expect(appSource).toContain('overflow-x-auto')
+    expect(appSource).not.toContain('space-y-8 overflow-x-auto')
     expect(skillsWorkspaceSource).toContain('min-w-[1540px]')
     expect(skillsWorkspaceSource).toContain('grid-cols-[340px_minmax(0,1fr)]')
-    expect(skillsWorkspaceSource).toContain('aside className="self-start"')
+    expect(skillsWorkspaceSource).toContain('aside className="sticky top-24 self-start"')
     expect(skillsWorkspaceSource).not.toContain('xl:grid-cols-[340px_minmax(0,1fr)]')
-    expect(skillsWorkspaceSource).not.toContain('sticky top-24')
+    expect(skillFamilyListSource).toContain('h-[calc(100vh-7rem)]')
+    expect(skillFamilyListSource).toContain('ScrollArea className="h-full"')
 
     expect(skillFamilyDetailSource).toContain('grid-cols-4')
     expect(skillFamilyDetailSource).toContain('grid-cols-[minmax(0,1fr)_340px]')

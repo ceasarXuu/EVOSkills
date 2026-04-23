@@ -26,7 +26,7 @@ export function SkillFamilyList({
   selectedFamilyId,
 }: SkillFamilyListProps) {
   return (
-    <Card className="border-border/70 bg-card/92">
+    <Card className="h-[calc(100vh-7rem)] border-border/70 bg-card/92">
       <CardHeader className="gap-4 border-b border-border/70">
         <div className="space-y-1">
           <CardTitle className="text-xl">技能库</CardTitle>
@@ -51,7 +51,7 @@ export function SkillFamilyList({
         </label>
       </CardHeader>
 
-      <CardContent className="px-0">
+      <CardContent className="min-h-0 flex-1 px-0">
         {isLoading && families.length === 0 ? (
           <div className="space-y-3 px-6 py-6">
             {Array.from({ length: 6 }).map((_, index) => (
@@ -61,7 +61,7 @@ export function SkillFamilyList({
         ) : families.length === 0 ? (
           <div className="px-6 py-16 text-center text-sm text-muted-foreground">当前没有匹配的技能族。</div>
         ) : (
-          <ScrollArea className="h-[min(72vh,920px)]">
+          <ScrollArea className="h-full">
             <div className="space-y-2 px-4 py-4">
               {families.map((family) => {
                 const isActive = family.familyId === selectedFamilyId

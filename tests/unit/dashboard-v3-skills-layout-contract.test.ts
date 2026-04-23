@@ -47,7 +47,9 @@ describe('dashboard v3 skills layout contract', () => {
     expect(appSource).toContain('overflow-x-auto')
     expect(skillsWorkspaceSource).toContain('min-w-[1540px]')
     expect(skillsWorkspaceSource).toContain('grid-cols-[340px_minmax(0,1fr)]')
+    expect(skillsWorkspaceSource).toContain('aside className="self-start"')
     expect(skillsWorkspaceSource).not.toContain('xl:grid-cols-[340px_minmax(0,1fr)]')
+    expect(skillsWorkspaceSource).not.toContain('sticky top-24')
 
     expect(skillFamilyDetailSource).toContain('grid-cols-4')
     expect(skillFamilyDetailSource).toContain('grid-cols-[minmax(0,1fr)_340px]')

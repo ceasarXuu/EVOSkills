@@ -28,11 +28,11 @@ const appSource = readFileSync(
 
 describe('dashboard v3 skills layout contract', () => {
   it('moves the preferred project selector out of the sidebar list and into the detail header', () => {
-    expect(skillFamilyListSource).not.toContain('选择优先项目')
+    expect(skillFamilyListSource).not.toContain('selectPreferredProject')
     expect(skillFamilyListSource).not.toContain('onPreferredProjectChange')
     expect(skillFamilyListSource).not.toContain('preferredProjectPath')
 
-    expect(skillFamilyDetailSource).toContain('选择优先项目')
+    expect(skillFamilyDetailSource).toContain("t('selectPreferredProject')")
     expect(skillFamilyDetailSource).toContain('onPreferredProjectChange')
     expect(skillFamilyDetailSource).toContain('preferredProjectPath')
   })
@@ -40,7 +40,7 @@ describe('dashboard v3 skills layout contract', () => {
   it('removes the inline instances rail and keeps instance switching on the header selectors', () => {
     expect(skillFamilyDetailSource).not.toContain('Instances')
     expect(skillFamilyDetailSource).not.toContain('onSelectInstance')
-    expect(skillFamilyDetailSource).toContain('切换 runtime')
+    expect(skillFamilyDetailSource).toContain("t('switchRuntime')")
   })
 
   it('locks the skills workspace into a fixed two-column workbench instead of breakpoint reflow', () => {

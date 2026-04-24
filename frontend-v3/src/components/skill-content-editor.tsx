@@ -3,6 +3,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
+import { useI18n } from '@/lib/i18n'
 import type {
   DashboardSkillApplyPreview,
   DashboardSkillInstance,
@@ -38,22 +39,24 @@ export function SkillContentEditor({
   preferredRuntime,
   selectedInstance,
 }: SkillContentEditorProps) {
+  const { locale, t } = useI18n()
+
   return (
     <Card className="border-border/70 bg-card/92">
       <CardHeader className="gap-4 border-b border-border/70">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            <CardTitle>正文</CardTitle>
+            <CardTitle>{t('skillContent')}</CardTitle>
             <div className="truncate text-sm text-muted-foreground">
-              {selectedInstance?.projectPath ?? '暂无实例'} · {selectedInstance?.runtime ?? preferredRuntime}
+              {selectedInstance?.projectPath ?? t('noSkillInstance')} · {selectedInstance?.runtime ?? preferredRuntime}
             </div>
           </div>
           <div className="flex shrink-0 gap-2">
             <Button onClick={() => void onLoadApplyPreview()} size="sm" variant="outline">
-              预览传播
+              {t('previewPropagation')}
             </Button>
             <Button disabled={isSaving} onClick={() => void onSave()} size="sm">
-              {isSaving ? '保存中' : '保存正文'}
+              {isSaving ? t('saving') : t('saveSkillContent')}
             </Button>
           </div>
         </div>
@@ -66,19 +69,25 @@ export function SkillContentEditor({
         ) : null}
 
         <Textarea
-          aria-label="Skill 正文"
+          aria-label={t('skillContentAria')}
           className="min-h-[420px] rounded-xl border-border/80 bg-background/60 font-mono text-sm"
           onChange={(event) => onDraftChange(event.target.value)}
           value={draftContent}
         />
 
-        {actionMessage ? <div className="text-sm text-muted-foreground">{actionMessage}</div> : null}
+        {actionMessage ? (
+          <div className="text-sm text-muted-foreground">
+            {translateActionMessage(actionMessage, locale, t)}
+          </div>
+        ) : null}
 
         {applyPreview ? (
           <div className="rounded-xl border border-border/70 bg-muted/25 p-4">
             <div className="flex items-center gap-2 text-sm font-medium">
               <HugeiconsIcon icon={LinkCircle02Icon} size={16} strokeWidth={1.8} />
-              将影响 {applyPreview.totalTargets} 个同族实例
+              {locale.startsWith('zh')
+                ? `将影响 ${applyPreview.totalTargets} 个同族实例`
+                : `Affects ${applyPreview.totalTargets} family instances`}
             </div>
             <div className="mt-3 space-y-2 text-sm text-muted-foreground">
               {applyPreview.targets.slice(0, 6).map((target) => (
@@ -90,7 +99,7 @@ export function SkillContentEditor({
             </div>
             <div className="mt-4">
               <Button disabled={isApplying} onClick={() => void onApplyToFamily()} size="sm">
-                {isApplying ? '应用中' : '应用到同族实例'}
+                {isApplying ? t('applying') : t('applyToFamily')}
               </Button>
             </div>
           </div>
@@ -98,4 +107,18 @@ export function SkillContentEditor({
       </CardContent>
     </Card>
   )
+}
+
+function translateActionMessage(
+  message: string,
+  locale: string,
+  t: ReturnType<typeof useI18n>['t'],
+) {
+  if (locale.startsWith('zh')) return message
+  if (message === '保存中') return t('saving')
+  if (message === '没有正文变更') return 'No content changes'
+  if (message.startsWith('已保存 v')) return message.replace('已保存', 'Saved')
+  if (message.startsWith('已停用 v')) return message.replace('已停用', 'Disabled')
+  if (message.startsWith('已恢复 v')) return message.replace('已恢复', 'Restored')
+  return message
 }

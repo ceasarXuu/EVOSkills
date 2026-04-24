@@ -10,9 +10,9 @@ describe('dashboard v3 project rail contract', () => {
   it('uses the same shell form as the skills library list', () => {
     expect(projectRailSource).toContain("Card className=\"border-border/70 bg-card/92\"")
     expect(projectRailSource).toContain("CardHeader className=\"gap-4 border-b border-border/70\"")
-    expect(projectRailSource).toContain('<CardTitle className="text-xl">项目</CardTitle>')
-    expect(projectRailSource).toContain('formatCompactNumber(projects.length)')
-    expect(projectRailSource).toContain('placeholder="搜索 project / path / status"')
+    expect(projectRailSource).toContain('<CardTitle className="text-xl">{t(\'projects\')}</CardTitle>')
+    expect(projectRailSource).toContain('formatCompactNumberForLocale(projects.length, locale)')
+    expect(projectRailSource).toContain('placeholder={t(\'searchProjects\')}')
     expect(projectRailSource).toContain('ScrollArea className="h-[min(72vh,920px)]"')
     expect(projectRailSource).toContain('className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${')
   })

@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatCompactNumber, formatRelativeTime } from '@/lib/format'
+import { formatCompactNumberForLocale, formatRelativeTime } from '@/lib/format'
+import { useI18n } from '@/lib/i18n'
 import type { DashboardSkillFamily } from '@/types/dashboard'
 
 interface SkillFamilyListProps {
@@ -25,13 +26,15 @@ export function SkillFamilyList({
   query,
   selectedFamilyId,
 }: SkillFamilyListProps) {
+  const { locale, t } = useI18n()
+
   return (
     <Card className="h-[calc(100vh-7rem)] border-border/70 bg-card/92">
       <CardHeader className="gap-4 border-b border-border/70">
         <div className="space-y-1">
-          <CardTitle className="text-xl">技能库</CardTitle>
+          <CardTitle className="text-xl">{t('skillFamilyLibrary')}</CardTitle>
           <div className="text-sm text-muted-foreground">
-            {formatCompactNumber(families.length)} 个 skill families
+            {formatCompactNumberForLocale(families.length, locale)} {t('skillFamilies')}
           </div>
         </div>
 
@@ -45,7 +48,7 @@ export function SkillFamilyList({
           <Input
             className="h-10 rounded-xl border-border/80 bg-background/60 pl-10"
             onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="搜索 family / runtime / status"
+            placeholder={t('searchSkillFamilies')}
             value={query}
           />
         </label>
@@ -59,7 +62,7 @@ export function SkillFamilyList({
             ))}
           </div>
         ) : families.length === 0 ? (
-          <div className="px-6 py-16 text-center text-sm text-muted-foreground">当前没有匹配的技能族。</div>
+          <div className="px-6 py-16 text-center text-sm text-muted-foreground">{t('noMatchedSkillFamilies')}</div>
         ) : (
           <ScrollArea className="h-full">
             <div className="space-y-2 px-4 py-4">
@@ -86,9 +89,9 @@ export function SkillFamilyList({
 
                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
                       <span>{family.runtimes.join(' · ')}</span>
-                      <span>{family.projectCount} projects</span>
-                      <span>{formatCompactNumber(family.usage.observedCalls)} calls</span>
-                      <span>{formatRelativeTime(family.usage.lastUsedAt ?? family.lastUsedAt)}</span>
+                      <span>{family.projectCount} {t('projects')}</span>
+                      <span>{formatCompactNumberForLocale(family.usage.observedCalls, locale)} {t('calls')}</span>
+                      <span>{formatRelativeTime(family.usage.lastUsedAt ?? family.lastUsedAt, locale, t('invalidDate'))}</span>
                     </div>
                   </button>
                 )

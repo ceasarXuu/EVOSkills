@@ -13,10 +13,11 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  formatCompactNumber,
+  formatCompactNumberForLocale,
   formatRelativeTime,
   getSkillStatusBadgeVariant,
 } from '@/lib/format'
+import { useI18n } from '@/lib/i18n'
 import type {
   DashboardSkillApplyPreview,
   DashboardSkillDetail,
@@ -78,6 +79,8 @@ export function SkillFamilyDetail({
   selectedVersion,
   versionMetadataByNumber,
 }: SkillFamilyDetailProps) {
+  const { locale, t } = useI18n()
+
   if (isLoading && !family) {
     return <SkillFamilyDetailSkeleton />
   }
@@ -99,7 +102,7 @@ export function SkillFamilyDetail({
           </div>
         </CardHeader>
         <CardContent className="py-20 text-center text-sm text-muted-foreground">
-          先从左侧选择一个 skill family。
+          {t('noSkillFamilySelected')}
         </CardContent>
       </Card>
     )
@@ -118,9 +121,9 @@ export function SkillFamilyDetail({
                 <CardTitle className="text-2xl">{family.familyName}</CardTitle>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Badge variant="outline">{family.instanceCount} instances</Badge>
-                <Badge variant="outline">{family.projectCount} projects</Badge>
-                <Badge variant="outline">{family.revisionCount} revisions</Badge>
+                <Badge variant="outline">{formatCompactNumberForLocale(family.instanceCount, locale)} {t('instances')}</Badge>
+                <Badge variant="outline">{formatCompactNumberForLocale(family.projectCount, locale)} {t('projects')}</Badge>
+                <Badge variant="outline">{formatCompactNumberForLocale(family.revisionCount, locale)} {t('revisions')}</Badge>
                 <Badge variant={getSkillStatusBadgeVariant(family.status)}>{family.status ?? 'partial'}</Badge>
               </div>
             </div>
@@ -136,7 +139,7 @@ export function SkillFamilyDetail({
                 selectedRuntime={selectedInstance?.runtime ?? preferredRuntime}
               />
               <div className="text-sm text-muted-foreground">
-                最近调用 {formatRelativeTime(family.usage.lastUsedAt ?? family.lastUsedAt)}
+                {t('lastCalled')} {formatRelativeTime(family.usage.lastUsedAt ?? family.lastUsedAt, locale, t('invalidDate'))}
               </div>
             </div>
           </div>
@@ -144,10 +147,10 @@ export function SkillFamilyDetail({
 
         <CardContent className="space-y-6 pt-6">
           <div className="grid grid-cols-4 gap-3">
-            <Metric label="Observed Calls" value={formatCompactNumber(family.usage.observedCalls)} />
-            <Metric label="Analyzed Touches" value={formatCompactNumber(family.usage.analyzedTouches)} />
-            <Metric label="Optimized" value={formatCompactNumber(family.usage.optimizedCount)} />
-            <Metric label="Diverged Content" value={family.hasDivergedContent ? 'Yes' : 'No'} />
+            <Metric label={t('observedCalls')} value={formatCompactNumberForLocale(family.usage.observedCalls, locale)} />
+            <Metric label={t('analyzedTouches')} value={formatCompactNumberForLocale(family.usage.analyzedTouches, locale)} />
+            <Metric label={t('optimized')} value={formatCompactNumberForLocale(family.usage.optimizedCount, locale)} />
+            <Metric label={t('divergedContent')} value={family.hasDivergedContent ? t('yes') : t('no')} />
           </div>
         </CardContent>
       </Card>
@@ -198,11 +201,13 @@ function DetailSelectors({
   runtimeOptions: SkillDomainRuntime[]
   selectedRuntime: SkillDomainRuntime
 }) {
+  const { t } = useI18n()
+
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_200px] gap-3">
       <Select onValueChange={onPreferredProjectChange} value={preferredProjectPath || undefined}>
-        <SelectTrigger aria-label="选择优先项目" className="w-full rounded-xl">
-          <SelectValue placeholder="选择优先项目" />
+        <SelectTrigger aria-label={t('selectPreferredProject')} className="w-full rounded-xl">
+          <SelectValue placeholder={t('selectPreferredProject')} />
         </SelectTrigger>
         <SelectContent>
           {projects.map((project) => (
@@ -217,8 +222,8 @@ function DetailSelectors({
         onValueChange={(value) => onSwitchRuntime(value as SkillDomainRuntime)}
         value={selectedRuntime ?? preferredRuntime}
       >
-        <SelectTrigger aria-label="切换 runtime" className="w-full rounded-xl">
-          <SelectValue placeholder="切换 runtime" />
+        <SelectTrigger aria-label={t('switchRuntime')} className="w-full rounded-xl">
+          <SelectValue placeholder={t('switchRuntime')} />
         </SelectTrigger>
         <SelectContent>
           {runtimeOptions.map((runtime) => (

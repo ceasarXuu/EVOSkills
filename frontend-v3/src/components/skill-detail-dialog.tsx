@@ -9,7 +9,8 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { formatCompactNumber, formatDateTime, formatRelativeTime, getSkillStatusBadgeVariant } from '@/lib/format'
+import { formatCompactNumberForLocale, formatDateTime, formatRelativeTime, getSkillStatusBadgeVariant } from '@/lib/format'
+import { useI18n } from '@/lib/i18n'
 import type { DashboardSkill } from '@/types/dashboard'
 
 interface SkillDetailDialogProps {
@@ -23,6 +24,8 @@ export function SkillDetailDialog({
   open,
   skill,
 }: SkillDetailDialogProps) {
+  const { locale, t } = useI18n()
+
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="sm:max-w-xl">
@@ -32,7 +35,7 @@ export function SkillDetailDialog({
             <DialogTitle>{skill?.skillId ?? 'Skill Detail'}</DialogTitle>
           </div>
           <DialogDescription className="text-foreground/72">
-            只读详情，确认版本、状态和最近更新时间。
+            {t('readOnlySkillDetail')}
           </DialogDescription>
         </DialogHeader>
 
@@ -42,15 +45,15 @@ export function SkillDetailDialog({
               <Badge variant="outline">{skill.runtime ?? 'unknown'}</Badge>
               <Badge variant={getSkillStatusBadgeVariant(skill.status)}>{skill.status ?? 'pending'}</Badge>
               <Badge variant="outline">
-                {formatCompactNumber(skill.versionsAvailable?.length ?? 0)} revisions
+                {formatCompactNumberForLocale(skill.versionsAvailable?.length ?? 0, locale)} {t('revisions')}
               </Badge>
             </div>
             <Separator />
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Effective Version" value={`v${skill.effectiveVersion ?? '--'}`} />
-              <Field label="Trace Count" value={formatCompactNumber(skill.traceCount)} />
-              <Field label="最近更新" value={formatRelativeTime(skill.updatedAt)} />
-              <Field label="更新时间" value={formatDateTime(skill.updatedAt)} />
+              <Field label={t('effectiveVersion')} value={`v${skill.effectiveVersion ?? '--'}`} />
+              <Field label={t('traceCount')} value={formatCompactNumberForLocale(skill.traceCount, locale)} />
+              <Field label={t('lastUpdated')} value={formatRelativeTime(skill.updatedAt, locale, t('invalidDate'))} />
+              <Field label={t('lastUpdated')} value={formatDateTime(skill.updatedAt, locale, t('invalidDate'))} />
             </div>
           </div>
         ) : null}

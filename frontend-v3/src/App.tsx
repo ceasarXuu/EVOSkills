@@ -9,6 +9,7 @@ import { WorkspaceHeader } from '@/components/workspace-header'
 import { useDashboardV3Workspace } from '@/features/dashboard/use-dashboard-v3-workspace'
 import { logDashboardV3Event } from '@/lib/dashboard-api'
 import { sortSkills } from '@/lib/format'
+import { I18nProvider } from '@/lib/i18n'
 import { resolveDashboardViewLayout } from '@/lib/view-layout'
 import type {
   DashboardProject,
@@ -28,15 +29,17 @@ function normalizeDashboardView(view?: string): DashboardView {
 
 function App() {
   return (
-    <BrowserRouter basename="/v3">
-      <Routes>
-        <Route element={<Navigate replace to="/skills" />} path="/" />
-        <Route element={<Navigate replace to="/project" />} path="/projects" />
-        <Route element={<Navigate replace to="/project" />} path="/activity" />
-        <Route element={<DashboardWorkspacePage />} path="/:view" />
-        <Route element={<Navigate replace to="/skills" />} path="*" />
-      </Routes>
-    </BrowserRouter>
+    <I18nProvider>
+      <BrowserRouter basename="/v3">
+        <Routes>
+          <Route element={<Navigate replace to="/skills" />} path="/" />
+          <Route element={<Navigate replace to="/project" />} path="/projects" />
+          <Route element={<Navigate replace to="/project" />} path="/activity" />
+          <Route element={<DashboardWorkspacePage />} path="/:view" />
+          <Route element={<Navigate replace to="/skills" />} path="*" />
+        </Routes>
+      </BrowserRouter>
+    </I18nProvider>
   )
 }
 

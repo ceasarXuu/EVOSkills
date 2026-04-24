@@ -3,8 +3,9 @@ import { ConfigGovernancePanel } from '@/components/config-governance-panel'
 import { ConfigProviderStack } from '@/components/config-provider-stack'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { CONFIG_TEXT, normalizeConfigSubTab, type DashboardConfigSubTab } from '@/lib/config-workspace'
+import { getConfigText, normalizeConfigSubTab, type DashboardConfigSubTab } from '@/lib/config-workspace'
 import { useDashboardV3Config } from '@/features/dashboard/use-dashboard-v3-config'
+import { useI18n } from '@/lib/i18n'
 
 const CONFIG_SUBTAB_STORAGE_KEY = 'dashboard-v3.config-subtab'
 
@@ -17,6 +18,8 @@ function loadStoredConfigSubTab(): DashboardConfigSubTab {
 }
 
 export function ConfigWorkspace() {
+  const { lang } = useI18n()
+  const configText = getConfigText(lang)
   const {
     addProvider,
     catalogError,
@@ -51,19 +54,19 @@ export function ConfigWorkspace() {
     <div className="space-y-5">
       {catalogError ? (
         <NoticeRow
-          actionLabel={CONFIG_TEXT.retry}
-          message={`${CONFIG_TEXT.catalogErrorPrefix} ${catalogError}`}
+          actionLabel={configText.retry}
+          message={`${configText.catalogErrorPrefix} ${catalogError}`}
           onAction={() => void reloadProviderCatalog()}
           tone="danger"
         />
       ) : null}
 
-      {isLoading ? <NoticeRow message={CONFIG_TEXT.loading} tone="muted" /> : null}
+      {isLoading ? <NoticeRow message={configText.loading} tone="muted" /> : null}
 
       {loadError ? (
         <NoticeRow
-          actionLabel={CONFIG_TEXT.retry}
-          message={`${CONFIG_TEXT.loadErrorPrefix} ${loadError}`}
+          actionLabel={configText.retry}
+          message={`${configText.loadErrorPrefix} ${loadError}`}
           onAction={() => void refresh()}
           tone="danger"
         />
@@ -74,8 +77,8 @@ export function ConfigWorkspace() {
         value={selectedSubTab}
       >
         <TabsList variant="line">
-          <TabsTrigger value="model">{CONFIG_TEXT.modelSubTab}</TabsTrigger>
-          <TabsTrigger value="evolution">{CONFIG_TEXT.evolutionSubTab}</TabsTrigger>
+          <TabsTrigger value="model">{configText.modelSubTab}</TabsTrigger>
+          <TabsTrigger value="evolution">{configText.evolutionSubTab}</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -107,10 +110,24 @@ export function ConfigWorkspace() {
       )}
 
       <div className="flex min-h-6 items-center text-sm text-muted-foreground">
-        <span id="cfg_save_hint">{saveHint}</span>
+        <span id="cfg_save_hint">{translateConfigHint(saveHint, configText)}</span>
       </div>
     </div>
   )
+}
+
+function translateConfigHint(saveHint: string, configText: ReturnType<typeof getConfigText>) {
+  if (saveHint === '保存中...' || saveHint === configText.saveSaving) return configText.saveSaving
+  if (saveHint === '已自动保存' || saveHint === configText.saveAuto) return configText.saveAuto
+  if (saveHint.startsWith('配置保存失败')) {
+    return saveHint.replace('配置保存失败', configText.saveFailed)
+  }
+  if (saveHint === '连通性检查中...') return configText.connectivityChecking
+  if (saveHint === '连通性检查完成') return configText.connectivityDone
+  if (saveHint.startsWith('连通性检查失败')) {
+    return saveHint.replace('连通性检查失败', configText.connectivityFailed)
+  }
+  return saveHint
 }
 
 function NoticeRow({

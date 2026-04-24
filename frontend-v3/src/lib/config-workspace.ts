@@ -1,4 +1,5 @@
 import { getDashboardSystemPromptDefaults } from '../../../src/core/prompt-defaults'
+import { getTranslations, type DashboardLanguage } from './i18n'
 import type { DashboardProviderCatalogEntry, DashboardProviderConfig } from '@/types/config'
 
 export type DashboardConfigSubTab = 'model' | 'evolution'
@@ -54,6 +55,59 @@ export const CONFIG_TEXT = {
   saveFailed: '配置保存失败',
   saveSaving: '保存中...',
 } as const
+
+export function getConfigText(lang: DashboardLanguage) {
+  const text = getTranslations(lang)
+  return {
+    ...CONFIG_TEXT,
+    addProvider: text.addProvider,
+    apiKeyHide: text.apiKeyHide,
+    apiKeyPastePlaceholder: text.apiKeyPastePlaceholder,
+    apiKeyShow: text.apiKeyShow,
+    builtInPrompt: text.builtInPrompt,
+    catalogCustomOnly: text.catalogCustomOnly,
+    catalogErrorPrefix: text.catalogErrorPrefix,
+    catalogLoading: text.catalogLoading,
+    checkConnectivity: text.checkConnectivity,
+    connectivityChecking: text.connectivityChecking,
+    connectivityDone: text.connectivityDone,
+    connectivityEmpty: text.connectivityEmpty,
+    connectivityFailed: text.connectivityFailed,
+    connectivityTitle: text.connectivityTitle,
+    customModelPlaceholder: text.customModelPlaceholder,
+    customOption: text.customOption,
+    customPrompt: text.customPrompt,
+    customProviderPlaceholder: text.customProviderPlaceholder,
+    evolutionSubTab: text.evolutionStrategy,
+    llmSafetyConcurrent: text.llmSafetyConcurrent,
+    llmSafetyEnabled: text.llmSafetyEnabled,
+    llmSafetyHelp: text.llmSafetyHelp,
+    llmSafetyLabel: text.llmSafetyLabel,
+    llmSafetyRequests: text.llmSafetyRequests,
+    llmSafetyTokens: text.llmSafetyTokens,
+    llmSafetyWindow: text.llmSafetyWindow,
+    loadErrorPrefix: text.loadErrorPrefix,
+    loading: text.configLoading,
+    modelSubTab: text.model,
+    noProviders: text.noProviders,
+    promptDecisionExplainerLabel: text.promptDecisionExplainerLabel,
+    promptDecisionExplainerPlaceholder: text.promptDecisionExplainerPlaceholder,
+    promptHelp: text.promptHelp,
+    promptLabel: text.promptLabel,
+    promptReadinessProbeLabel: text.promptReadinessProbeLabel,
+    promptReadinessProbePlaceholder: text.promptReadinessProbePlaceholder,
+    promptSkillCallAnalyzerLabel: text.promptSkillCallAnalyzerLabel,
+    promptSkillCallAnalyzerPlaceholder: text.promptSkillCallAnalyzerPlaceholder,
+    providerActiveLabel: text.providerActiveLabel,
+    providersHelp: text.providersHelp,
+    providersLabel: text.providersLabel,
+    removeProvider: text.removeProvider,
+    retry: text.retry,
+    saveAuto: text.saveAuto,
+    saveFailed: text.saveFailed,
+    saveSaving: text.saveSaving,
+  } as const
+}
 
 export function normalizeConfigSubTab(value: unknown): DashboardConfigSubTab {
   return value === 'evolution' ? 'evolution' : 'model'

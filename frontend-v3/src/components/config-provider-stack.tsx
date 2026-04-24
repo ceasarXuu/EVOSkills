@@ -1,7 +1,8 @@
 import { ConfigProviderRow } from '@/components/config-provider-row'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { CONFIG_TEXT } from '@/lib/config-workspace'
+import { getConfigText } from '@/lib/config-workspace'
+import { useI18n } from '@/lib/i18n'
 import type {
   DashboardConfig,
   DashboardProviderCatalogEntry,
@@ -40,23 +41,26 @@ export function ConfigProviderStack({
   onUpdateProvider,
   providerCatalog,
 }: ConfigProviderStackProps) {
+  const { lang } = useI18n()
+  const configText = getConfigText(lang)
+
   return (
     <div className="space-y-6">
       <section className="space-y-3">
         <div className="space-y-1">
-          <p className="text-sm font-medium text-foreground">{CONFIG_TEXT.providersLabel}</p>
-          <p className="text-sm text-muted-foreground">{CONFIG_TEXT.providersHelp}</p>
+          <p className="text-sm font-medium text-foreground">{configText.providersLabel}</p>
+          <p className="text-sm text-muted-foreground">{configText.providersHelp}</p>
         </div>
 
         {isCatalogLoading ? (
           <div className="rounded-lg border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-            {CONFIG_TEXT.catalogLoading}
+            {configText.catalogLoading}
           </div>
         ) : null}
 
         {config.providers.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border px-4 py-8 text-sm text-muted-foreground">
-            {CONFIG_TEXT.noProviders}
+            {configText.noProviders}
           </div>
         ) : (
           <div className="space-y-4" id="cfg_providers_rows">
@@ -82,14 +86,14 @@ export function ConfigProviderStack({
 
         <div className="flex items-center gap-3">
           <Button onClick={onAddProvider} type="button" variant="secondary">
-            {CONFIG_TEXT.addProvider}
+            {configText.addProvider}
           </Button>
         </div>
 
         <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 px-4 py-3">
-          <p className="text-sm font-medium text-foreground">{CONFIG_TEXT.connectivityTitle}</p>
+          <p className="text-sm font-medium text-foreground">{configText.connectivityTitle}</p>
           {connectivityResults.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{CONFIG_TEXT.connectivityEmpty}</p>
+            <p className="text-sm text-muted-foreground">{configText.connectivityEmpty}</p>
           ) : (
             <div className="space-y-2">
               {connectivityResults.map((result) => (
@@ -108,8 +112,8 @@ export function ConfigProviderStack({
 
       <section className="space-y-3">
         <div className="space-y-1">
-          <p className="text-sm font-medium text-foreground">{CONFIG_TEXT.llmSafetyLabel}</p>
-          <p className="text-sm text-muted-foreground">{CONFIG_TEXT.llmSafetyHelp}</p>
+          <p className="text-sm font-medium text-foreground">{configText.llmSafetyLabel}</p>
+          <p className="text-sm text-muted-foreground">{configText.llmSafetyHelp}</p>
         </div>
 
         <div className="grid gap-4 rounded-lg border border-border/70 bg-muted/20 p-4 md:grid-cols-2 xl:grid-cols-5">
@@ -120,26 +124,26 @@ export function ConfigProviderStack({
               onChange={(event) => onSetSafetyField('enabled', event.target.checked)}
               type="checkbox"
             />
-            <span>{CONFIG_TEXT.llmSafetyEnabled}</span>
+            <span>{configText.llmSafetyEnabled}</span>
           </label>
 
           <NumericField
-            label={CONFIG_TEXT.llmSafetyWindow}
+            label={configText.llmSafetyWindow}
             onChange={(value) => onSetSafetyField('windowMs', value)}
             value={config.llmSafety.windowMs}
           />
           <NumericField
-            label={CONFIG_TEXT.llmSafetyRequests}
+            label={configText.llmSafetyRequests}
             onChange={(value) => onSetSafetyField('maxRequestsPerWindow', value)}
             value={config.llmSafety.maxRequestsPerWindow}
           />
           <NumericField
-            label={CONFIG_TEXT.llmSafetyConcurrent}
+            label={configText.llmSafetyConcurrent}
             onChange={(value) => onSetSafetyField('maxConcurrentRequests', value)}
             value={config.llmSafety.maxConcurrentRequests}
           />
           <NumericField
-            label={CONFIG_TEXT.llmSafetyTokens}
+            label={configText.llmSafetyTokens}
             onChange={(value) => onSetSafetyField('maxEstimatedTokensPerWindow', value)}
             value={config.llmSafety.maxEstimatedTokensPerWindow}
           />

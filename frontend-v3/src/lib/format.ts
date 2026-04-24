@@ -15,6 +15,17 @@ export function formatCompactNumber(value?: number | null): string {
   }).format(value)
 }
 
+export function formatCompactNumberForLocale(value: number | null | undefined, locale: string): string {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return '0'
+  }
+
+  return new Intl.NumberFormat(locale, {
+    notation: value >= 1000 ? 'compact' : 'standard',
+    maximumFractionDigits: value >= 1000 ? 1 : 0,
+  }).format(value)
+}
+
 export function formatTokenCount(value?: number | null): string {
   if (typeof value !== 'number' || Number.isNaN(value)) {
     return '0'
@@ -39,17 +50,17 @@ export function formatDuration(durationMs?: number | null): string {
   return `${Math.round(durationMs)} ms`
 }
 
-export function formatDateTime(value?: string | null): string {
+export function formatDateTime(value?: string | null, locale = 'zh-CN', fallback = '暂无'): string {
   if (!value) {
-    return '暂无'
+    return fallback
   }
 
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) {
-    return '暂无'
+    return fallback
   }
 
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(locale, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -57,19 +68,19 @@ export function formatDateTime(value?: string | null): string {
   }).format(date)
 }
 
-export function formatRelativeTime(value?: string | null): string {
+export function formatRelativeTime(value?: string | null, locale = 'zh-CN', fallback = '暂无'): string {
   if (!value) {
-    return '暂无'
+    return fallback
   }
 
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) {
-    return '暂无'
+    return fallback
   }
 
   const diffMs = date.getTime() - Date.now()
   const diffAbs = Math.abs(diffMs)
-  const formatter = new Intl.RelativeTimeFormat('zh-CN', { numeric: 'auto' })
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
 
   if (diffAbs < 60_000) {
     return formatter.format(Math.round(diffMs / 1000), 'second')

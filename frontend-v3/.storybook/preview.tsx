@@ -2,6 +2,7 @@ import { useLayoutEffect, type ReactNode } from 'react'
 import type { Decorator, Preview } from '@storybook/react-vite'
 import { MemoryRouter } from 'react-router-dom'
 import '../src/styles/globals.css'
+import { I18nProvider } from '../src/lib/i18n'
 import { DashboardStoryFrame } from '../src/stories/dashboard-story-frame'
 
 interface DashboardFrameParameters {
@@ -43,11 +44,13 @@ const withDashboardEnvironment: Decorator = (Story, context) => {
 
   return (
     <StorybookThemeBridge>
-      <MemoryRouter initialEntries={initialEntries} key={initialEntries.join('|')}>
-        <DashboardStoryFrame width={frameWidth}>
-          <Story />
-        </DashboardStoryFrame>
-      </MemoryRouter>
+      <I18nProvider initialLanguage="zh">
+        <MemoryRouter initialEntries={initialEntries} key={initialEntries.join('|')}>
+          <DashboardStoryFrame width={frameWidth}>
+            <Story />
+          </DashboardStoryFrame>
+        </MemoryRouter>
+      </I18nProvider>
     </StorybookThemeBridge>
   )
 }

@@ -2,13 +2,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
-  CONFIG_TEXT,
+  getConfigText,
   getConnectivityProviders,
   guessApiKeyEnvVar,
   isKnownModel,
   isKnownProvider,
 } from '@/lib/config-workspace'
 import { getProviderCatalogEntry, getProviderDisplayName, getProviderModelOptions } from '@/lib/dashboard-config'
+import { useI18n } from '@/lib/i18n'
 import type {
   DashboardProviderCatalogEntry,
   DashboardProviderConfig,
@@ -44,6 +45,8 @@ export function ConfigProviderRow({
   result,
   selectedDefaultProvider,
 }: ConfigProviderRowProps) {
+  const { lang } = useI18n()
+  const configText = getConfigText(lang)
   const providerIsKnown = isKnownProvider(providerCatalog, provider.provider)
   const providerSelectValue = providerIsKnown ? provider.provider : '__custom__'
   const providerOptions = providerCatalog.length > 0 ? providerCatalog : []
@@ -76,25 +79,25 @@ export function ConfigProviderRow({
             }}
             value={providerSelectValue}
           >
-            <SelectTrigger aria-label="选择 provider" className="w-full">
-              <SelectValue placeholder={CONFIG_TEXT.catalogCustomOnly} />
+            <SelectTrigger aria-label={configText.providersLabel} className="w-full">
+              <SelectValue placeholder={configText.catalogCustomOnly} />
             </SelectTrigger>
             <SelectContent>
               {providerOptions.length === 0 ? (
-                <SelectItem value="__custom__">{CONFIG_TEXT.catalogCustomOnly}</SelectItem>
+                <SelectItem value="__custom__">{configText.catalogCustomOnly}</SelectItem>
               ) : null}
               {providerOptions.map((entry) => (
                 <SelectItem key={entry.id} value={entry.id}>
                   {getProviderDisplayName(providerCatalog, entry.id)}
                 </SelectItem>
               ))}
-              <SelectItem value="__custom__">{CONFIG_TEXT.customOption}</SelectItem>
+              <SelectItem value="__custom__">{configText.customOption}</SelectItem>
             </SelectContent>
           </Select>
           {!providerIsKnown ? (
             <Input
               onChange={(event) => onUpdate(index, { provider: event.target.value })}
-              placeholder={CONFIG_TEXT.customProviderPlaceholder}
+              placeholder={configText.customProviderPlaceholder}
               value={provider.provider}
             />
           ) : null}
@@ -112,8 +115,8 @@ export function ConfigProviderRow({
             }}
             value={modelSelectValue}
           >
-            <SelectTrigger aria-label="选择 model" className="w-full">
-              <SelectValue placeholder={CONFIG_TEXT.customModelPlaceholder} />
+            <SelectTrigger aria-label={configText.modelSubTab} className="w-full">
+              <SelectValue placeholder={configText.customModelPlaceholder} />
             </SelectTrigger>
             <SelectContent>
               {modelOptions.map((model) => (
@@ -121,13 +124,13 @@ export function ConfigProviderRow({
                   {model}
                 </SelectItem>
               ))}
-              <SelectItem value="__custom__">{CONFIG_TEXT.customOption}</SelectItem>
+              <SelectItem value="__custom__">{configText.customOption}</SelectItem>
             </SelectContent>
           </Select>
           {!modelIsKnown ? (
             <Input
               onChange={(event) => onUpdate(index, { modelName: event.target.value })}
-              placeholder={CONFIG_TEXT.customModelPlaceholder}
+              placeholder={configText.customModelPlaceholder}
               value={provider.modelName}
             />
           ) : null}
@@ -149,24 +152,24 @@ export function ConfigProviderRow({
         <div className="space-y-2">
           <div className="flex gap-2">
             <Input
-              aria-label="粘贴 API Key"
+              aria-label={configText.apiKeyPastePlaceholder}
               onChange={(event) =>
                 onUpdate(index, {
                   apiKey: event.target.value,
                   hasApiKey: event.target.value.trim().length > 0 || provider.hasApiKey,
                 })
               }
-              placeholder={CONFIG_TEXT.apiKeyPastePlaceholder}
+              placeholder={configText.apiKeyPastePlaceholder}
               type={isApiKeyVisible ? 'text' : 'password'}
               value={provider.apiKey || ''}
             />
             <Button
-              aria-label={isApiKeyVisible ? CONFIG_TEXT.apiKeyHide : CONFIG_TEXT.apiKeyShow}
+              aria-label={isApiKeyVisible ? configText.apiKeyHide : configText.apiKeyShow}
               onClick={() => onToggleApiKeyVisibility(index)}
               type="button"
               variant="outline"
             >
-              {isApiKeyVisible ? CONFIG_TEXT.apiKeyHide : CONFIG_TEXT.apiKeyShow}
+              {isApiKeyVisible ? configText.apiKeyHide : configText.apiKeyShow}
             </Button>
           </div>
         </div>
@@ -179,7 +182,7 @@ export function ConfigProviderRow({
               onChange={() => onSetDefaultProvider(provider.provider)}
               type="radio"
             />
-            <span>{CONFIG_TEXT.providerActiveLabel}</span>
+            <span>{configText.providerActiveLabel}</span>
           </label>
           <Button
             disabled={getConnectivityProviders([provider], 0).length === 0 || isCheckingConnectivity}
@@ -187,10 +190,10 @@ export function ConfigProviderRow({
             type="button"
             variant="outline"
           >
-            {isCheckingConnectivity ? CONFIG_TEXT.connectivityChecking : CONFIG_TEXT.checkConnectivity}
+            {isCheckingConnectivity ? configText.connectivityChecking : configText.checkConnectivity}
           </Button>
           <Button onClick={() => onRemove(index)} type="button" variant="destructive">
-            {CONFIG_TEXT.removeProvider}
+            {configText.removeProvider}
           </Button>
         </div>
       </div>

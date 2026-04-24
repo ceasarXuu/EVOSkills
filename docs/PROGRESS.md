@@ -14,6 +14,7 @@
 - 📝 前端经验：不要把承载 sticky rail 的父级设成 `overflow-x-auto`，否则 sticky 会被错误地约束在该滚动容器内；窄屏横向滚动应由页面自然 overflow 承担
 - 📝 前端经验：sticky 左栏本身不能高于 `top` 偏移后的可用视口，否则浏览器会为了满足底部约束把它向上顶；固定 rail 高度并让列表内部滚动
 - ✅ 将 v3 设为服务默认入口：`/` 现在重定向到 `/v3/`，`ornn dashboard` 与 daemon 自动打开的 dashboard URL 也直接指向 `/v3/`；显式 `/v2/*` 和 `/v3/*` 仍保持可访问
+- ✅ 补回 v3 多语言治理：新增 v3 `I18nProvider`、header 语言切换入口、`/api/lang` 同步与主路径中英文词典，覆盖 skills/project/config 主要静态文案、搜索占位符、按钮、分页、时间/数字 locale
 
 ### 2026-04-23
 

@@ -2,6 +2,8 @@ import { SparklesIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from 'react-router-dom'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
+import { useI18n } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { DashboardView } from '@/types/dashboard'
 
@@ -10,9 +12,11 @@ interface WorkspaceHeaderProps {
 }
 
 export function WorkspaceHeader({ currentView }: WorkspaceHeaderProps) {
+  const { lang, setLanguage, t } = useI18n()
+
   return (
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-[1680px] px-4 py-4 xl:px-6">
+      <div className="mx-auto flex max-w-[1680px] items-center justify-between px-4 py-4 xl:px-6">
         <div className="flex items-center gap-4">
           <Link className="flex items-center gap-3" to="/skills">
             <Avatar size="lg">
@@ -23,14 +27,24 @@ export function WorkspaceHeader({ currentView }: WorkspaceHeaderProps) {
             <div className="font-medium tracking-tight">OrnnSkills</div>
           </Link>
 
-          <nav aria-label="主导航">
+          <nav aria-label={t('navLabel')}>
             <div className="inline-flex items-center gap-1 rounded-none bg-transparent p-[3px] text-muted-foreground">
-              <HeaderNavLink currentView={currentView} label="技能" to="/skills" value="skills" />
-              <HeaderNavLink currentView={currentView} label="项目" to="/project" value="project" />
-              <HeaderNavLink currentView={currentView} label="配置" to="/config" value="config" />
+              <HeaderNavLink currentView={currentView} label={t('skill')} to="/skills" value="skills" />
+              <HeaderNavLink currentView={currentView} label={t('project')} to="/project" value="project" />
+              <HeaderNavLink currentView={currentView} label={t('config')} to="/config" value="config" />
             </div>
           </nav>
         </div>
+
+        <Button
+          aria-label={t('toggleLanguage')}
+          onClick={() => setLanguage(lang === 'zh' ? 'en' : 'zh')}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          {lang === 'zh' ? 'EN' : '中文'}
+        </Button>
       </div>
     </header>
   )

@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatCompactNumber, formatRelativeTime, getMonitoringBadgeVariant } from '@/lib/format'
+import { formatCompactNumberForLocale, formatRelativeTime, getMonitoringBadgeVariant } from '@/lib/format'
+import { useI18n } from '@/lib/i18n'
 import { filterProjects } from '@/lib/project-rail'
 import type { DashboardProject } from '@/types/dashboard'
 
@@ -23,6 +24,7 @@ export function ProjectRail({
   projects,
   selectedProjectId,
 }: ProjectRailProps) {
+  const { locale, t } = useI18n()
   const [query, setQuery] = useState('')
   const filteredProjects = useMemo(() => filterProjects(projects, query), [projects, query])
 
@@ -31,9 +33,9 @@ export function ProjectRail({
       <Card className="border-border/70 bg-card/92">
         <CardHeader className="gap-4 border-b border-border/70">
           <div className="space-y-1">
-            <CardTitle className="text-xl">项目</CardTitle>
+            <CardTitle className="text-xl">{t('projects')}</CardTitle>
             <div className="text-sm text-muted-foreground">
-              {formatCompactNumber(projects.length)} 个项目
+              {formatCompactNumberForLocale(projects.length, locale)} {t('projectCount')}
             </div>
           </div>
 
@@ -47,7 +49,7 @@ export function ProjectRail({
             <Input
               className="h-10 rounded-xl border-border/80 bg-background/60 pl-10"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索 project / path / status"
+              placeholder={t('searchProjects')}
               value={query}
             />
           </label>
@@ -62,11 +64,11 @@ export function ProjectRail({
             </div>
           ) : projects.length === 0 ? (
             <div className="px-6 py-16 text-center text-sm text-muted-foreground">
-              当前没有可用项目。
+              {t('noProjects')}
             </div>
           ) : filteredProjects.length === 0 ? (
             <div className="px-6 py-16 text-center text-sm text-muted-foreground">
-              当前没有匹配的项目。
+              {t('noMatchedProjects')}
             </div>
           ) : (
             <ScrollArea className="h-[min(72vh,920px)]">
@@ -95,8 +97,8 @@ export function ProjectRail({
                       </div>
 
                       <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        <span>{formatCompactNumber(project.skillCount)} skills</span>
-                        <span>{formatRelativeTime(project.lastSeenAt)}</span>
+                        <span>{formatCompactNumberForLocale(project.skillCount, locale)} {t('skills')}</span>
+                        <span>{formatRelativeTime(project.lastSeenAt, locale, t('invalidDate'))}</span>
                       </div>
                     </button>
                   )

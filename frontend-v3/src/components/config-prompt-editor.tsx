@@ -1,5 +1,6 @@
 import { Textarea } from '@/components/ui/textarea'
-import { CONFIG_TEXT } from '@/lib/config-workspace'
+import { getConfigText } from '@/lib/config-workspace'
+import { useI18n } from '@/lib/i18n'
 import type { DashboardPromptKey, DashboardPromptSource } from '@/types/config'
 
 interface ConfigPromptEditorProps {
@@ -23,6 +24,9 @@ export function ConfigPromptEditor({
   source,
   value,
 }: ConfigPromptEditorProps) {
+  const { lang } = useI18n()
+  const configText = getConfigText(lang)
+
   return (
     <div className="space-y-3 rounded-lg border border-border/70 bg-card/70 p-4">
       <p className="text-sm font-medium text-foreground">{label}</p>
@@ -36,10 +40,10 @@ export function ConfigPromptEditor({
               onChange={() => onSetPromptSource(promptKey, 'built_in')}
               type="radio"
             />
-            <span>{CONFIG_TEXT.builtInPrompt}</span>
+            <span>{configText.builtInPrompt}</span>
           </div>
           <pre
-            aria-label={`${label} ${CONFIG_TEXT.builtInPrompt}`}
+            aria-label={`${label} ${configText.builtInPrompt}`}
             className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md border border-border/70 bg-muted/20 px-4 py-3 text-xs leading-6 text-muted-foreground"
             tabIndex={0}
           >
@@ -55,10 +59,10 @@ export function ConfigPromptEditor({
               onChange={() => onSetPromptSource(promptKey, 'custom')}
               type="radio"
             />
-            <span>{CONFIG_TEXT.customPrompt}</span>
+            <span>{configText.customPrompt}</span>
           </div>
           <Textarea
-            aria-label={`${label} ${CONFIG_TEXT.customPrompt}`}
+            aria-label={`${label} ${configText.customPrompt}`}
             className="min-h-64"
             disabled={source !== 'custom'}
             onChange={(event) => onSetPromptOverride(promptKey, event.target.value)}

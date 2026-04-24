@@ -24,10 +24,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  formatCompactNumber,
+  formatCompactNumberForLocale,
   formatRelativeTime,
   getSkillStatusBadgeVariant,
 } from '@/lib/format'
+import { useI18n } from '@/lib/i18n'
 import {
   paginateSkills,
 } from '@/lib/skills-workspace'
@@ -54,6 +55,7 @@ export function SkillsTable({
   selectedSkillKey,
   skills,
 }: SkillsTableProps) {
+  const { locale, t } = useI18n()
   const [page, setPage] = useState(1)
 
   useEffect(() => {
@@ -77,9 +79,9 @@ export function SkillsTable({
       <CardHeader className="gap-5 border-b border-border/70">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-xl">技能列表</CardTitle>
+            <CardTitle className="text-xl">{t('skillList')}</CardTitle>
             <div className="text-sm text-muted-foreground">
-              {formatCompactNumber(pagination.totalItems)} skills
+              {formatCompactNumberForLocale(pagination.totalItems, locale)} {t('skills')}
             </div>
           </div>
           <div className="w-full xl:max-w-sm">
@@ -93,7 +95,7 @@ export function SkillsTable({
               <Input
                 className="h-11 rounded-xl border-border/80 bg-background/70 pl-10"
                 onChange={(event) => onQueryChange(event.target.value)}
-                placeholder="搜索 skill id / runtime / status"
+                placeholder={t('searchSkills')}
                 value={query}
               />
             </label>
@@ -111,7 +113,7 @@ export function SkillsTable({
         ) : skills.length === 0 ? (
           <div className="px-6 py-14 text-center">
             <div className="mx-auto max-w-md rounded-2xl border border-dashed border-border px-4 py-10 text-sm text-muted-foreground">
-              当前项目没有匹配的技能。
+              {t('noMatchedSkills')}
             </div>
           </div>
         ) : (
@@ -120,12 +122,12 @@ export function SkillsTable({
               <Table className="min-w-[860px]">
                 <TableHeader className="sticky top-0 z-10 bg-card/96 backdrop-blur supports-[backdrop-filter]:bg-card/88">
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="px-6">Skill</TableHead>
+                    <TableHead className="px-6">{t('skill')}</TableHead>
                     <TableHead>Runtime</TableHead>
-                    <TableHead>状态</TableHead>
-                    <TableHead className="text-right">Traces</TableHead>
-                    <TableHead className="text-right">版本</TableHead>
-                    <TableHead className="pr-6 text-right">最近更新</TableHead>
+                    <TableHead>{t('status')}</TableHead>
+                    <TableHead className="text-right">{t('traces')}</TableHead>
+                    <TableHead className="text-right">{t('version')}</TableHead>
+                    <TableHead className="pr-6 text-right">{t('lastUpdated')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -156,13 +158,13 @@ export function SkillsTable({
                           </Badge>
                         </TableCell>
                         <TableCell className="py-4 text-right">
-                          {formatCompactNumber(skill.traceCount)}
+                          {formatCompactNumberForLocale(skill.traceCount, locale)}
                         </TableCell>
                         <TableCell className="py-4 text-right">
-                          {formatCompactNumber(skill.versionsAvailable?.length ?? 0)}
+                          {formatCompactNumberForLocale(skill.versionsAvailable?.length ?? 0, locale)}
                         </TableCell>
                         <TableCell className="pr-6 py-4 text-right text-muted-foreground">
-                          {formatRelativeTime(skill.updatedAt)}
+                          {formatRelativeTime(skill.updatedAt, locale, t('invalidDate'))}
                         </TableCell>
                       </TableRow>
                     )
@@ -173,9 +175,15 @@ export function SkillsTable({
 
             <div className="flex flex-col gap-4 border-t border-border/70 px-6 py-4 xl:flex-row xl:items-center xl:justify-between">
               <div className="text-sm text-muted-foreground">
-                显示第 {(pagination.currentPage - 1) * pagination.pageSize + 1}-
-                {Math.min(pagination.currentPage * pagination.pageSize, pagination.totalItems)} 条，共{' '}
-                {pagination.totalItems} 条
+                {locale.startsWith('zh')
+                  ? `显示第 ${(pagination.currentPage - 1) * pagination.pageSize + 1}-${Math.min(
+                      pagination.currentPage * pagination.pageSize,
+                      pagination.totalItems,
+                    )} 条，共 ${pagination.totalItems} 条`
+                  : `Showing ${(pagination.currentPage - 1) * pagination.pageSize + 1}-${Math.min(
+                      pagination.currentPage * pagination.pageSize,
+                      pagination.totalItems,
+                    )} of ${pagination.totalItems} rows`}
               </div>
               <Pagination className="mx-0 w-auto justify-start xl:justify-end">
                 <PaginationContent>
@@ -188,7 +196,7 @@ export function SkillsTable({
                           setPage(pagination.currentPage - 1)
                         }
                       }}
-                      text="上一页"
+                      text={locale.startsWith('zh') ? '上一页' : 'Previous'}
                     />
                   </PaginationItem>
 
@@ -228,7 +236,7 @@ export function SkillsTable({
                           setPage(pagination.currentPage + 1)
                         }
                       }}
-                      text="下一页"
+                      text={locale.startsWith('zh') ? '下一页' : 'Next'}
                     />
                   </PaginationItem>
                 </PaginationContent>

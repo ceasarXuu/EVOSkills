@@ -192,6 +192,17 @@ export interface DashboardProjectsResponse {
   projects: DashboardProject[]
 }
 
+export interface DashboardProjectPickResponse {
+  cancelled?: boolean
+  daemonRunning?: boolean
+  daemonStarted?: boolean
+  error?: string
+  initialized?: boolean
+  ok: boolean
+  path?: string
+  projects?: DashboardProject[]
+}
+
 export interface DashboardSkillFamiliesResponse {
   families: DashboardSkillFamily[]
 }

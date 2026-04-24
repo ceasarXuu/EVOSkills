@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 export type DashboardLanguage = 'en' | 'zh'
 
 type TranslationKey =
+  | 'addProject'
   | 'addProvider'
   | 'apiKeyHide'
   | 'apiKeyPastePlaceholder'
@@ -108,6 +109,7 @@ type TranslationKey =
 
 const TRANSLATIONS: Record<DashboardLanguage, Record<TranslationKey, string>> = {
   zh: {
+    addProject: '添加项目',
     addProvider: '新增模型服务',
     apiKeyHide: '隐藏',
     apiKeyPastePlaceholder: '直接粘贴 API Key',
@@ -212,6 +214,7 @@ const TRANSLATIONS: Record<DashboardLanguage, Record<TranslationKey, string>> = 
     versionHistory: '版本历史',
   },
   en: {
+    addProject: 'Add project',
     addProvider: 'Add provider',
     apiKeyHide: 'Hide',
     apiKeyPastePlaceholder: 'Paste API Key',

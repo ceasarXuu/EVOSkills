@@ -13,6 +13,8 @@ const meta = {
   }),
   args: {
     isLoading: false,
+    isPicking: false,
+    onPickProject: fn(),
     onSelect: fn(),
     projects: storyProjects,
     selectedProjectId: '/Users/xuzhang/OrnnSkills',
@@ -39,6 +41,13 @@ export const SearchAndSelect: Story = {
 
     await userEvent.click(projectCard)
     await expect(args.onSelect).toHaveBeenCalledWith('/Users/xuzhang/mili')
+  },
+}
+
+export const AddProject: Story = {
+  play: async ({ args, canvas, userEvent }) => {
+    await userEvent.click(canvas.getByRole('button', { name: '添加项目' }))
+    await expect(args.onPickProject).toHaveBeenCalled()
   },
 }
 

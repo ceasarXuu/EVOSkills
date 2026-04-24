@@ -6,6 +6,7 @@ import type {
   DashboardSkillFamilyInstancesResponse,
   DashboardSkillFamilyResponse,
   DashboardSkillVersionRecord,
+  DashboardProjectPickResponse,
   DashboardProjectsResponse,
   DashboardSsePayload,
   ProjectSnapshot,
@@ -125,6 +126,10 @@ export function logDashboardV3Event(
 export async function fetchDashboardProjects() {
   const data = await fetchJson<DashboardProjectsResponse>('/api/projects')
   return Array.isArray(data.projects) ? data.projects : []
+}
+
+export async function pickDashboardProject() {
+  return await postJson<DashboardProjectPickResponse>('/api/projects/pick', {})
 }
 
 export async function fetchProjectSnapshot(projectPath: string) {

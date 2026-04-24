@@ -52,7 +52,9 @@ function DashboardWorkspacePage() {
   const {
     isLoadingProjects,
     isLoadingSnapshot,
+    isPickingProject,
     loadError,
+    pickProject,
     projects,
     selectProject,
     selectedProjectId,
@@ -107,9 +109,11 @@ function DashboardWorkspacePage() {
         ) : null}
 
         {layout.showProjectRail ? (
-          <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+          <div className="grid min-w-[1540px] grid-cols-[340px_minmax(0,1fr)] items-start gap-6">
             <ProjectRail
               isLoading={isLoadingProjects}
+              isPicking={isPickingProject}
+              onPickProject={pickProject}
               onSelect={selectProject}
               projects={projects}
               selectedProjectId={selectedProjectId}

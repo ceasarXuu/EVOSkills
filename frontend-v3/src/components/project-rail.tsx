@@ -1,7 +1,8 @@
-import { Search01Icon } from '@hugeicons/core-free-icons'
+import { FolderAddIcon, Search01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -13,6 +14,8 @@ import type { DashboardProject } from '@/types/dashboard'
 
 interface ProjectRailProps {
   isLoading: boolean
+  isPicking: boolean
+  onPickProject: () => void
   onSelect: (projectPath: string) => void
   projects: DashboardProject[]
   selectedProjectId: string
@@ -20,6 +23,8 @@ interface ProjectRailProps {
 
 export function ProjectRail({
   isLoading,
+  isPicking,
+  onPickProject,
   onSelect,
   projects,
   selectedProjectId,
@@ -29,14 +34,28 @@ export function ProjectRail({
   const filteredProjects = useMemo(() => filterProjects(projects, query), [projects, query])
 
   return (
-    <aside className="lg:sticky lg:top-24 lg:self-start">
-      <Card className="border-border/70 bg-card/92">
+    <aside className="sticky top-24 self-start">
+      <Card className="h-[calc(100vh-7rem)] border-border/70 bg-card/92">
         <CardHeader className="gap-4 border-b border-border/70">
-          <div className="space-y-1">
-            <CardTitle className="text-xl">{t('projects')}</CardTitle>
-            <div className="text-sm text-muted-foreground">
-              {formatCompactNumberForLocale(projects.length, locale)} {t('projectCount')}
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <CardTitle className="text-xl">{t('projects')}</CardTitle>
+              <div className="text-sm text-muted-foreground">
+                {formatCompactNumberForLocale(projects.length, locale)} {t('projectCount')}
+              </div>
             </div>
+
+            <Button
+              aria-label={t('addProject')}
+              className="size-9 shrink-0 rounded-xl"
+              disabled={isPicking}
+              onClick={onPickProject}
+              title={t('addProject')}
+              type="button"
+              variant="outline"
+            >
+              <HugeiconsIcon icon={FolderAddIcon} size={17} strokeWidth={1.8} />
+            </Button>
           </div>
 
           <label className="relative block">
@@ -55,7 +74,7 @@ export function ProjectRail({
           </label>
         </CardHeader>
 
-        <CardContent className="px-0">
+        <CardContent className="min-h-0 flex-1 px-0">
           {isLoading && projects.length === 0 ? (
             <div className="space-y-3 px-6 py-6">
               {Array.from({ length: 6 }).map((_, index) => (
@@ -71,7 +90,7 @@ export function ProjectRail({
               {t('noMatchedProjects')}
             </div>
           ) : (
-            <ScrollArea className="h-[min(72vh,920px)]">
+            <ScrollArea className="h-full">
               <div className="space-y-2 px-4 py-4">
                 {filteredProjects.map((project) => {
                   const isActive = project.path === selectedProjectId

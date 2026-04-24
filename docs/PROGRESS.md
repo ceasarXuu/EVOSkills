@@ -525,6 +525,8 @@
 - ✅ Dashboard V3 skills 详情区移除独立 `Instances` 模块，实例切换统一收敛到头部“项目 / runtime”下拉框，避免同一语义在详情区重复出现
 - ✅ 同步更新 `SkillFamilyDetail` Storybook：改为用 story fixtures 驱动头部筛选，不再保留卡片式 instance rail 演示
 - 📝 前端经验：shadcn `Select` 在 Storybook 交互测试里默认通过 portal 渲染到 `document.body`；写 `play` 时不要只在 canvas 范围内找 `option`
+- ✅ Dashboard V3 project 页左侧项目 rail 对齐 skills 页固定纵向结构，页面横向收窄时保持结构锁定
+- ✅ project rail 右上角新增项目选择入口，复用 `/api/projects/pick` 原生 Finder 流程，并在 Storybook 中锁定按钮回调契约
 
 ---
 
@@ -539,5 +541,5 @@
 
 ---
 
-_最后更新：2026-04-24_
+_最后更新：2026-04-25_
 _更新人：OrnnSkills Team_

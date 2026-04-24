@@ -4,6 +4,7 @@ import {
   fetchDashboardProjects,
   fetchProjectSnapshot,
   logDashboardV3Event,
+  pickDashboardProject,
 } from '@/lib/dashboard-api'
 import type {
   ConnectionState,
@@ -27,6 +28,7 @@ export function useDashboardV3Workspace() {
   const [selectedSnapshot, setSelectedSnapshot] = useState<ProjectSnapshot | null>(null)
   const [isLoadingProjects, setIsLoadingProjects] = useState(true)
   const [isLoadingSnapshot, setIsLoadingSnapshot] = useState(false)
+  const [isPickingProject, setIsPickingProject] = useState(false)
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [connectionState, setConnectionState] = useState<ConnectionState>('connecting')
@@ -116,6 +118,58 @@ export function useDashboardV3Workspace() {
     [loadSnapshotForProject],
   )
 
+  const pickProject = useCallback(async () => {
+    if (isPickingProject) {
+      return
+    }
+
+    setIsPickingProject(true)
+    logDashboardV3Event('project.pick_started')
+
+    try {
+      const result = await pickDashboardProject()
+
+      if (result.cancelled) {
+        logDashboardV3Event('project.pick_cancelled')
+        return
+      }
+
+      if (!result.ok || !result.path) {
+        const message = result.error ?? '项目选择失败。'
+        setLoadError(message)
+        logDashboardV3Event('project.pick_failed', { message })
+        return
+      }
+
+      const nextProjects = Array.isArray(result.projects) ? result.projects : await fetchDashboardProjects()
+      const nextSelection = nextProjects.some((project) => project.path === result.path)
+        ? result.path
+        : nextProjects[0]?.path ?? ''
+
+      setProjects(nextProjects)
+      setSelectedProjectId(nextSelection)
+      setLoadError(null)
+
+      if (nextSelection) {
+        await loadSnapshotForProject(nextSelection, 'manual')
+      } else {
+        setSelectedSnapshot(null)
+        setLastSyncedAt(new Date().toISOString())
+      }
+
+      logDashboardV3Event('project.pick_succeeded', {
+        projectCount: nextProjects.length,
+        selectedProjectId: nextSelection,
+      })
+    } catch (error) {
+      const message = getErrorMessage(error)
+      setLoadError(message)
+      logDashboardV3Event('project.pick_failed', { message })
+    } finally {
+      setIsPickingProject(false)
+    }
+  }, [isPickingProject, loadSnapshotForProject])
+
   useEffect(() => {
     void refreshWorkspace('initial')
   }, [refreshWorkspace])
@@ -143,10 +197,12 @@ export function useDashboardV3Workspace() {
 
   return {
     connectionState,
+    isPickingProject,
     isLoadingProjects,
     isLoadingSnapshot,
     lastSyncedAt,
     loadError,
+    pickProject,
     projects,
     refreshWorkspace,
     selectProject,

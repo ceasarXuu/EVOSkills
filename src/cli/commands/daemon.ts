@@ -138,7 +138,7 @@ export function createStartCommand(): Command {
                 await startDashboardServerOnAvailablePort(dashboardPortNum, dashboardLang));
               dashboardSpinner.succeed('Dashboard started');
 
-              const url = `http://localhost:${dashboardPort}`;
+              const url = `http://localhost:${dashboardPort}/v3/`;
               cliInfo(`Dashboard URL: ${url}`);
 
               if (options.open !== false) {

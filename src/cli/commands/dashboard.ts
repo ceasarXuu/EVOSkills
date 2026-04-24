@@ -98,7 +98,7 @@ export function createDashboardCommand(): Command {
         process.exit(1);
       }
 
-      const url = `http://localhost:${port}`;
+      const url = `http://localhost:${port}/v3/`;
       cliInfo(`OrnnSkills Dashboard running at ${url}`);
       cliInfo('Press Ctrl+C to stop');
 

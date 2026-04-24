@@ -23,7 +23,7 @@ import {
   readLogsSince,
   createGlobalLogCursor,
 } from './data-reader.js';
-import { getDashboardAssetBundle, getDashboardHtml } from './ui.js';
+import { getDashboardAssetBundle } from './ui.js';
 import type { Language } from './i18n.js';
 import { createChildLogger } from '../utils/logger.js';
 import {
@@ -196,33 +196,6 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
 
   function normalizeLanguage(lang?: string | null): Language {
     return lang === 'zh' ? 'zh' : 'en';
-  }
-
-  function detectLangFromAcceptLanguage(acceptLanguageHeader?: string | string[]): Language {
-    if (!acceptLanguageHeader) return 'en';
-
-    const headerValue = Array.isArray(acceptLanguageHeader)
-      ? acceptLanguageHeader.join(',')
-      : acceptLanguageHeader;
-
-    const candidates = headerValue
-      .split(',')
-      .map((part) => {
-        const [tagPart, qPart] = part.trim().split(';');
-        const qMatch = qPart?.match(/q=([0-9.]+)/i);
-        const q = qMatch ? Number(qMatch[1]) : 1;
-        const tag = (tagPart ?? '').toLowerCase();
-        return { tag, q: Number.isFinite(q) ? q : 1 };
-      })
-      .filter((entry) => entry.tag.length > 0)
-      .sort((a, b) => b.q - a.q);
-
-    for (const { tag } of candidates) {
-      if (tag === 'zh' || tag.startsWith('zh-')) return 'zh';
-      if (tag === 'en' || tag.startsWith('en-')) return 'en';
-    }
-
-    return 'en';
   }
 
   function getProjectsWithStatus(): ProjectWithStatus[] {
@@ -419,28 +392,19 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
           return;
         }
 
-      // ── Dashboard HTML ──
+      // ── Dashboard default entry ──
       if (path === '/' && (method === 'GET' || method === 'HEAD')) {
-        const detectedLang = detectLangFromAcceptLanguage(req.headers['accept-language']);
-        currentLang = normalizeLanguage(detectedLang);
-        logger.debug('Resolved dashboard language from request', {
+        logger.debug('Redirecting dashboard root to v3 default entry', {
           requestMethod: method,
-          acceptLanguage: req.headers['accept-language'],
-          resolvedLang: currentLang,
         });
-        res.writeHead(200, {
-          'Content-Type': 'text/html; charset=utf-8',
+        res.writeHead(302, {
+          Location: '/v3/',
           'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
           Pragma: 'no-cache',
           Expires: '0',
           'X-Dashboard-Build': buildId,
         });
-        if (method === 'HEAD') {
-          res.end();
-          return;
-        }
-        const html = getDashboardHtml(port, currentLang, buildId);
-        res.end(html);
+        res.end();
         return;
       }
 

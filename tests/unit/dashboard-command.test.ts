@@ -58,4 +58,20 @@ describe('dashboard command', () => {
     await Promise.resolve();
     expect(exitSpy).toHaveBeenCalledWith(0);
   });
+
+  it('prints the v3 dashboard as the default browser entry', async () => {
+    vi
+      .spyOn(process, 'once')
+      .mockImplementation(((..._args: unknown[]) => process) as typeof process.once);
+
+    const { createDashboardCommand } = await import('../../src/cli/commands/dashboard.js');
+
+    await createDashboardCommand().parseAsync(['node', 'dashboard', '--no-open'], {
+      from: 'user',
+    });
+
+    expect(mocks.cliInfo).toHaveBeenCalledWith(
+      'OrnnSkills Dashboard running at http://localhost:47432/v3/'
+    );
+  });
 });

@@ -1020,24 +1020,34 @@ describe('dashboard server sse bootstrap', () => {
     }
   });
 
-  it('serves the dashboard shell for HEAD / requests used by embedded browsers', async () => {
+  it('redirects the service root to the v3 dashboard entry', async () => {
     const port = await getFreePort();
     const { createDashboardServer } = await import('../../src/dashboard/server.js');
     const dashboard = createDashboardServer(port, 'zh');
     await dashboard.start();
 
     try {
-      const response = await fetch(`http://127.0.0.1:${port}/`, { method: 'HEAD' });
+      const response = await fetch(`http://127.0.0.1:${port}/`, {
+        method: 'HEAD',
+        redirect: 'manual',
+      });
 
-      expect(response.status).toBe(200);
-      expect(response.headers.get('content-type')).toContain('text/html');
+      expect(response.status).toBe(302);
+      expect(response.headers.get('location')).toBe('/v3/');
+      expect(response.headers.get('cache-control')).toContain('no-store');
     } finally {
       await dashboard.stop();
     }
   });
 
-  it('serves immutable dashboard asset routes keyed by content hash', async () => {
+  it('serves the v3 document from the default dashboard entry after redirect', async () => {
     const port = await getFreePort();
+    const customRoot = mkdtempSync(join(tmpdir(), 'ornn-dashboard-v3-default-'));
+    const originalDistDir = process.env.ORNNSKILLS_DASHBOARD_V3_DIST_DIR;
+    process.env.ORNNSKILLS_DASHBOARD_V3_DIST_DIR = customRoot;
+    mkdirSync(join(customRoot, 'assets'), { recursive: true });
+    writeFileSync(join(customRoot, 'index.html'), '<html><body>dashboard v3 default</body></html>');
+
     const { createDashboardServer } = await import('../../src/dashboard/server.js');
     const dashboard = createDashboardServer(port, 'zh');
     await dashboard.start();
@@ -1045,26 +1055,14 @@ describe('dashboard server sse bootstrap', () => {
     try {
       const htmlResponse = await fetch(`http://127.0.0.1:${port}/`);
       const html = await htmlResponse.text();
-      const cssMatch = html.match(/href="([^"]*\/assets\/dashboard\.[^"]+\.css)"/);
-      const jsMatch = html.match(/src="([^"]*\/assets\/dashboard\.[^"]+\.js)"/);
 
-      expect(cssMatch?.[1]).toBeTruthy();
-      expect(jsMatch?.[1]).toBeTruthy();
-
-      const cssResponse = await fetch(`http://127.0.0.1:${port}${cssMatch![1]}`);
-      expect(cssResponse.status).toBe(200);
-      expect(cssResponse.headers.get('content-type')).toContain('text/css');
-      expect(cssResponse.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
-      expect(cssResponse.headers.get('x-dashboard-build')).toBeTruthy();
-      await expect(cssResponse.text()).resolves.toContain('.workspace-tabs');
-
-      const jsResponse = await fetch(`http://127.0.0.1:${port}${jsMatch![1]}`);
-      expect(jsResponse.status).toBe(200);
-      expect(jsResponse.headers.get('content-type')).toContain('application/javascript');
-      expect(jsResponse.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
-      expect(jsResponse.headers.get('x-dashboard-build')).toBeTruthy();
-      await expect(jsResponse.text()).resolves.toContain('const I18N = ');
+      expect(htmlResponse.status).toBe(200);
+      expect(htmlResponse.url).toBe(`http://127.0.0.1:${port}/v3/`);
+      expect(htmlResponse.headers.get('x-dashboard-v3')).toBe('built');
+      expect(html).toContain('dashboard v3 default');
     } finally {
+      process.env.ORNNSKILLS_DASHBOARD_V3_DIST_DIR = originalDistDir;
+      rmSync(customRoot, { recursive: true, force: true });
       await dashboard.stop();
     }
   });

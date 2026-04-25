@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { ConfigWorkspace } from '@/components/config-workspace'
-import { CostWorkspace } from '@/components/cost-workspace'
 import { ProjectRail } from '@/components/project-rail'
 import { ProjectWorkbench } from '@/components/project-workbench'
 import { SkillDetailDialog } from '@/components/skill-detail-dialog'
@@ -19,7 +18,7 @@ import type {
   DashboardView,
 } from '@/types/dashboard'
 
-const DASHBOARD_VIEWS: DashboardView[] = ['skills', 'project', 'cost', 'config']
+const DASHBOARD_VIEWS: DashboardView[] = ['skills', 'project', 'config']
 
 function normalizeDashboardView(view?: string): DashboardView {
   if (view && DASHBOARD_VIEWS.includes(view as DashboardView)) {
@@ -37,6 +36,7 @@ function App() {
           <Route element={<Navigate replace to="/skills" />} path="/" />
           <Route element={<Navigate replace to="/project" />} path="/projects" />
           <Route element={<Navigate replace to="/project" />} path="/activity" />
+          <Route element={<Navigate replace to="/project" />} path="/cost" />
           <Route element={<DashboardWorkspacePage />} path="/:view" />
           <Route element={<Navigate replace to="/skills" />} path="*" />
         </Routes>
@@ -63,7 +63,7 @@ function DashboardWorkspacePage() {
     selectedProjectId,
     selectedSnapshot,
   } = useDashboardV3Workspace()
-  const cost = useDashboardV3Cost(currentView === 'cost')
+  const cost = useDashboardV3Cost(currentView === 'project')
 
   useEffect(() => {
     if (view !== currentView) {
@@ -217,24 +217,18 @@ function ViewContent({
 
       {currentView === 'project' ? (
         <ProjectWorkbench
-          isLoading={isLoadingSnapshot}
-          onQueryChange={onQueryChange}
-          onSelectSkill={onSelectSkill}
-          query={query}
-          selectedSkillKey={selectedSkillKey}
-          skills={filteredSkills}
-        />
-      ) : null}
-
-      {currentView === 'cost' ? (
-        <CostWorkspace
           agentUsage={selectedSnapshot?.agentUsage}
           catalogError={cost.catalogError}
+          isLoading={isLoadingSnapshot}
           isCatalogLoading={cost.isCatalogLoading}
-          isSnapshotLoading={isLoadingSnapshot}
+          onQueryChange={onQueryChange}
+          onSelectSkill={onSelectSkill}
           projectName={selectedProject?.name}
           projectPath={selectedProjectId}
           providerCatalog={cost.providerCatalog}
+          query={query}
+          selectedSkillKey={selectedSkillKey}
+          skills={filteredSkills}
         />
       ) : null}
 

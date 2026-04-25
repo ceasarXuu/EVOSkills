@@ -530,6 +530,7 @@
 - ✅ Dashboard V3 skills 详情头部移除暂不使用的四项 usage 指标条，保留正文编辑与版本历史主工作区
 - ✅ Dashboard V3 恢复成本 tab：复用 project snapshot 的 `agentUsage` 与 LiteLLM catalog，新增成本估算、模型拆分、scope/skill token 拆分，并补齐 Storybook 状态矩阵
 - 📝 前端经验：Storybook a11y 会检查 shadcn Table 的横向滚动容器；可滚动表格容器需要键盘可聚焦，否则 `scrollable-region-focusable` 会阻断组件验收
+- ✅ Dashboard V3 将成本从顶层 tab 收回项目工作台，项目页右侧统一使用二级 `技能 / 成本` Tabs，成本继续复用当前项目上下文和左侧 project rail
 
 ---
 

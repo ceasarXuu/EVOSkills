@@ -75,6 +75,7 @@ describe('dashboard v3 Storybook setup', () => {
     const storySources = [
       'frontend-v3/src/components/workspace-header.stories.tsx',
       'frontend-v3/src/components/project-rail.stories.tsx',
+      'frontend-v3/src/components/project-workbench.stories.tsx',
       'frontend-v3/src/components/skill-family-list.stories.tsx',
       'frontend-v3/src/components/skill-family-detail.stories.tsx',
       'frontend-v3/src/components/skill-detail-dialog.stories.tsx',
@@ -110,9 +111,12 @@ describe('dashboard v3 Storybook setup', () => {
     }
   })
 
-  it('does not publish duplicate stories for pass-through route wrappers', () => {
-    expect(existsSync(new URL('frontend-v3/src/components/project-workbench.stories.tsx', root))).toBe(
-      false,
+  it('only publishes project workbench stories once it owns real screen structure', () => {
+    const source = readWorkspaceFile('frontend-v3/src/components/project-workbench.tsx')
+    expect(source).toContain('TabsTrigger value="skills"')
+    expect(source).toContain('TabsTrigger value="cost"')
+    expect(readWorkspaceFile('frontend-v3/src/components/project-workbench.stories.tsx')).toContain(
+      'CostSelected',
     )
   })
 

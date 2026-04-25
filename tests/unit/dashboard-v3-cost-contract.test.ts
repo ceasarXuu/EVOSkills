@@ -13,6 +13,10 @@ const costWorkspaceSource = readFileSync(
   new URL('../../frontend-v3/src/components/cost-workspace.tsx', import.meta.url),
   'utf8',
 )
+const projectWorkbenchSource = readFileSync(
+  new URL('../../frontend-v3/src/components/project-workbench.tsx', import.meta.url),
+  'utf8',
+)
 const costStorySource = readFileSync(
   new URL('../../frontend-v3/src/components/cost-workspace.stories.tsx', import.meta.url),
   'utf8',
@@ -23,11 +27,13 @@ const costHookSource = readFileSync(
 )
 
 describe('dashboard v3 cost workspace contract', () => {
-  it('adds cost as a first-class v3 tab backed by project snapshot usage', () => {
-    expect(appSource).toContain("'cost'")
-    expect(headerSource).toContain('to="/cost"')
-    expect(headerSource).toContain("label={t('cost')}")
-    expect(appSource).toContain("currentView === 'cost'")
+  it('keeps cost inside the project workspace instead of the global header', () => {
+    expect(headerSource).not.toContain('to="/cost"')
+    expect(headerSource).not.toContain("label={t('cost')}")
+    expect(appSource).toContain('path="/cost"')
+    expect(appSource).toContain('to="/project"')
+    expect(appSource).not.toContain("currentView === 'cost'")
+    expect(projectWorkbenchSource).toContain("TabsTrigger value=\"cost\"")
     expect(appSource).toContain('agentUsage={selectedSnapshot?.agentUsage}')
   })
 

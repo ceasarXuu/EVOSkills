@@ -444,9 +444,9 @@ export class TraceManager {
    * 清理旧的 traces
    */
   cleanupOldTraces(retentionDays: number): number {
-    // 这里可以实现清理逻辑
-    // 暂时返回 0
-    logger.info(`Cleanup old traces older than ${retentionDays} days`);
+    void retentionDays;
+    // Retention cleanup is intentionally not implemented here yet. Keep this
+    // no-op silent so the hourly daemon tick does not emit misleading logs.
     return 0;
   }
 

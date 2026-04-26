@@ -535,6 +535,8 @@
 - 📝 前端经验：正文编辑区属于主路径，版本历史、统计补充、预览类数据都不能阻塞正文首屏；需要用日志事件标记 `content_ready`，再异步补齐次级信息
 - ✅ Dashboard V3 config 选择控件统一 shadcn 化：provider 默认启用与 LLM 安全闸门改为 `Switch`，提示词来源二选一改为 `RadioGroup`，配置页不再混入原生 radio/checkbox 视觉
 - 📝 前端经验：配置页所有二值/单选控件必须优先使用 shadcn/radix 组件，并在 Storybook play 中覆盖点击路径；不要用原生 input 临时代替成熟组件
+- ✅ 降噪 trace retention 维护日志：`TraceManager.cleanupOldTraces()` 当前仍是 no-op，不再按每个项目每小时打印 “older than 30 days” 的 info 日志，避免误导为项目已有 30 天数据或正在执行删除
+- 📝 运维经验：看到 daemon 每小时维护日志时先区分“真实执行结果”和“占位任务心跳”。未实现实际清理的任务不能打 info，只应在真实删除数量大于 0 或异常时输出可行动日志
 
 ---
 
@@ -549,5 +551,5 @@
 
 ---
 
-_最后更新：2026-04-26_
+_最后更新：2026-04-27_
 _更新人：OrnnSkills Team_

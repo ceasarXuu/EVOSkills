@@ -54,6 +54,14 @@ describe('dashboard v3 cost workspace contract', () => {
     expect(costWorkspaceSource).not.toContain('dangerouslySetInnerHTML')
   })
 
+  it('keeps the cost summary compact instead of restoring a tall hero card', () => {
+    expect(costWorkspaceSource).toContain('function SummaryMetric')
+    expect(costWorkspaceSource).toContain('Skeleton className="h-20 w-full"')
+    expect(costWorkspaceSource).not.toContain('function SummaryCard')
+    expect(costWorkspaceSource).not.toContain('grid grid-cols-6 gap-3 pt-6')
+    expect(costWorkspaceSource).not.toContain('text-3xl font-semibold')
+  })
+
   it('loads LiteLLM catalog through a dedicated observable hook', () => {
     expect(costHookSource).toContain('fetchDashboardProviderCatalog')
     expect(costHookSource).toContain("logDashboardV3Event('cost.catalog_load_started')")

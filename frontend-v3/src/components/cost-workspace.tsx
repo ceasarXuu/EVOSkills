@@ -74,40 +74,35 @@ export function CostWorkspace({
 
   return (
     <div className="space-y-6">
-      <Card className="border-border/70 bg-card/92">
-        <CardHeader className="border-b border-border/70">
-          <div className="flex items-start justify-between gap-6">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <HugeiconsIcon icon={DollarCircleIcon} size={18} strokeWidth={1.8} />
-                <CardTitle className="text-2xl">{t('cost')}</CardTitle>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {projectName || projectPath || '—'}
-              </div>
+      <Card className="border-border/70 bg-card/92 py-3" size="sm">
+        <CardContent className="flex items-center gap-5 px-4">
+          <div className="min-w-52 border-r border-border/70 pr-5">
+            <div className="flex items-center gap-2">
+              <HugeiconsIcon icon={DollarCircleIcon} size={16} strokeWidth={1.8} />
+              <CardTitle className="text-base">{t('cost')}</CardTitle>
             </div>
-
-            <div className="text-right">
-              <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                {t('costEstimated')}
-              </div>
-              <div className="mt-2 text-3xl font-semibold">
-                {pricedModelCount > 0 ? formatUsd(totalEstimatedSpend) : '—'}
-              </div>
-              <div className="mt-2 text-sm text-muted-foreground">
-                {pricedModelCount > 0 ? t('costEstimatedSub') : t('costUnknownPricing')}
-              </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {projectName || projectPath || '—'} · {pricedModelCount > 0 ? t('costEstimatedSub') : t('costUnknownPricing')}
             </div>
           </div>
-        </CardHeader>
 
-        <CardContent className="grid grid-cols-6 gap-3 pt-6">
-          <SummaryCard label={t('costCalls')} value={formatUsageCompact(usage.callCount)} />
-          <SummaryCard label={t('costInputTokens')} value={formatUsageCompact(usage.promptTokens)} />
-          <SummaryCard label={t('costOutputTokens')} value={formatUsageCompact(usage.completionTokens)} />
-          <SummaryCard label={t('costTotalTokens')} value={formatUsageCompact(usage.totalTokens)} />
-          <SummaryCard label={t('costAvgLatency')} value={formatDuration(usage.avgDurationMs)} />
-          <SummaryCard label={t('costAvgTokensPerCall')} value={formatUsageCompact(avgTokensPerCall)} />
+          <div className="flex min-w-32 flex-col gap-1">
+            <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              {t('costEstimated')}
+            </span>
+            <span className="text-2xl font-semibold leading-none">
+              {pricedModelCount > 0 ? formatUsd(totalEstimatedSpend) : '—'}
+            </span>
+          </div>
+
+          <div className="flex flex-1 items-center gap-4 overflow-hidden">
+            <SummaryMetric label={t('costCalls')} value={formatUsageCompact(usage.callCount)} />
+            <SummaryMetric label={t('costInputTokens')} value={formatUsageCompact(usage.promptTokens)} />
+            <SummaryMetric label={t('costOutputTokens')} value={formatUsageCompact(usage.completionTokens)} />
+            <SummaryMetric label={t('costTotalTokens')} value={formatUsageCompact(usage.totalTokens)} />
+            <SummaryMetric label={t('costAvgLatency')} value={formatDuration(usage.avgDurationMs)} />
+            <SummaryMetric label={t('costAvgTokensPerCall')} value={formatUsageCompact(avgTokensPerCall)} />
+          </div>
         </CardContent>
       </Card>
 
@@ -191,11 +186,11 @@ export function CostWorkspace({
   )
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
+function SummaryMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-border/70 bg-background/40 px-4 py-4">
-      <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
-      <div className="mt-2 text-xl font-semibold">{value}</div>
+    <div className="min-w-0 flex-1 border-l border-border/60 pl-4 first:border-l-0 first:pl-0">
+      <div className="truncate text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
+      <div className="mt-1 text-sm font-semibold">{value}</div>
     </div>
   )
 }
@@ -265,7 +260,7 @@ function getPricingLabel(detail: DashboardProviderCatalogModel, t: ReturnType<ty
 function CostWorkspaceSkeleton() {
   return (
     <div className="space-y-6">
-      <Skeleton className="h-52 w-full" />
+      <Skeleton className="h-20 w-full" />
       <div className="grid grid-cols-[minmax(0,1fr)_340px] gap-6">
         <Skeleton className="h-[560px] w-full" />
         <Skeleton className="h-[560px] w-full" />

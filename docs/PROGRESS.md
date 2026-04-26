@@ -537,6 +537,8 @@
 - 📝 前端经验：配置页所有二值/单选控件必须优先使用 shadcn/radix 组件，并在 Storybook play 中覆盖点击路径；不要用原生 input 临时代替成熟组件
 - ✅ 降噪 trace retention 维护日志：`TraceManager.cleanupOldTraces()` 当前仍是 no-op，不再按每个项目每小时打印 “older than 30 days” 的 info 日志，避免误导为项目已有 30 天数据或正在执行删除
 - 📝 运维经验：看到 daemon 每小时维护日志时先区分“真实执行结果”和“占位任务心跳”。未实现实际清理的任务不能打 info，只应在真实删除数量大于 0 或异常时输出可行动日志
+- ✅ Dashboard V3 project 成本摘要压缩：顶部成本 hero 改为 76px 紧凑 summary strip，总成本、调用数、Token、时延等核心指标同屏横向展示，不再占用大块首屏空间
+- 📝 前端经验：成本页的总览指标不应该用多张 summary card 重复拉高层级；当下方已经有模型/范围/技能拆分时，顶部只保留一行可扫读的核心指标即可
 
 ---
 

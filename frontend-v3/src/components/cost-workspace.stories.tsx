@@ -29,6 +29,7 @@ type Story = StoryObj<typeof meta>
 export const Default: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getByText('成本')).toBeInTheDocument()
+    await expect(canvas.getAllByText('估算成本')[0]).toBeInTheDocument()
     await expect(canvas.getByText('模型成本拆分')).toBeInTheDocument()
     await expect(canvas.getByText('deepseek/deepseek-chat')).toBeInTheDocument()
   },
@@ -53,4 +54,3 @@ export const Loading: Story = {
     isSnapshotLoading: true,
   },
 }
-

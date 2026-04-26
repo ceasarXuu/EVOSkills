@@ -113,7 +113,7 @@ export function SkillsTable({
               {formatCompactNumberForLocale(pagination.totalItems, locale)} {t('skills')}
             </div>
           </div>
-          <div className="flex w-full flex-col gap-3 xl:max-w-xl xl:flex-row">
+          <div className="flex w-full flex-col gap-3 xl:ml-auto xl:w-auto xl:flex-row xl:items-center xl:justify-end">
             <Select
               onValueChange={(value) => {
                 if (isRuntime(value)) {
@@ -122,7 +122,7 @@ export function SkillsTable({
               }}
               value={selectedRuntime}
             >
-              <SelectTrigger aria-label={t('host')} className="h-11 w-full rounded-xl border-border/80 bg-background/70 xl:w-44">
+              <SelectTrigger aria-label={t('host')} className="h-11 w-full rounded-xl border-border/80 bg-background/70 xl:w-44 xl:shrink-0">
                 <SelectValue placeholder={t('host')} />
               </SelectTrigger>
               <SelectContent>
@@ -133,7 +133,7 @@ export function SkillsTable({
                 ))}
               </SelectContent>
             </Select>
-            <label className="relative block">
+            <label className="relative block w-full xl:w-64 xl:shrink-0">
               <HugeiconsIcon
                 className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
                 icon={Search01Icon}

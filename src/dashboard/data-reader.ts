@@ -15,6 +15,7 @@ import type { DecisionEventRecord } from '../core/decision-events/index.js';
 import {
   createEmptyTaskEpisodeSnapshot,
   normalizeTaskEpisodeSnapshot,
+  type TaskEpisode,
   type TaskEpisodeSnapshot,
 } from '../core/task-episode/index.js';
 import { collectSkillVersionTreeSignature, readFileSignature } from '../core/skill-domain/source-signature.js';
@@ -109,6 +110,35 @@ const SNAPSHOT_DECISION_EVENT_LIMIT = 35;
 const SNAPSHOT_SKILL_CONTEXT_LIMIT = 12;
 const SNAPSHOT_SKILL_CONTEXT_SCAN_LINES = 4000;
 
+function getTaskEpisodeCountBySkill(episodes: TaskEpisode[]): Map<string, number> {
+  const episodeIdsBySkill = new Map<string, Set<string>>();
+
+  for (const episode of episodes) {
+    const episodeId = episode.episodeId;
+    for (const segment of episode.skillSegments ?? []) {
+      const key = `${segment.runtime}::${segment.skillId}`;
+      const current = episodeIdsBySkill.get(key) ?? new Set<string>();
+      current.add(episodeId);
+      episodeIdsBySkill.set(key, current);
+    }
+  }
+
+  return new Map(
+    [...episodeIdsBySkill.entries()].map(([key, episodeIds]) => [key, episodeIds.size])
+  );
+}
+
+function attachSkillEvaluationCounts(
+  skills: DashboardSkillInfo[],
+  episodes: TaskEpisode[]
+): DashboardSkillInfo[] {
+  const counts = getTaskEpisodeCountBySkill(episodes);
+  return skills.map((skill) => ({
+    ...skill,
+    evaluationCount: counts.get(`${skill.runtime}::${skill.skillId}`) ?? 0,
+  }));
+}
+
 function getGlobalDaemonPidPath(): string {
   return join(homedir(), '.ornn', 'daemon.pid');
 }
@@ -145,9 +175,13 @@ export function readProjectSnapshot(projectRoot: string): ProjectData {
   const recentTraces = readRecentTraces(projectRoot, SNAPSHOT_RECENT_TRACE_LIMIT);
   const decisionEvents = readRecentDecisionEvents(projectRoot, SNAPSHOT_DECISION_EVENT_LIMIT);
   const taskEpisodes = readTaskEpisodeSnapshot(projectRoot);
+  const skills = attachSkillEvaluationCounts(
+    readSkills(projectRoot).map(toDashboardSkillInfo),
+    taskEpisodes.episodes
+  );
   return {
     daemon: readDaemonStatus(projectRoot),
-    skills: readSkills(projectRoot).map(toDashboardSkillInfo),
+    skills,
     skillGroups: [],
     skillInstances: [],
     traceStats: computeTraceStats(recentTraces),

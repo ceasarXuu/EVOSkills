@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
 
 import {
   buildSkillsOverview,
@@ -39,6 +40,11 @@ const skills: DashboardSkill[] = [
   },
 ]
 
+const skillsTableSource = readFileSync(
+  new URL('../../frontend-v3/src/components/skills-table.tsx', import.meta.url),
+  'utf8',
+)
+
 describe('dashboard v3 skills workspace helpers', () => {
   it('builds a hero summary from the current skill collection', () => {
     expect(buildSkillsOverview(skills)).toEqual({
@@ -72,5 +78,13 @@ describe('dashboard v3 skills workspace helpers', () => {
       totalItems: 5,
       totalPages: 3,
     })
+  })
+
+  it('keeps project skill table scoped by host instead of showing runtime and trace columns', () => {
+    expect(skillsTableSource).toContain("aria-label={t('host')}")
+    expect(skillsTableSource).toContain("t('evaluationCount')")
+    expect(skillsTableSource).not.toContain('<TableHead>Runtime</TableHead>')
+    expect(skillsTableSource).not.toContain("t('traces')")
+    expect(skillsTableSource).not.toContain('skill.traceCount')
   })
 })

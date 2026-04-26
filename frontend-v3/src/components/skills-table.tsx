@@ -14,6 +14,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -37,6 +38,11 @@ import { cn } from '@/lib/utils'
 import type { DashboardSkill } from '@/types/dashboard'
 
 const PAGE_SIZE = 12
+type RuntimeFilter = NonNullable<DashboardSkill['runtime']>
+
+function isRuntime(value: unknown): value is RuntimeFilter {
+  return value === 'codex' || value === 'claude' || value === 'opencode'
+}
 
 interface SkillsTableProps {
   isLoading: boolean
@@ -57,12 +63,35 @@ export function SkillsTable({
 }: SkillsTableProps) {
   const { locale, t } = useI18n()
   const [page, setPage] = useState(1)
+  const [selectedRuntime, setSelectedRuntime] = useState<RuntimeFilter | ''>('')
+  const runtimes = useMemo(
+    () => [...new Set(skills.map((skill) => skill.runtime).filter(isRuntime))].sort(),
+    [skills],
+  )
+
+  useEffect(() => {
+    if (runtimes.length === 0) {
+      setSelectedRuntime('')
+      return
+    }
+
+    if (!selectedRuntime || !runtimes.includes(selectedRuntime)) {
+      setSelectedRuntime(runtimes.includes('codex') ? 'codex' : runtimes[0] ?? '')
+    }
+  }, [runtimes, selectedRuntime])
 
   useEffect(() => {
     setPage(1)
-  }, [query])
+  }, [query, selectedRuntime])
 
-  const pagination = useMemo(() => paginateSkills(skills, page, PAGE_SIZE), [page, skills])
+  const runtimeFilteredSkills = useMemo(
+    () => selectedRuntime ? skills.filter((skill) => skill.runtime === selectedRuntime) : skills,
+    [selectedRuntime, skills],
+  )
+  const pagination = useMemo(
+    () => paginateSkills(runtimeFilteredSkills, page, PAGE_SIZE),
+    [page, runtimeFilteredSkills],
+  )
   const visiblePages = useMemo(
     () => getVisiblePaginationPages(pagination.currentPage, pagination.totalPages),
     [pagination.currentPage, pagination.totalPages],
@@ -84,7 +113,26 @@ export function SkillsTable({
               {formatCompactNumberForLocale(pagination.totalItems, locale)} {t('skills')}
             </div>
           </div>
-          <div className="w-full xl:max-w-sm">
+          <div className="flex w-full flex-col gap-3 xl:max-w-xl xl:flex-row">
+            <Select
+              onValueChange={(value) => {
+                if (isRuntime(value)) {
+                  setSelectedRuntime(value)
+                }
+              }}
+              value={selectedRuntime}
+            >
+              <SelectTrigger aria-label={t('host')} className="h-11 w-full rounded-xl border-border/80 bg-background/70 xl:w-44">
+                <SelectValue placeholder={t('host')} />
+              </SelectTrigger>
+              <SelectContent>
+                {runtimes.map((runtime) => (
+                  <SelectItem key={runtime} value={runtime}>
+                    {runtime}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <label className="relative block">
               <HugeiconsIcon
                 className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
@@ -119,13 +167,12 @@ export function SkillsTable({
         ) : (
           <>
             <ScrollArea className="h-[min(68vh,820px)]">
-              <Table className="min-w-[860px]">
+              <Table className="min-w-[760px]">
                 <TableHeader className="sticky top-0 z-10 bg-card/96 backdrop-blur supports-[backdrop-filter]:bg-card/88">
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="px-6">{t('skill')}</TableHead>
-                    <TableHead>Runtime</TableHead>
                     <TableHead>{t('status')}</TableHead>
-                    <TableHead className="text-right">{t('traces')}</TableHead>
+                    <TableHead className="text-right">{t('evaluationCount')}</TableHead>
                     <TableHead className="text-right">{t('version')}</TableHead>
                     <TableHead className="pr-6 text-right">{t('lastUpdated')}</TableHead>
                   </TableRow>
@@ -151,14 +198,13 @@ export function SkillsTable({
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="py-4">{skill.runtime ?? 'unknown'}</TableCell>
                         <TableCell className="py-4">
                           <Badge variant={getSkillStatusBadgeVariant(skill.status)}>
                             {skill.status ?? 'pending'}
                           </Badge>
                         </TableCell>
                         <TableCell className="py-4 text-right">
-                          {formatCompactNumberForLocale(skill.traceCount, locale)}
+                          {formatCompactNumberForLocale(skill.evaluationCount ?? 0, locale)}
                         </TableCell>
                         <TableCell className="py-4 text-right">
                           {formatCompactNumberForLocale(skill.versionsAvailable?.length ?? 0, locale)}

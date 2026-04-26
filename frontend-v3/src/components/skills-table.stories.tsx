@@ -16,7 +16,7 @@ function filterProjectSkills(skills: DashboardSkill[], query: string) {
   }
 
   return sortSkills(skills).filter((skill) => {
-    return [skill.skillId, skill.runtime, skill.status]
+    return [skill.skillId, skill.status]
       .filter((value) => typeof value === 'string')
       .some((value) => value!.toLowerCase().includes(normalizedQuery))
   })
@@ -71,12 +71,21 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
   render: (args) => <InteractiveSkillsTable {...args} />,
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole('combobox', { name: '宿主' })).toBeInTheDocument()
+    await expect(canvas.getByText('评估次数')).toBeInTheDocument()
+    await expect(canvas.queryByText('Runtime')).not.toBeInTheDocument()
+    await expect(canvas.queryByText('Traces')).not.toBeInTheDocument()
+  },
 }
 
 export const SearchAndSelect: Story = {
+  args: {
+    skills: storyProjectSkills.map((skill) => ({ ...skill, runtime: 'codex' })),
+  },
   render: (args) => <InteractiveSkillsTable {...args} />,
   play: async ({ args, canvas, userEvent }) => {
-    const search = canvas.getByPlaceholderText('搜索 skill id / runtime / status')
+    const search = canvas.getByPlaceholderText('搜索 skill id / status')
     await userEvent.clear(search)
     await userEvent.type(search, 'frontend-design')
     await expect(args.onQueryChange).toHaveBeenCalled()
@@ -103,6 +112,9 @@ export const SearchAndSelect: Story = {
 }
 
 export const Paginate: Story = {
+  args: {
+    skills: storyProjectSkills.map((skill) => ({ ...skill, runtime: 'codex' })),
+  },
   render: (args) => <InteractiveSkillsTable {...args} />,
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole('link', { name: '2' }))

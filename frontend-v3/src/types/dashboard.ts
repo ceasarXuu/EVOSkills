@@ -102,6 +102,7 @@ export interface DashboardSkill {
   runtime?: SkillDomainRuntime
   status?: string
   traceCount?: number
+  evaluationCount?: number
   current_revision?: number
   updatedAt?: string
   lastUsedAt?: string

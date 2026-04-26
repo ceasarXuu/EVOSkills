@@ -24,6 +24,7 @@ export interface DashboardSkillInfo {
   status: ShadowEntry['status'];
   updatedAt: string;
   traceCount: number;
+  evaluationCount?: number;
   analysisResult?: {
     confidence: number;
   };

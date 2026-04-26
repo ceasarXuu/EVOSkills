@@ -84,7 +84,7 @@ function DashboardWorkspacePage() {
     }
 
     return skills.filter((skill) => {
-      return [skill.skillId, skill.runtime, skill.status]
+      return [skill.skillId, skill.status]
         .filter((value) => typeof value === 'string')
         .some((value) => value!.toLowerCase().includes(normalizedQuery))
     })

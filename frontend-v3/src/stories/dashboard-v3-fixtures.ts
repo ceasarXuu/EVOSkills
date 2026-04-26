@@ -195,6 +195,7 @@ const storyProjectSkillSeeds = [
 export const storyProjectSkills: DashboardSkill[] = storyProjectSkillSeeds.map((seed, index) => ({
   current_revision: index % 4,
   effectiveVersion: index % 3 === 0 ? 2 : 1,
+  evaluationCount: index % 5,
   runtime: seed.runtime,
   skillId: seed.skillId,
   status: seed.status,

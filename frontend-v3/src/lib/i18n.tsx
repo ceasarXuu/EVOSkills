@@ -33,6 +33,8 @@ type TranslationKey = CostTranslationKey
   | 'effective'
   | 'effectiveVersion'
   | 'evolutionStrategy'
+  | 'evaluationCount'
+  | 'host'
   | 'invalidDate'
   | 'instances'
   | 'language'
@@ -136,6 +138,8 @@ const TRANSLATIONS: Record<DashboardLanguage, Record<TranslationKey, string>> = 
     effective: 'effective',
     effectiveVersion: '生效版本',
     evolutionStrategy: '演进策略',
+    evaluationCount: '评估次数',
+    host: '宿主',
     invalidDate: '暂无',
     instances: 'instances',
     language: '中文',
@@ -187,7 +191,7 @@ const TRANSLATIONS: Record<DashboardLanguage, Record<TranslationKey, string>> = 
     saving: '保存中',
     searchProjects: '搜索 project / path / status',
     searchSkillFamilies: '搜索 family / runtime / status',
-    searchSkills: '搜索 skill id / runtime / status',
+    searchSkills: '搜索 skill id / status',
     selectPreferredProject: '选择优先项目',
     skill: '技能',
     skillContent: '正文',
@@ -238,6 +242,8 @@ const TRANSLATIONS: Record<DashboardLanguage, Record<TranslationKey, string>> = 
     effective: 'effective',
     effectiveVersion: 'Effective version',
     evolutionStrategy: 'Evolution strategy',
+    evaluationCount: 'Evaluations',
+    host: 'Host',
     invalidDate: 'N/A',
     instances: 'instances',
     language: 'EN',
@@ -289,7 +295,7 @@ const TRANSLATIONS: Record<DashboardLanguage, Record<TranslationKey, string>> = 
     saving: 'Saving',
     searchProjects: 'Search project / path / status',
     searchSkillFamilies: 'Search family / runtime / status',
-    searchSkills: 'Search skill id / runtime / status',
+    searchSkills: 'Search skill id / status',
     selectPreferredProject: 'Select preferred project',
     skill: 'Skill',
     skillContent: 'Content',

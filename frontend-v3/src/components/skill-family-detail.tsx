@@ -150,9 +150,8 @@ export function SkillFamilyDetail({
           />
         </div>
 
-        <div className="grid gap-4 border-t border-border/60 pt-5 xl:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="grid items-center gap-4 border-t border-border/60 pt-5 xl:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0 space-y-1">
-            <div className="font-semibold">{t('skillContent')}</div>
             <div className="truncate text-sm text-muted-foreground">
               {selectedInstance?.projectPath ?? t('noSkillInstance')} · {selectedRuntime}
             </div>

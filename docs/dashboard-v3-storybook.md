@@ -19,7 +19,7 @@
 | `Dashboard V3/Skills/SkillFamilyList` | Pattern | `Default`, `SearchAndSelect`, `Loading`, `Empty` | 技能库左侧 rail，含搜索与选中 |
 | `Dashboard V3/Skills/SkillFamilyDetail` | Screen | `Default`, `FilteredBySelectors`, `VersionDiff`, `EmptySelection`, `Loading` | 技能视角主工作区 |
 | `Dashboard V3/Skills/SkillContentEditor` | Pattern | `Default`, `WithApplyPreview`, `DiffMode`, `Error` | 正文编辑、传播预览与版本 diff |
-| `Dashboard V3/Skills/SkillVersionHistory` | Pattern | `Default`, `Comparing`, `Empty` | 版本选择与 diff 入口 |
+| `Dashboard V3/Skills/SkillVersionHistory` | Pattern | `Default`, `SelectAndClearDiff`, `Comparing`, `Empty` | 版本选择与 diff 入口 |
 | `Dashboard V3/Project/ProjectRail` | Pattern | `Default`, `SearchAndSelect`, `Loading`, `Empty` | 项目 rail，内部自带搜索 |
 | `Dashboard V3/Project/SkillsTable` | Pattern | `Default`, `SearchAndSelect`, `Paginate`, `Loading`, `Empty` | 项目视角技能表格 |
 | `Dashboard V3/Config/ConfigProviderRow` | Primitive | `Default`, `ApiKeyVisible`, `Checking` | 单 provider 行 |

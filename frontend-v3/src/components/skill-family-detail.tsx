@@ -149,22 +149,27 @@ export function SkillFamilyDetail({
             selectedRuntime={selectedRuntime}
           />
 
-          <SkillVersionHistory
-            detail={detail}
-            diffVersion={diffVersion}
-            onSelectDiffVersion={onSelectDiffVersion}
-            onSelectVersion={onSelectVersion}
-            onToggleVersionDisabled={onToggleVersionDisabled}
-            selectedInstance={selectedInstance}
-            selectedVersion={selectedVersion}
-            versionMetadataByNumber={versionMetadataByNumber}
-          />
-          <Button className="h-10 rounded-xl" onClick={() => void onLoadApplyPreview()} size="sm" variant="outline">
-            {t('previewPropagation')}
-          </Button>
-          <Button className="h-10 rounded-xl" disabled={isSaving || isDiffMode} onClick={() => void onSave()} size="sm">
-            {isSaving ? t('saving') : t('saveSkillContent')}
-          </Button>
+          <div className="rounded-xl border border-border/70 bg-background/45 p-1">
+            <SkillVersionHistory
+              detail={detail}
+              diffVersion={diffVersion}
+              onSelectDiffVersion={onSelectDiffVersion}
+              onSelectVersion={onSelectVersion}
+              onToggleVersionDisabled={onToggleVersionDisabled}
+              selectedInstance={selectedInstance}
+              selectedVersion={selectedVersion}
+              versionMetadataByNumber={versionMetadataByNumber}
+            />
+          </div>
+
+          <div className="flex items-center gap-1 rounded-xl border border-border/70 bg-background/45 p-1">
+            <Button className="h-8 rounded-lg px-3" onClick={() => void onLoadApplyPreview()} size="sm" variant="ghost">
+              {t('previewPropagation')}
+            </Button>
+            <Button className="h-8 rounded-lg px-3" disabled={isSaving || isDiffMode} onClick={() => void onSave()} size="sm">
+              {isSaving ? t('saving') : t('saveSkillContent')}
+            </Button>
+          </div>
         </div>
       </CardHeader>
 
@@ -207,9 +212,12 @@ function DetailSelectors({
   const { t } = useI18n()
 
   return (
-    <div className="grid w-[560px] max-w-full shrink-0 grid-cols-[minmax(0,1fr)_200px] gap-2">
+    <div className="grid w-[520px] max-w-full shrink-0 grid-cols-[minmax(0,1fr)_168px] gap-1 rounded-xl border border-border/70 bg-background/45 p-1">
       <Select onValueChange={onPreferredProjectChange} value={preferredProjectPath || undefined}>
-        <SelectTrigger aria-label={t('selectPreferredProject')} className="w-full rounded-xl">
+        <SelectTrigger
+          aria-label={t('selectPreferredProject')}
+          className="h-8 w-full rounded-lg border-transparent bg-transparent px-3 shadow-none hover:bg-muted/60"
+        >
           <SelectValue placeholder={t('selectPreferredProject')} />
         </SelectTrigger>
         <SelectContent>
@@ -225,7 +233,10 @@ function DetailSelectors({
         onValueChange={(value) => onSwitchRuntime(value as SkillDomainRuntime)}
         value={selectedRuntime ?? preferredRuntime}
       >
-        <SelectTrigger aria-label={t('switchRuntime')} className="w-full rounded-xl">
+        <SelectTrigger
+          aria-label={t('switchRuntime')}
+          className="h-8 w-full rounded-lg border-transparent bg-transparent px-3 shadow-none hover:bg-muted/60"
+        >
           <SelectValue placeholder={t('switchRuntime')} />
         </SelectTrigger>
         <SelectContent>

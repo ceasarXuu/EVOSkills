@@ -61,7 +61,7 @@ describe('dashboard v3 skills layout contract', () => {
     expect(skillFamilyDetailSource).toContain('<SkillContentEditor')
     expect(skillFamilyDetailSource).toContain('<SkillVersionHistory')
     expect(skillFamilyDetailSource).toContain('flex min-w-0 flex-wrap items-center justify-end gap-2 border-t')
-    expect(skillFamilyDetailSource).toContain('grid w-[560px] max-w-full shrink-0')
+    expect(skillFamilyDetailSource).toContain('grid w-[520px] max-w-full shrink-0')
     expect(skillFamilyDetailSource).not.toContain('2xl:grid-cols-[minmax(0,1fr)_340px]')
 
     expect(skillContentEditorSource).not.toContain('<SkillVersionHistory')

@@ -45,7 +45,7 @@ export function SkillVersionHistory({
   const isCurrentDisabled = Boolean(currentMetadata?.isDisabled)
 
   return (
-    <div className="flex min-w-0 items-center gap-1 rounded-xl border border-border/70 bg-background/45 p-1">
+    <div className="flex min-w-0 items-center gap-1">
       {versions.length === 0 ? (
         <div className="px-3 text-sm text-muted-foreground">{t('noVersions')}</div>
       ) : (

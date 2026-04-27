@@ -45,9 +45,9 @@ export function SkillVersionHistory({
   const isCurrentDisabled = Boolean(currentMetadata?.isDisabled)
 
   return (
-    <div className="flex min-w-0 flex-wrap items-end justify-end gap-3">
+    <div className="flex min-w-0 items-center gap-1 rounded-xl border border-border/70 bg-background/45 p-1">
       {versions.length === 0 ? (
-        <div className="text-sm text-muted-foreground">{t('noVersions')}</div>
+        <div className="px-3 text-sm text-muted-foreground">{t('noVersions')}</div>
       ) : (
         <>
           <VersionSelect
@@ -68,13 +68,15 @@ export function SkillVersionHistory({
             value={diffVersion}
             versions={versions}
           />
-          <div className="flex h-8 items-center gap-2">
-            <Badge variant="outline">
+          <div className="mx-1 h-5 w-px bg-border/80" />
+          <div className="flex h-8 items-center gap-1">
+            <Badge className="h-8 rounded-lg border-border/70 px-3" variant="outline">
               {t('effective')} v{detail?.effectiveVersion ?? selectedInstance?.effectiveVersion ?? '--'}
             </Badge>
             {isCurrentDisabled ? <Badge variant="destructive">{t('disabled')}</Badge> : null}
             {currentVersion ? (
               <Button
+                className="h-8 rounded-lg px-3"
                 onClick={() => void onToggleVersionDisabled(currentVersion, !isCurrentDisabled)}
                 size="xs"
                 variant="outline"
@@ -110,13 +112,17 @@ function VersionSelect({
   const selectValue = value === null ? NO_DIFF_VALUE : String(value)
 
   return (
-    <label className="block w-36 space-y-1 text-xs">
-      <span className="text-muted-foreground">{label}</span>
+    <label className="block">
+      <span className="sr-only">{label}</span>
       <Select
         onValueChange={(nextValue) => onChange(nextValue === NO_DIFF_VALUE ? null : Number(nextValue))}
         value={selectValue}
       >
-        <SelectTrigger aria-label={ariaLabel} className="h-8 w-full rounded-xl">
+        <SelectTrigger
+          aria-label={ariaLabel}
+          className="h-8 w-[136px] rounded-lg border-transparent bg-transparent px-2 shadow-none hover:bg-muted/60"
+        >
+          <span className="text-xs text-muted-foreground">{label}</span>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

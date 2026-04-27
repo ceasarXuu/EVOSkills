@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState, type ComponentProps } from 'react'
-import { fn } from 'storybook/test'
+import { expect, fn, within } from 'storybook/test'
 import { SkillContentEditor } from '@/components/skill-content-editor'
 import { dashboardStoryParameters } from '@/stories/dashboard-storybook'
 import {
@@ -64,6 +64,22 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
   render: (args) => <InteractiveSkillContentEditor {...args} />,
+}
+
+export const HeaderToolbar: Story = {
+  render: (args) => <InteractiveSkillContentEditor {...args} />,
+  play: async ({ args, canvas, canvasElement, userEvent }) => {
+    const documentScope = within(canvasElement.ownerDocument.body)
+
+    await expect(canvas.getByRole('combobox', { name: '选择查看版本' })).toBeInTheDocument()
+    await expect(canvas.getByRole('combobox', { name: '选择对比版本' })).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: '预览传播' })).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: '保存正文' })).toBeInTheDocument()
+
+    await userEvent.click(canvas.getByRole('combobox', { name: '选择查看版本' }))
+    await userEvent.click(documentScope.getByRole('option', { name: 'v5' }))
+    await expect(args.onSelectVersion).toHaveBeenCalledWith(5)
+  },
 }
 
 export const WithApplyPreview: Story = {

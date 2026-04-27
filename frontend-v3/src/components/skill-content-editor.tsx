@@ -77,7 +77,7 @@ export function SkillContentEditor({
               </div>
             ) : null}
           </div>
-          <div className="flex min-w-0 flex-wrap items-end justify-end gap-3">
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
             <SkillVersionHistory
               detail={detail}
               diffVersion={diffVersion}
@@ -88,10 +88,10 @@ export function SkillContentEditor({
               selectedVersion={selectedVersion}
               versionMetadataByNumber={versionMetadataByNumber}
             />
-            <Button onClick={() => void onLoadApplyPreview()} size="sm" variant="outline">
+            <Button className="h-10 rounded-xl" onClick={() => void onLoadApplyPreview()} size="sm" variant="outline">
               {t('previewPropagation')}
             </Button>
-            <Button disabled={isSaving || isDiffMode} onClick={() => void onSave()} size="sm">
+            <Button className="h-10 rounded-xl" disabled={isSaving || isDiffMode} onClick={() => void onSave()} size="sm">
               {isSaving ? t('saving') : t('saveSkillContent')}
             </Button>
           </div>

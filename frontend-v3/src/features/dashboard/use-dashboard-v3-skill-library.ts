@@ -452,6 +452,7 @@ export function useDashboardV3SkillLibrary(preferredProjectPath: string) {
       setActionMessage(
         `已更新 ${result.updatedTargets ?? 0} 个，跳过 ${result.skippedTargets ?? 0} 个`,
       )
+      setApplyPreview(null)
       reload()
     } catch (error) {
       setActionMessage(getErrorMessage(error, '应用到同族实例失败。'))
@@ -463,6 +464,7 @@ export function useDashboardV3SkillLibrary(preferredProjectPath: string) {
     actionMessage,
     applyToFamily,
     applyPreview,
+    closeApplyPreview: () => setApplyPreview(null),
     detail,
     detailError,
     diffContent: versionCompare.compareContent,

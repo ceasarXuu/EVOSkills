@@ -40,6 +40,7 @@ interface SkillFamilyDetailProps {
   isLoading: boolean
   isSaving: boolean
   onApplyToFamily: () => void
+  onCloseApplyPreview: () => void
   onDraftChange: (value: string) => void
   onLoadApplyPreview: () => void
   onSelectDiffVersion: (version: number | null) => void
@@ -69,6 +70,7 @@ export function SkillFamilyDetail({
   isLoading,
   isSaving,
   onApplyToFamily,
+  onCloseApplyPreview,
   onDraftChange,
   onLoadApplyPreview,
   onSelectDiffVersion,
@@ -163,6 +165,7 @@ export function SkillFamilyDetail({
         isApplying={isApplying}
         isSaving={isSaving}
         onApplyToFamily={onApplyToFamily}
+        onCloseApplyPreview={onCloseApplyPreview}
         onDraftChange={onDraftChange}
         onLoadApplyPreview={onLoadApplyPreview}
         onSelectDiffVersion={onSelectDiffVersion}

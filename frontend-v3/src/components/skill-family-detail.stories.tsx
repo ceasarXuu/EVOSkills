@@ -4,7 +4,6 @@ import { expect, fn, within } from 'storybook/test'
 import { SkillFamilyDetail } from '@/components/skill-family-detail'
 import { dashboardStoryParameters } from '@/stories/dashboard-storybook'
 import {
-  storyApplyPreview,
   storyProjects,
   storySkillDetail,
   storySkillFamilies,
@@ -75,7 +74,7 @@ const meta = {
   }),
   args: {
     actionMessage: null,
-    applyPreview: storyApplyPreview,
+    applyPreview: null,
     detail: storySkillDetail,
     detailError: null,
     diffContent: null,

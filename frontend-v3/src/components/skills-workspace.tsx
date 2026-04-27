@@ -43,6 +43,7 @@ export function SkillsWorkspace({
           isLoading={skillLibrary.isLoadingFamilyDetail || skillLibrary.isLoadingSkillDetail}
           isSaving={skillLibrary.isSaving}
           onApplyToFamily={skillLibrary.applyToFamily}
+          onCloseApplyPreview={skillLibrary.closeApplyPreview}
           onDraftChange={skillLibrary.setDraftContent}
           onLoadApplyPreview={skillLibrary.loadApplyPreview}
           onPreferredProjectChange={onSelectProject}

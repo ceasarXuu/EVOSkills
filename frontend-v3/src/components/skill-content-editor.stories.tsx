@@ -13,12 +13,18 @@ import {
 type SkillContentEditorStoryArgs = ComponentProps<typeof SkillContentEditor>
 
 function InteractiveSkillContentEditor(args: SkillContentEditorStoryArgs) {
+  const [applyPreview, setApplyPreview] = useState(args.applyPreview)
   const [draftContent, setDraftContent] = useState(args.draftContent)
 
   return (
     <SkillContentEditor
       {...args}
+      applyPreview={applyPreview}
       draftContent={draftContent}
+      onCloseApplyPreview={() => {
+        setApplyPreview(null)
+        args.onCloseApplyPreview()
+      }}
       onDraftChange={(value) => {
         setDraftContent(value)
         args.onDraftChange(value)
@@ -45,6 +51,7 @@ const meta = {
     isApplying: false,
     isSaving: false,
     onApplyToFamily: fn(),
+    onCloseApplyPreview: fn(),
     onDraftChange: fn(),
     onLoadApplyPreview: fn(),
     onSelectDiffVersion: fn(),
@@ -82,12 +89,31 @@ export const HeaderToolbar: Story = {
   },
 }
 
-export const WithApplyPreview: Story = {
+export const WithActionMessage: Story = {
   args: {
     actionMessage: '已自动保存草稿。',
+  },
+  render: (args) => <InteractiveSkillContentEditor {...args} />,
+}
+
+export const ApplyPreviewDialog: Story = {
+  args: {
     applyPreview: storyApplyPreview,
   },
   render: (args) => <InteractiveSkillContentEditor {...args} />,
+  play: async ({ args, canvasElement, userEvent }) => {
+    const documentScope = within(canvasElement.ownerDocument.body)
+
+    await expect(documentScope.getByRole('dialog')).toBeInTheDocument()
+    await expect(documentScope.getByText('将影响 2 个同族实例')).toBeInTheDocument()
+    await expect(documentScope.getByText('/Users/xuzhang/OrnnSkills')).toBeInTheDocument()
+
+    await userEvent.click(documentScope.getByRole('button', { name: '应用到同族实例' }))
+    await expect(args.onApplyToFamily).toHaveBeenCalled()
+
+    await userEvent.click(documentScope.getByRole('button', { name: '取消' }))
+    await expect(args.onCloseApplyPreview).toHaveBeenCalled()
+  },
 }
 
 export const DiffMode: Story = {

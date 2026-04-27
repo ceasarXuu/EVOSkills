@@ -124,7 +124,7 @@ export function SkillFamilyDetail({
   return (
     <Card className="border-border/70 bg-card/92">
       <CardHeader className="gap-5 border-b border-border/70">
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_560px]">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0 space-y-3">
             <div className="flex items-center gap-2">
               <HugeiconsIcon icon={Layers01Icon} size={18} strokeWidth={1.8} />
@@ -137,29 +137,6 @@ export function SkillFamilyDetail({
               <Badge variant={getSkillStatusBadgeVariant(family.status)}>{family.status ?? 'partial'}</Badge>
               <Badge variant="outline">{t('lastCalled')} {formatRelativeTime(family.usage.lastUsedAt ?? family.lastUsedAt, locale, t('invalidDate'))}</Badge>
             </div>
-          </div>
-
-          <DetailSelectors
-            onPreferredProjectChange={onPreferredProjectChange}
-            onSwitchRuntime={onSwitchRuntime}
-            preferredProjectPath={preferredProjectPath}
-            preferredRuntime={preferredRuntime}
-            projects={projects}
-            runtimeOptions={runtimeOptions}
-            selectedRuntime={selectedRuntime}
-          />
-        </div>
-
-        <div className="grid items-center gap-4 border-t border-border/60 pt-5 xl:grid-cols-[minmax(0,1fr)_auto]">
-          <div className="min-w-0 space-y-1">
-            <div className="truncate text-sm text-muted-foreground">
-              {selectedInstance?.projectPath ?? t('noSkillInstance')} · {selectedRuntime}
-            </div>
-            {isDiffMode ? (
-              <div className="text-xs text-muted-foreground">
-                {t('diffView')} v{diffVersion} {'->'} v{selectedVersion ?? '--'}
-              </div>
-            ) : null}
           </div>
 
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
@@ -180,6 +157,29 @@ export function SkillFamilyDetail({
               {isSaving ? t('saving') : t('saveSkillContent')}
             </Button>
           </div>
+        </div>
+
+        <div className="grid items-center gap-4 border-t border-border/60 pt-5 xl:grid-cols-[minmax(0,1fr)_560px]">
+          <div className="min-w-0 space-y-1">
+            <div className="truncate text-sm text-muted-foreground">
+              {selectedInstance?.projectPath ?? t('noSkillInstance')} · {selectedRuntime}
+            </div>
+            {isDiffMode ? (
+              <div className="text-xs text-muted-foreground">
+                {t('diffView')} v{diffVersion} {'->'} v{selectedVersion ?? '--'}
+              </div>
+            ) : null}
+          </div>
+
+          <DetailSelectors
+            onPreferredProjectChange={onPreferredProjectChange}
+            onSwitchRuntime={onSwitchRuntime}
+            preferredProjectPath={preferredProjectPath}
+            preferredRuntime={preferredRuntime}
+            projects={projects}
+            runtimeOptions={runtimeOptions}
+            selectedRuntime={selectedRuntime}
+          />
         </div>
       </CardHeader>
 

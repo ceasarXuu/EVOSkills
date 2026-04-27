@@ -112,7 +112,7 @@ export const Default: Story = {
   render: (args) => <InteractiveSkillFamilyDetail {...args} />,
   play: async ({ canvas }) => {
     await expect(canvas.getByText('astartes-coding-custodes')).toBeInTheDocument()
-    await expect(canvas.getByText('/Users/xuzhang/OrnnSkills · claude')).toBeInTheDocument()
+    await expect(canvas.queryByText('/Users/xuzhang/OrnnSkills · claude')).not.toBeInTheDocument()
     await expect(canvas.getByRole('combobox', { name: '选择优先项目' })).toBeInTheDocument()
     await expect(canvas.getByRole('combobox', { name: '切换 runtime' })).toBeInTheDocument()
     await expect(canvas.getByRole('combobox', { name: '选择查看版本' })).toBeInTheDocument()
@@ -135,7 +135,8 @@ export const FilteredBySelectors: Story = {
     await userEvent.click(documentScope.getByRole('option', { name: 'codex' }))
     await expect(args.onSwitchRuntime).toHaveBeenCalledWith('codex')
 
-    await expect(canvas.getByText('/Users/xuzhang/mili · codex')).toBeInTheDocument()
+    await expect(canvas.getByRole('combobox', { name: '选择优先项目' })).toHaveTextContent('mili')
+    await expect(canvas.getByRole('combobox', { name: '切换 runtime' })).toHaveTextContent('codex')
   },
 }
 

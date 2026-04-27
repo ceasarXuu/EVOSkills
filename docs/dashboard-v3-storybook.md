@@ -17,8 +17,8 @@
 |---|---|---|---|
 | `Dashboard V3/Shell/WorkspaceHeader` | Pattern | `Skills`, `Project`, `Config` | 顶部导航壳层 |
 | `Dashboard V3/Skills/SkillFamilyList` | Pattern | `Default`, `SearchAndSelect`, `Loading`, `Empty` | 技能库左侧 rail，含搜索与选中 |
-| `Dashboard V3/Skills/SkillFamilyDetail` | Screen | `Default`, `FilteredBySelectors`, `VersionDiff`, `EmptySelection`, `Loading` | 技能视角主工作区 |
-| `Dashboard V3/Skills/SkillContentEditor` | Pattern | `Default`, `HeaderToolbar`, `ApplyPreviewDialog`, `WithActionMessage`, `DiffMode`, `Error` | 正文编辑、统一 header toolbar、传播确认弹窗与版本 diff |
+| `Dashboard V3/Skills/SkillFamilyDetail` | Screen | `Default`, `FilteredBySelectors`, `VersionDiff`, `EmptySelection`, `Loading` | 技能视角主工作区，融合 family 信息、实例筛选、版本 diff 与正文动作 |
+| `Dashboard V3/Skills/SkillContentEditor` | Pattern | `Default`, `ApplyPreviewDialog`, `WithActionMessage`, `DiffMode`, `Error` | 正文编辑区、传播确认弹窗与版本 diff 内容渲染 |
 | `Dashboard V3/Skills/SkillVersionHistory` | Pattern | `Default`, `SelectAndClearDiff`, `Comparing`, `Empty` | 正文 header 内嵌版本选择与 diff 入口 |
 | `Dashboard V3/Project/ProjectRail` | Pattern | `Default`, `SearchAndSelect`, `Loading`, `Empty` | 项目 rail，内部自带搜索 |
 | `Dashboard V3/Project/SkillsTable` | Pattern | `Default`, `SearchAndSelect`, `Paginate`, `Loading`, `Empty` | 项目视角技能表格 |

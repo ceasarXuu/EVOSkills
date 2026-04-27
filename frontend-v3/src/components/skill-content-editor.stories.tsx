@@ -6,8 +6,6 @@ import { dashboardStoryParameters } from '@/stories/dashboard-storybook'
 import {
   storyApplyPreview,
   storySkillDetail,
-  storySkillInstances,
-  storySkillVersions,
 } from '@/stories/dashboard-v3-fixtures'
 
 type SkillContentEditorStoryArgs = ComponentProps<typeof SkillContentEditor>
@@ -43,25 +41,15 @@ const meta = {
   args: {
     actionMessage: null,
     applyPreview: null,
-    detail: storySkillDetail,
     detailError: null,
     diffContent: null,
     diffVersion: null,
     draftContent: storySkillDetail.content,
     isApplying: false,
-    isSaving: false,
     onApplyToFamily: fn(),
     onCloseApplyPreview: fn(),
     onDraftChange: fn(),
-    onLoadApplyPreview: fn(),
-    onSelectDiffVersion: fn(),
-    onSelectVersion: fn(),
-    onSave: fn(),
-    onToggleVersionDisabled: fn(),
-    preferredRuntime: 'claude',
-    selectedInstance: storySkillInstances[0],
     selectedVersion: 6,
-    versionMetadataByNumber: storySkillVersions,
   },
 } satisfies Meta<typeof SkillContentEditor>
 
@@ -71,21 +59,12 @@ type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
   render: (args) => <InteractiveSkillContentEditor {...args} />,
-}
+  play: async ({ args, canvas, userEvent }) => {
+    const editor = canvas.getByRole('textbox', { name: /正文/ })
 
-export const HeaderToolbar: Story = {
-  render: (args) => <InteractiveSkillContentEditor {...args} />,
-  play: async ({ args, canvas, canvasElement, userEvent }) => {
-    const documentScope = within(canvasElement.ownerDocument.body)
-
-    await expect(canvas.getByRole('combobox', { name: '选择查看版本' })).toBeInTheDocument()
-    await expect(canvas.getByRole('combobox', { name: '选择对比版本' })).toBeInTheDocument()
-    await expect(canvas.getByRole('button', { name: '预览传播' })).toBeInTheDocument()
-    await expect(canvas.getByRole('button', { name: '保存正文' })).toBeInTheDocument()
-
-    await userEvent.click(canvas.getByRole('combobox', { name: '选择查看版本' }))
-    await userEvent.click(documentScope.getByRole('option', { name: 'v5' }))
-    await expect(args.onSelectVersion).toHaveBeenCalledWith(5)
+    await userEvent.clear(editor)
+    await userEvent.type(editor, '# Updated skill body')
+    await expect(args.onDraftChange).toHaveBeenCalled()
   },
 }
 

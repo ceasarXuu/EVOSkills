@@ -1,7 +1,9 @@
 import { Layers01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { SkillContentEditor } from '@/components/skill-content-editor'
+import { SkillVersionHistory } from '@/components/skill-version-history'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Select,
@@ -116,68 +118,88 @@ export function SkillFamilyDetail({
   }
 
   const runtimeOptions = family.runtimes.length > 0 ? family.runtimes : [preferredRuntime]
+  const selectedRuntime = selectedInstance?.runtime ?? preferredRuntime
+  const isDiffMode = diffVersion !== null && diffContent !== null
 
   return (
-    <div className="space-y-6">
-      <Card className="border-border/70 bg-card/92">
-        <CardHeader className="gap-4 border-b border-border/70">
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <HugeiconsIcon icon={Layers01Icon} size={18} strokeWidth={1.8} />
-                <CardTitle className="text-2xl">{family.familyName}</CardTitle>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline">{formatCompactNumberForLocale(family.instanceCount, locale)} {t('instances')}</Badge>
-                <Badge variant="outline">{formatCompactNumberForLocale(family.projectCount, locale)} {t('projects')}</Badge>
-                <Badge variant="outline">{formatCompactNumberForLocale(family.revisionCount, locale)} {t('revisions')}</Badge>
-                <Badge variant={getSkillStatusBadgeVariant(family.status)}>{family.status ?? 'partial'}</Badge>
-              </div>
+    <Card className="border-border/70 bg-card/92">
+      <CardHeader className="gap-5 border-b border-border/70">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_560px]">
+          <div className="min-w-0 space-y-3">
+            <div className="flex items-center gap-2">
+              <HugeiconsIcon icon={Layers01Icon} size={18} strokeWidth={1.8} />
+              <CardTitle className="truncate text-2xl">{family.familyName}</CardTitle>
             </div>
-
-            <div className="flex w-[560px] shrink-0 flex-col gap-3">
-              <DetailSelectors
-                onPreferredProjectChange={onPreferredProjectChange}
-                onSwitchRuntime={onSwitchRuntime}
-                preferredProjectPath={preferredProjectPath}
-                preferredRuntime={preferredRuntime}
-                projects={projects}
-                runtimeOptions={runtimeOptions}
-                selectedRuntime={selectedInstance?.runtime ?? preferredRuntime}
-              />
-              <div className="text-sm text-muted-foreground">
-                {t('lastCalled')} {formatRelativeTime(family.usage.lastUsedAt ?? family.lastUsedAt, locale, t('invalidDate'))}
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline">{formatCompactNumberForLocale(family.instanceCount, locale)} {t('instances')}</Badge>
+              <Badge variant="outline">{formatCompactNumberForLocale(family.projectCount, locale)} {t('projects')}</Badge>
+              <Badge variant="outline">{formatCompactNumberForLocale(family.revisionCount, locale)} {t('revisions')}</Badge>
+              <Badge variant={getSkillStatusBadgeVariant(family.status)}>{family.status ?? 'partial'}</Badge>
+              <Badge variant="outline">{t('lastCalled')} {formatRelativeTime(family.usage.lastUsedAt ?? family.lastUsedAt, locale, t('invalidDate'))}</Badge>
             </div>
           </div>
-        </CardHeader>
 
-      </Card>
+          <DetailSelectors
+            onPreferredProjectChange={onPreferredProjectChange}
+            onSwitchRuntime={onSwitchRuntime}
+            preferredProjectPath={preferredProjectPath}
+            preferredRuntime={preferredRuntime}
+            projects={projects}
+            runtimeOptions={runtimeOptions}
+            selectedRuntime={selectedRuntime}
+          />
+        </div>
 
-      <SkillContentEditor
-        actionMessage={actionMessage}
-        applyPreview={applyPreview}
-        detail={detail}
-        detailError={detailError}
-        diffContent={diffContent}
-        diffVersion={diffVersion}
-        draftContent={draftContent}
-        isApplying={isApplying}
-        isSaving={isSaving}
-        onApplyToFamily={onApplyToFamily}
-        onCloseApplyPreview={onCloseApplyPreview}
-        onDraftChange={onDraftChange}
-        onLoadApplyPreview={onLoadApplyPreview}
-        onSelectDiffVersion={onSelectDiffVersion}
-        onSelectVersion={onSelectVersion}
-        onSave={onSave}
-        onToggleVersionDisabled={onToggleVersionDisabled}
-        preferredRuntime={preferredRuntime}
-        selectedInstance={selectedInstance}
-        selectedVersion={selectedVersion}
-        versionMetadataByNumber={versionMetadataByNumber}
-      />
-    </div>
+        <div className="grid gap-4 border-t border-border/60 pt-5 xl:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="min-w-0 space-y-1">
+            <div className="font-semibold">{t('skillContent')}</div>
+            <div className="truncate text-sm text-muted-foreground">
+              {selectedInstance?.projectPath ?? t('noSkillInstance')} · {selectedRuntime}
+            </div>
+            {isDiffMode ? (
+              <div className="text-xs text-muted-foreground">
+                {t('diffView')} v{diffVersion} {'->'} v{selectedVersion ?? '--'}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+            <SkillVersionHistory
+              detail={detail}
+              diffVersion={diffVersion}
+              onSelectDiffVersion={onSelectDiffVersion}
+              onSelectVersion={onSelectVersion}
+              onToggleVersionDisabled={onToggleVersionDisabled}
+              selectedInstance={selectedInstance}
+              selectedVersion={selectedVersion}
+              versionMetadataByNumber={versionMetadataByNumber}
+            />
+            <Button className="h-10 rounded-xl" onClick={() => void onLoadApplyPreview()} size="sm" variant="outline">
+              {t('previewPropagation')}
+            </Button>
+            <Button className="h-10 rounded-xl" disabled={isSaving || isDiffMode} onClick={() => void onSave()} size="sm">
+              {isSaving ? t('saving') : t('saveSkillContent')}
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="pt-6">
+        <SkillContentEditor
+          actionMessage={actionMessage}
+          applyPreview={applyPreview}
+          detailError={detailError}
+          diffContent={diffContent}
+          diffVersion={diffVersion}
+          draftContent={draftContent}
+          isApplying={isApplying}
+          onApplyToFamily={onApplyToFamily}
+          onCloseApplyPreview={onCloseApplyPreview}
+          onDraftChange={onDraftChange}
+          selectedVersion={selectedVersion}
+        />
+      </CardContent>
+    </Card>
   )
 }
 
@@ -201,7 +223,7 @@ function DetailSelectors({
   const { t } = useI18n()
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_200px] gap-3">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_200px] gap-3">
       <Select onValueChange={onPreferredProjectChange} value={preferredProjectPath || undefined}>
         <SelectTrigger aria-label={t('selectPreferredProject')} className="w-full rounded-xl">
           <SelectValue placeholder={t('selectPreferredProject')} />

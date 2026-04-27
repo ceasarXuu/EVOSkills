@@ -1,9 +1,7 @@
 import { LinkCircle02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { SkillVersionDiffViewer } from '@/components/skill-version-diff-viewer'
-import { SkillVersionHistory } from '@/components/skill-version-history'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -16,10 +14,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { useI18n } from '@/lib/i18n'
 import type {
   DashboardSkillApplyPreview,
-  DashboardSkillDetail,
-  DashboardSkillInstance,
-  DashboardSkillVersionMetadata,
-  SkillDomainRuntime,
 } from '@/types/dashboard'
 
 interface SkillContentEditorProps {
@@ -29,21 +23,11 @@ interface SkillContentEditorProps {
   diffContent: string | null
   diffVersion: number | null
   draftContent: string
-  detail: DashboardSkillDetail | null
   isApplying: boolean
-  isSaving: boolean
   onApplyToFamily: () => void
   onCloseApplyPreview: () => void
   onDraftChange: (value: string) => void
-  onLoadApplyPreview: () => void
-  onSelectDiffVersion: (version: number | null) => void
-  onSelectVersion: (version: number) => void
-  onSave: () => void
-  preferredRuntime: SkillDomainRuntime
-  selectedInstance: DashboardSkillInstance | null
   selectedVersion: number | null
-  onToggleVersionDisabled: (version: number, disabled: boolean) => void
-  versionMetadataByNumber: Record<number, DashboardSkillVersionMetadata>
 }
 
 export function SkillContentEditor({
@@ -53,91 +37,49 @@ export function SkillContentEditor({
   diffContent,
   diffVersion,
   draftContent,
-  detail,
   isApplying,
-  isSaving,
   onApplyToFamily,
   onCloseApplyPreview,
   onDraftChange,
-  onLoadApplyPreview,
-  onSelectDiffVersion,
-  onSelectVersion,
-  onSave,
-  onToggleVersionDisabled,
-  preferredRuntime,
-  selectedInstance,
   selectedVersion,
-  versionMetadataByNumber,
 }: SkillContentEditorProps) {
   const { locale, t } = useI18n()
   const isDiffMode = diffVersion !== null && diffContent !== null
+  const editorBody = (
+    <div className="space-y-4">
+      {detailError ? (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {detailError}
+        </div>
+      ) : null}
+
+      {isDiffMode ? (
+        <SkillVersionDiffViewer
+          newContent={draftContent}
+          newVersion={selectedVersion}
+          oldContent={diffContent}
+          oldVersion={diffVersion}
+        />
+      ) : (
+        <Textarea
+          aria-label={t('skillContentAria')}
+          className="min-h-[420px] rounded-xl border-border/80 bg-background/60 font-mono text-sm"
+          onChange={(event) => onDraftChange(event.target.value)}
+          value={draftContent}
+        />
+      )}
+
+      {actionMessage ? (
+        <div className="text-sm text-muted-foreground">
+          {translateActionMessage(actionMessage, locale, t)}
+        </div>
+      ) : null}
+    </div>
+  )
 
   return (
     <>
-      <Card className="border-border/70 bg-card/92">
-        <CardHeader className="gap-4 border-b border-border/70">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto]">
-            <div className="min-w-0 space-y-1">
-              <CardTitle>{t('skillContent')}</CardTitle>
-              <div className="truncate text-sm text-muted-foreground">
-                {selectedInstance?.projectPath ?? t('noSkillInstance')} · {selectedInstance?.runtime ?? preferredRuntime}
-              </div>
-              {isDiffMode ? (
-                <div className="text-xs text-muted-foreground">
-                  {t('diffView')} v{diffVersion} {'->'} v{selectedVersion ?? '--'}
-                </div>
-              ) : null}
-            </div>
-            <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-              <SkillVersionHistory
-                detail={detail}
-                diffVersion={diffVersion}
-                onSelectDiffVersion={onSelectDiffVersion}
-                onSelectVersion={onSelectVersion}
-                onToggleVersionDisabled={onToggleVersionDisabled}
-                selectedInstance={selectedInstance}
-                selectedVersion={selectedVersion}
-                versionMetadataByNumber={versionMetadataByNumber}
-              />
-              <Button className="h-10 rounded-xl" onClick={() => void onLoadApplyPreview()} size="sm" variant="outline">
-                {t('previewPropagation')}
-              </Button>
-              <Button className="h-10 rounded-xl" disabled={isSaving || isDiffMode} onClick={() => void onSave()} size="sm">
-                {isSaving ? t('saving') : t('saveSkillContent')}
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4 pt-6">
-          {detailError ? (
-            <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {detailError}
-            </div>
-          ) : null}
-
-          {isDiffMode ? (
-            <SkillVersionDiffViewer
-              newContent={draftContent}
-              newVersion={selectedVersion}
-              oldContent={diffContent}
-              oldVersion={diffVersion}
-            />
-          ) : (
-            <Textarea
-              aria-label={t('skillContentAria')}
-              className="min-h-[420px] rounded-xl border-border/80 bg-background/60 font-mono text-sm"
-              onChange={(event) => onDraftChange(event.target.value)}
-              value={draftContent}
-            />
-          )}
-
-          {actionMessage ? (
-            <div className="text-sm text-muted-foreground">
-              {translateActionMessage(actionMessage, locale, t)}
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
+      {editorBody}
 
       <Dialog onOpenChange={(open) => { if (!open) onCloseApplyPreview() }} open={Boolean(applyPreview)}>
         <DialogContent className="sm:max-w-2xl">

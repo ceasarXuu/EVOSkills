@@ -86,6 +86,7 @@ const meta = {
     isLoading: false,
     isSaving: false,
     onApplyToFamily: fn(),
+    onCloseApplyPreview: fn(),
     onDraftChange: fn(),
     onLoadApplyPreview: fn(),
     onPreferredProjectChange: fn(),
@@ -109,6 +110,16 @@ type Story = StoryObj<SkillFamilyDetailStoryArgs>
 
 export const Default: Story = {
   render: (args) => <InteractiveSkillFamilyDetail {...args} />,
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText('astartes-coding-custodes')).toBeInTheDocument()
+    await expect(canvas.getByText('正文')).toBeInTheDocument()
+    await expect(canvas.getByRole('combobox', { name: '选择优先项目' })).toBeInTheDocument()
+    await expect(canvas.getByRole('combobox', { name: '切换 runtime' })).toBeInTheDocument()
+    await expect(canvas.getByRole('combobox', { name: '选择查看版本' })).toBeInTheDocument()
+    await expect(canvas.getByRole('combobox', { name: '选择对比版本' })).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: '预览传播' })).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: '保存正文' })).toBeInTheDocument()
+  },
 }
 
 export const FilteredBySelectors: Story = {

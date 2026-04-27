@@ -212,7 +212,7 @@ function DetailSelectors({
   const { t } = useI18n()
 
   return (
-    <div className="grid w-[520px] max-w-full shrink-0 grid-cols-[minmax(0,1fr)_168px] gap-1 rounded-xl border border-border/70 bg-background/45 p-1">
+    <div className="grid w-[344px] max-w-full shrink-0 grid-cols-2 gap-1 rounded-xl border border-border/70 bg-background/45 p-1">
       <Select onValueChange={onPreferredProjectChange} value={preferredProjectPath || undefined}>
         <SelectTrigger
           aria-label={t('selectPreferredProject')}

@@ -1,7 +1,6 @@
 import { Layers01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { SkillContentEditor } from '@/components/skill-content-editor'
-import { SkillVersionHistory } from '@/components/skill-version-history'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -153,36 +152,28 @@ export function SkillFamilyDetail({
 
       </Card>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_340px] gap-6">
-        <SkillContentEditor
-          actionMessage={actionMessage}
-          applyPreview={applyPreview}
-          detailError={detailError}
-          diffContent={diffContent}
-          diffVersion={diffVersion}
-          draftContent={draftContent}
-          isApplying={isApplying}
-          isSaving={isSaving}
-          onApplyToFamily={onApplyToFamily}
-          onDraftChange={onDraftChange}
-          onLoadApplyPreview={onLoadApplyPreview}
-          onSave={onSave}
-          preferredRuntime={preferredRuntime}
-          selectedInstance={selectedInstance}
-          selectedVersion={selectedVersion}
-        />
-
-        <SkillVersionHistory
-          detail={detail}
-          diffVersion={diffVersion}
-          onSelectDiffVersion={onSelectDiffVersion}
-          onSelectVersion={onSelectVersion}
-          onToggleVersionDisabled={onToggleVersionDisabled}
-          selectedInstance={selectedInstance}
-          selectedVersion={selectedVersion}
-          versionMetadataByNumber={versionMetadataByNumber}
-        />
-      </div>
+      <SkillContentEditor
+        actionMessage={actionMessage}
+        applyPreview={applyPreview}
+        detail={detail}
+        detailError={detailError}
+        diffContent={diffContent}
+        diffVersion={diffVersion}
+        draftContent={draftContent}
+        isApplying={isApplying}
+        isSaving={isSaving}
+        onApplyToFamily={onApplyToFamily}
+        onDraftChange={onDraftChange}
+        onLoadApplyPreview={onLoadApplyPreview}
+        onSelectDiffVersion={onSelectDiffVersion}
+        onSelectVersion={onSelectVersion}
+        onSave={onSave}
+        onToggleVersionDisabled={onToggleVersionDisabled}
+        preferredRuntime={preferredRuntime}
+        selectedInstance={selectedInstance}
+        selectedVersion={selectedVersion}
+        versionMetadataByNumber={versionMetadataByNumber}
+      />
     </div>
   )
 }
@@ -250,10 +241,7 @@ function SkillFamilyDetailSkeleton() {
           <Skeleton className="h-24 w-full" />
         </CardContent>
       </Card>
-      <div className="grid grid-cols-[minmax(0,1fr)_340px] gap-6">
-        <Skeleton className="h-[560px] w-full" />
-        <Skeleton className="h-[560px] w-full" />
-      </div>
+      <Skeleton className="h-[560px] w-full" />
     </div>
   )
 }

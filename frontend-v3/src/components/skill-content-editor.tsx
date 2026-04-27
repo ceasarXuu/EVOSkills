@@ -1,13 +1,16 @@
 import { LinkCircle02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { SkillVersionDiffViewer } from '@/components/skill-version-diff-viewer'
+import { SkillVersionHistory } from '@/components/skill-version-history'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { useI18n } from '@/lib/i18n'
 import type {
   DashboardSkillApplyPreview,
+  DashboardSkillDetail,
   DashboardSkillInstance,
+  DashboardSkillVersionMetadata,
   SkillDomainRuntime,
 } from '@/types/dashboard'
 
@@ -18,15 +21,20 @@ interface SkillContentEditorProps {
   diffContent: string | null
   diffVersion: number | null
   draftContent: string
+  detail: DashboardSkillDetail | null
   isApplying: boolean
   isSaving: boolean
   onApplyToFamily: () => void
   onDraftChange: (value: string) => void
   onLoadApplyPreview: () => void
+  onSelectDiffVersion: (version: number | null) => void
+  onSelectVersion: (version: number) => void
   onSave: () => void
   preferredRuntime: SkillDomainRuntime
   selectedInstance: DashboardSkillInstance | null
   selectedVersion: number | null
+  onToggleVersionDisabled: (version: number, disabled: boolean) => void
+  versionMetadataByNumber: Record<number, DashboardSkillVersionMetadata>
 }
 
 export function SkillContentEditor({
@@ -36,15 +44,20 @@ export function SkillContentEditor({
   diffContent,
   diffVersion,
   draftContent,
+  detail,
   isApplying,
   isSaving,
   onApplyToFamily,
   onDraftChange,
   onLoadApplyPreview,
+  onSelectDiffVersion,
+  onSelectVersion,
   onSave,
+  onToggleVersionDisabled,
   preferredRuntime,
   selectedInstance,
   selectedVersion,
+  versionMetadataByNumber,
 }: SkillContentEditorProps) {
   const { locale, t } = useI18n()
   const isDiffMode = diffVersion !== null && diffContent !== null
@@ -52,7 +65,7 @@ export function SkillContentEditor({
   return (
     <Card className="border-border/70 bg-card/92">
       <CardHeader className="gap-4 border-b border-border/70">
-        <div className="flex items-center justify-between gap-3">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0 space-y-1">
             <CardTitle>{t('skillContent')}</CardTitle>
             <div className="truncate text-sm text-muted-foreground">
@@ -64,7 +77,17 @@ export function SkillContentEditor({
               </div>
             ) : null}
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex min-w-0 flex-wrap items-end justify-end gap-3">
+            <SkillVersionHistory
+              detail={detail}
+              diffVersion={diffVersion}
+              onSelectDiffVersion={onSelectDiffVersion}
+              onSelectVersion={onSelectVersion}
+              onToggleVersionDisabled={onToggleVersionDisabled}
+              selectedInstance={selectedInstance}
+              selectedVersion={selectedVersion}
+              versionMetadataByNumber={versionMetadataByNumber}
+            />
             <Button onClick={() => void onLoadApplyPreview()} size="sm" variant="outline">
               {t('previewPropagation')}
             </Button>

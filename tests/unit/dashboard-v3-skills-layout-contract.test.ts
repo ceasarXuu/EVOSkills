@@ -43,7 +43,7 @@ describe('dashboard v3 skills layout contract', () => {
     expect(skillFamilyDetailSource).toContain("t('switchRuntime')")
   })
 
-  it('locks the skills workspace into a fixed two-column workbench instead of breakpoint reflow', () => {
+  it('keeps the skills workspace fixed while embedding version controls into the content frame', () => {
     expect(appSource).not.toContain('space-y-8 overflow-x-auto')
     expect(skillsWorkspaceSource).toContain('min-w-[1540px]')
     expect(skillsWorkspaceSource).toContain('grid-cols-[340px_minmax(0,1fr)]')
@@ -57,10 +57,12 @@ describe('dashboard v3 skills layout contract', () => {
     expect(skillFamilyDetailSource).not.toContain("t('analyzedTouches')")
     expect(skillFamilyDetailSource).not.toContain("t('optimized')")
     expect(skillFamilyDetailSource).not.toContain("t('divergedContent')")
-    expect(skillFamilyDetailSource).toContain('grid-cols-[minmax(0,1fr)_340px]')
+    expect(skillFamilyDetailSource).not.toContain('grid-cols-[minmax(0,1fr)_340px]')
+    expect(skillFamilyDetailSource).toContain('<SkillContentEditor')
     expect(skillFamilyDetailSource).not.toContain('2xl:grid-cols-[minmax(0,1fr)_340px]')
 
-    expect(skillContentEditorSource).toContain('flex items-center justify-between')
+    expect(skillContentEditorSource).toContain('<SkillVersionHistory')
+    expect(skillContentEditorSource).toContain('xl:grid-cols-[minmax(0,1fr)_auto]')
     expect(skillContentEditorSource).not.toContain('xl:flex-row')
   })
 })

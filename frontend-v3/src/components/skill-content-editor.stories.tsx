@@ -7,6 +7,7 @@ import {
   storyApplyPreview,
   storySkillDetail,
   storySkillInstances,
+  storySkillVersions,
 } from '@/stories/dashboard-v3-fixtures'
 
 type SkillContentEditorStoryArgs = ComponentProps<typeof SkillContentEditor>
@@ -36,6 +37,7 @@ const meta = {
   args: {
     actionMessage: null,
     applyPreview: null,
+    detail: storySkillDetail,
     detailError: null,
     diffContent: null,
     diffVersion: null,
@@ -45,10 +47,14 @@ const meta = {
     onApplyToFamily: fn(),
     onDraftChange: fn(),
     onLoadApplyPreview: fn(),
+    onSelectDiffVersion: fn(),
+    onSelectVersion: fn(),
     onSave: fn(),
+    onToggleVersionDisabled: fn(),
     preferredRuntime: 'claude',
     selectedInstance: storySkillInstances[0],
     selectedVersion: 6,
+    versionMetadataByNumber: storySkillVersions,
   },
 } satisfies Meta<typeof SkillContentEditor>
 

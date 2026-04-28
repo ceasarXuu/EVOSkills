@@ -52,9 +52,7 @@ type TranslationKey = CostTranslationKey
   | 'loadErrorPrefix'
   | 'market'
   | 'marketDirectories'
-  | 'marketIntro'
   | 'marketRepositories'
-  | 'marketTitle'
   | 'marketTrustCommunity'
   | 'marketTrustOfficial'
   | 'marketTrustIndex'
@@ -171,9 +169,7 @@ const TRANSLATIONS: Record<DashboardLanguage, Record<TranslationKey, string>> = 
     loadErrorPrefix: '远端配置加载失败：',
     market: '市场',
     marketDirectories: '市场目录',
-    marketIntro: '当前先聚合外部入口，不抓取远端内容、不自动安装，也不把外部 skill 混入本地技能库。',
     marketRepositories: 'GitHub 资源库',
-    marketTitle: '外部 Skills 入口',
     marketTrustCommunity: '社区',
     marketTrustOfficial: '官方',
     marketTrustIndex: '索引',
@@ -289,9 +285,7 @@ const TRANSLATIONS: Record<DashboardLanguage, Record<TranslationKey, string>> = 
     loadErrorPrefix: 'Failed to load remote config:',
     market: 'Market',
     marketDirectories: 'Market directories',
-    marketIntro: 'This page starts as external entrypoints only: no remote crawling, automatic install, or mixing external skills into the local library.',
     marketRepositories: 'GitHub repositories',
-    marketTitle: 'External Skills entrypoints',
     marketTrustCommunity: 'Community',
     marketTrustOfficial: 'Official',
     marketTrustIndex: 'Index',

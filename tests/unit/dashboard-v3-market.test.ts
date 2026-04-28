@@ -101,5 +101,8 @@ describe('dashboard v3 market directory', () => {
     expect(marketWorkspaceSource).not.toContain("from '@/components/ui/button'")
     expect(marketWorkspaceSource).not.toContain('entry.initials')
     expect(marketWorkspaceSource).not.toContain("t('openExternal')")
+    expect(marketWorkspaceSource).not.toContain("t('marketIntro')")
+    expect(marketWorkspaceSource).not.toContain("t('marketTitle')")
+    expect(marketWorkspaceSource).not.toContain('Search01Icon')
   })
 })

@@ -1,5 +1,3 @@
-import { Search01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useI18n } from '@/lib/i18n'
@@ -16,17 +14,6 @@ export function MarketWorkspace() {
 
   return (
     <div className="space-y-7">
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border/70 pb-5">
-        <div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <HugeiconsIcon icon={Search01Icon} size={15} strokeWidth={1.8} />
-            <span>{t('market')}</span>
-          </div>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal">{t('marketTitle')}</h1>
-        </div>
-        <div className="max-w-2xl text-sm leading-6 text-muted-foreground">{t('marketIntro')}</div>
-      </div>
-
       {MARKET_GROUPS.map(({ group, titleKey }) => {
         const groupEntries = entries.filter((entry) => entry.group === group)
         return (

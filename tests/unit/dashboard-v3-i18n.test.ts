@@ -29,5 +29,7 @@ describe('dashboard v3 i18n contract', () => {
     expect(getTranslations('en').configLoading).toBe('Loading config...')
     expect(getTranslations('zh').cost).toBe('成本')
     expect(getTranslations('en').cost).toBe('Cost')
+    expect(getTranslations('zh').market).toBe('市场')
+    expect(getTranslations('en').market).toBe('Market')
   })
 })

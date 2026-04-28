@@ -23,6 +23,7 @@ describe('dashboard v3 workspace header', () => {
 
   it('restores the v1-aligned top-level navigation contract', () => {
     expect(workspaceHeaderSource).toContain('to="/skills"')
+    expect(workspaceHeaderSource).toContain('to="/market"')
     expect(workspaceHeaderSource).toContain('to="/project"')
     expect(workspaceHeaderSource).toContain('to="/config"')
     expect(workspaceHeaderSource).not.toContain('to="/projects"')

@@ -23,6 +23,12 @@ export const Skills: Story = {
   },
 }
 
+export const Market: Story = {
+  args: {
+    currentView: 'market',
+  },
+}
+
 export const Project: Story = {
   args: {
     currentView: 'project',

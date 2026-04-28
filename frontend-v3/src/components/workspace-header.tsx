@@ -30,6 +30,7 @@ export function WorkspaceHeader({ currentView }: WorkspaceHeaderProps) {
           <nav aria-label={t('navLabel')}>
             <div className="inline-flex items-center gap-1 rounded-none bg-transparent p-[3px] text-muted-foreground">
               <HeaderNavLink currentView={currentView} label={t('skill')} to="/skills" value="skills" />
+              <HeaderNavLink currentView={currentView} label={t('market')} to="/market" value="market" />
               <HeaderNavLink currentView={currentView} label={t('project')} to="/project" value="project" />
               <HeaderNavLink currentView={currentView} label={t('config')} to="/config" value="config" />
             </div>

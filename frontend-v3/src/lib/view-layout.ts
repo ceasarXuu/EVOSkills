@@ -9,6 +9,7 @@ export interface DashboardViewLayout {
 export function resolveDashboardViewLayout(view: DashboardView): DashboardViewLayout {
   switch (view) {
     case 'skills':
+    case 'market':
       return {
         showProjectRail: false,
         showHero: false,

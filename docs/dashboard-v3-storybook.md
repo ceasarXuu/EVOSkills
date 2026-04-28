@@ -15,7 +15,8 @@
 
 | Sidebar | Layer | Stories | Notes |
 |---|---|---|---|
-| `Dashboard V3/Shell/WorkspaceHeader` | Pattern | `Skills`, `Project`, `Config` | 顶部导航壳层 |
+| `Dashboard V3/Shell/WorkspaceHeader` | Pattern | `Skills`, `Market`, `Project`, `Config` | 顶部导航壳层 |
+| `Dashboard V3/Market/MarketWorkspace` | Screen | `Default` | 外部 skills 市场与 GitHub 资源库入口 |
 | `Dashboard V3/Skills/SkillFamilyList` | Pattern | `Default`, `SearchAndSelect`, `Loading`, `Empty` | 技能库左侧 rail，含搜索与选中 |
 | `Dashboard V3/Skills/SkillFamilyDetail` | Screen | `Default`, `FilteredBySelectors`, `VersionDiff`, `EmptySelection`, `Loading` | 技能视角主工作区，融合 family 信息、实例筛选、版本 diff 与正文动作 |
 | `Dashboard V3/Skills/SkillContentEditor` | Pattern | `Default`, `ApplyPreviewDialog`, `WithActionMessage`, `DiffMode`, `Error` | 正文编辑区、传播确认弹窗与版本 diff 内容渲染 |
@@ -38,7 +39,7 @@
 - 视觉基线：Chromatic workflow 负责 PR / main 分支视觉回归
 - Actions：统一匹配 `^on[A-Z].*`
 - Controls：默认展开，优先 required args
-- 排序：`Shell -> Skills -> Project -> Config -> Overlay`
+- 排序：`Shell -> Skills -> Market -> Project -> Config -> Overlay`
 
 ## Quality Gates
 

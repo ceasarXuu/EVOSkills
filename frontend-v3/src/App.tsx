@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { ConfigWorkspace } from '@/components/config-workspace'
+import { MarketWorkspace } from '@/components/market-workspace'
 import { ProjectRail } from '@/components/project-rail'
 import { ProjectWorkbench } from '@/components/project-workbench'
 import { SkillDetailDialog } from '@/components/skill-detail-dialog'
@@ -18,7 +19,7 @@ import type {
   DashboardView,
 } from '@/types/dashboard'
 
-const DASHBOARD_VIEWS: DashboardView[] = ['skills', 'project', 'config']
+const DASHBOARD_VIEWS: DashboardView[] = ['skills', 'market', 'project', 'config']
 
 function normalizeDashboardView(view?: string): DashboardView {
   if (view && DASHBOARD_VIEWS.includes(view as DashboardView)) {
@@ -214,6 +215,8 @@ function ViewContent({
           selectedProjectId={selectedProjectId}
         />
       ) : null}
+
+      {currentView === 'market' ? <MarketWorkspace /> : null}
 
       {currentView === 'project' ? (
         <ProjectWorkbench

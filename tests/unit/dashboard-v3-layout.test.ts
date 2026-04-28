@@ -19,6 +19,14 @@ describe('dashboard v3 view layout rules', () => {
     });
   });
 
+  it('keeps market as an external entrypoint without project chrome', () => {
+    expect(resolveDashboardViewLayout('market')).toEqual({
+      showProjectRail: false,
+      showHero: false,
+      showMetrics: false,
+    })
+  })
+
   it('keeps config free of project chrome', () => {
     expect(resolveDashboardViewLayout('config')).toEqual({
       showProjectRail: false,

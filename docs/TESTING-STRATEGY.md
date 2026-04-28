@@ -19,6 +19,18 @@
 - `tests/unit/dashboard-skill-evaluation-count.test.ts`
 - `npm run test:storybook:dashboard-v3`
 
+### Dashboard V3 Market
+
+覆盖市场页轻量入口: 一级 tab 路由、外部市场目录与 GitHub 资源库配置、名称自动推断、favicon 默认封面，以及 Storybook 独立页面。
+
+关键测试:
+
+- `tests/unit/dashboard-v3-market.test.ts`
+- `tests/unit/dashboard-v3-layout.test.ts`
+- `tests/unit/dashboard-v3-header.test.ts`
+- `tests/unit/dashboard-v3-i18n.test.ts`
+- `npm run test:storybook:dashboard-v3`
+
 ### Dashboard V3 Project
 
 覆盖项目视角: 项目 rail、项目选择入口、项目内 skill 表格、host 筛选、项目成本合并视图和项目 API 合同。

@@ -1,13 +1,9 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { Language } from './i18n.js';
+import { normalizeLanguage, type Language } from './i18n.js';
 
 const LANGUAGE_STATE_FILE = 'dashboard-language.json';
-
-function normalizeLanguage(lang?: string | null): Language {
-  return lang === 'zh' ? 'zh' : 'en';
-}
 
 function getLanguageStatePath(projectPath: string): string {
   return join(projectPath, '.ornn', 'state', LANGUAGE_STATE_FILE);

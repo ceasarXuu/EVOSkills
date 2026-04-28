@@ -7,6 +7,10 @@
 
 export type Language = 'en' | 'zh';
 
+export function normalizeLanguage(lang?: string | null): Language {
+  return lang === 'zh' ? 'zh' : 'en';
+}
+
 export interface I18nStrings {
   // Header
   headerTitle: string;

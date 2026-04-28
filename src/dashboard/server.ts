@@ -23,7 +23,7 @@ import {
   readLogsSince,
   createGlobalLogCursor,
 } from './data-reader.js';
-import type { Language } from './i18n.js';
+import { normalizeLanguage, type Language } from './i18n.js';
 import { createChildLogger } from '../utils/logger.js';
 import {
   checkProvidersConnectivity,
@@ -187,10 +187,6 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
     });
   }
 
-  function normalizeLanguage(lang?: string | null): Language {
-    return lang === 'zh' ? 'zh' : 'en';
-  }
-
   function getProjectsWithStatus(): ProjectWithStatus[] {
     return listProjects().map((p) => {
       const monitoringState = p.monitoringState === 'paused' ? 'paused' : 'active';
@@ -317,170 +313,121 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
           }
         }
 
-      // ── Dashboard default entry ──
-      if (path === '/' && (method === 'GET' || method === 'HEAD')) {
-        logger.debug('Redirecting dashboard root to v3 default entry', {
-          requestMethod: method,
-        });
-        res.writeHead(302, {
-          Location: '/v3/',
-          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-          Pragma: 'no-cache',
-          Expires: '0',
-          'X-Dashboard-Build': buildId,
-        });
-        res.end();
-        return;
-      }
-
-      // ── API: Get/Set language ──
-      if (path === '/api/lang' && method === 'GET') {
-        json(res, { lang: currentLang });
-        return;
-      }
-
-      // ── API: Dashboard runtime info ──
-      if (path === '/api/dashboard/runtime' && method === 'GET') {
-        json(res, {
-          buildId,
-          startedAt,
-          pid: process.pid,
-          clientErrorCount: clientErrors.length,
-        });
-        return;
-      }
-
-      // ── API: Browser client error report ──
-      if (path === '/api/dashboard/client-errors' && method === 'POST') {
-        const body = (await parseBody(req)) as DashboardClientErrorEvent | { events?: DashboardClientErrorEvent[] };
-        const events = Array.isArray((body as { events?: DashboardClientErrorEvent[] }).events)
-          ? (body as { events?: DashboardClientErrorEvent[] }).events ?? []
-          : [body as DashboardClientErrorEvent];
-        for (const event of events) {
-          if (!event || typeof event !== 'object') continue;
-          clientErrors.unshift({
-            message: String(event.message ?? ''),
-            stack: String(event.stack ?? ''),
-            source: String(event.source ?? ''),
-            lineno: Number(event.lineno ?? 0) || undefined,
-            colno: Number(event.colno ?? 0) || undefined,
-            href: String(event.href ?? ''),
-            ua: String(event.ua ?? ''),
-            timestamp: String(event.timestamp ?? new Date().toISOString()),
+        // ── Dashboard default entry ──
+        if (path === '/' && (method === 'GET' || method === 'HEAD')) {
+          logger.debug('Redirecting dashboard root to v3 default entry', {
+            requestMethod: method,
           });
-        }
-        if (clientErrors.length > 200) {
-          clientErrors.length = 200;
-        }
-        if (events.length > 0) {
-          const latest = clientErrors[0];
-          logger.error('Dashboard client runtime error reported', {
-            message: latest?.message ?? '',
-            source: latest?.source ?? '',
-            line: latest?.lineno ?? 0,
-            col: latest?.colno ?? 0,
+          res.writeHead(302, {
+            Location: '/v3/',
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+            Pragma: 'no-cache',
+            Expires: '0',
+            'X-Dashboard-Build': buildId,
           });
+          res.end();
+          return;
         }
-        json(res, { ok: true, accepted: events.length });
-        return;
-      }
-      if (path === '/api/lang' && method === 'POST') {
-        try {
-          const body = (await parseBody(req)) as { lang?: string; projectPath?: string };
-          if (body.lang === 'en' || body.lang === 'zh') {
-            currentLang = normalizeLanguage(body.lang);
-            if (typeof body.projectPath === 'string' && body.projectPath.length > 0) {
-              await writeProjectLanguage(body.projectPath, currentLang);
-              logger.debug('Persisted dashboard language for project', {
-                projectPath: body.projectPath,
-                lang: currentLang,
-                source: 'api.lang',
-              });
-            }
-            json(res, { ok: true, lang: currentLang });
-          } else {
-            json(res, { ok: false, error: 'Invalid language. Use "en" or "zh"' }, 400);
+
+        // ── API: Get/Set language ──
+        if (path === '/api/lang' && method === 'GET') {
+          json(res, { lang: currentLang });
+          return;
+        }
+
+        // ── API: Dashboard runtime info ──
+        if (path === '/api/dashboard/runtime' && method === 'GET') {
+          json(res, {
+            buildId,
+            startedAt,
+            pid: process.pid,
+            clientErrorCount: clientErrors.length,
+          });
+          return;
+        }
+
+        // ── API: Browser client error report ──
+        if (path === '/api/dashboard/client-errors' && method === 'POST') {
+          const body = (await parseBody(req)) as DashboardClientErrorEvent | { events?: DashboardClientErrorEvent[] };
+          const events = Array.isArray((body as { events?: DashboardClientErrorEvent[] }).events)
+            ? (body as { events?: DashboardClientErrorEvent[] }).events ?? []
+            : [body as DashboardClientErrorEvent];
+          for (const event of events) {
+            if (!event || typeof event !== 'object') continue;
+            clientErrors.unshift({
+              message: String(event.message ?? ''),
+              stack: String(event.stack ?? ''),
+              source: String(event.source ?? ''),
+              lineno: Number(event.lineno ?? 0) || undefined,
+              colno: Number(event.colno ?? 0) || undefined,
+              href: String(event.href ?? ''),
+              ua: String(event.ua ?? ''),
+              timestamp: String(event.timestamp ?? new Date().toISOString()),
+            });
           }
-        } catch (e) {
-          json(res, { ok: false, error: String(e) }, 400);
+          if (clientErrors.length > 200) {
+            clientErrors.length = 200;
+          }
+          if (events.length > 0) {
+            const latest = clientErrors[0];
+            logger.error('Dashboard client runtime error reported', {
+              message: latest?.message ?? '',
+              source: latest?.source ?? '',
+              line: latest?.lineno ?? 0,
+              col: latest?.colno ?? 0,
+            });
+          }
+          json(res, { ok: true, accepted: events.length });
+          return;
         }
-        return;
-      }
+        if (path === '/api/lang' && method === 'POST') {
+          try {
+            const body = (await parseBody(req)) as { lang?: string; projectPath?: string };
+            if (body.lang === 'en' || body.lang === 'zh') {
+              currentLang = normalizeLanguage(body.lang);
+              if (typeof body.projectPath === 'string' && body.projectPath.length > 0) {
+                await writeProjectLanguage(body.projectPath, currentLang);
+                logger.debug('Persisted dashboard language for project', {
+                  projectPath: body.projectPath,
+                  lang: currentLang,
+                  source: 'api.lang',
+                });
+              }
+              json(res, { ok: true, lang: currentLang });
+            } else {
+              json(res, { ok: false, error: 'Invalid language. Use "en" or "zh"' }, 400);
+            }
+          } catch (e) {
+            json(res, { ok: false, error: String(e) }, 400);
+          }
+          return;
+        }
 
-      // ── SSE Stream ──
-      if (path === '/events' && method === 'GET') {
-        const clientId = sseHub.connectClient(res, getProjectsWithStatus());
-        req.on('close', () => sseHub.disconnectClient(clientId));
-        return;
-      }
+        // ── SSE Stream ──
+        if (path === '/events' && method === 'GET') {
+          const clientId = sseHub.connectClient(res, getProjectsWithStatus());
+          req.on('close', () => sseHub.disconnectClient(clientId));
+          return;
+        }
 
-      if (await handleSkillFamilyRoutes({
-        path,
-        method,
-        json: (data, status = 200) => json(res, data, status),
-        jsonWithEtag: (data, etag, status = 200) => jsonWithEtag(req, res, data, etag, status),
-        respondNotModified: (etag) => respondNotModified(req, res, etag),
-        notFound: () => notFound(res),
-      })) {
-        return;
-      }
-
-      if (await handleGlobalConfigRoutes({
-        path,
-        method,
-        url,
-        json: (data, status = 200) => json(res, data, status),
-        parseBody: () => parseBody(req),
-        getProviderHealthSummary,
-        logger,
-      })) {
-        return;
-      }
-
-      if (await handleProjectManagementRoutes({
-        path,
-        method,
-        json: (data, status = 200) => json(res, data, status),
-        parseBody: () => parseBody(req),
-        getProjectsWithStatus,
-        onboardProjectForMonitoring,
-        pickProjectDirectory,
-        setProjectMonitoringState,
-        readGlobalLogs,
-        logger,
-      })) {
-        return;
-      }
-
-      // ── API: Project routes ──
-      // /api/projects/:encodedPath/...
-      const projectMatch = path.match(/^\/api\/projects\/([^/]+)(\/.*)?$/);
-      if (projectMatch) {
-        const projectPath = decodeURIComponent(projectMatch[1]);
-        const subPath = projectMatch[2] ?? '';
-
-        if (await handleProjectReadRoutes({
-          subPath,
+        if (await handleSkillFamilyRoutes({
+          path,
           method,
-          projectPath,
-          currentLang,
           json: (data, status = 200) => json(res, data, status),
           jsonWithEtag: (data, etag, status = 200) => jsonWithEtag(req, res, data, etag, status),
           respondNotModified: (etag) => respondNotModified(req, res, etag),
           notFound: () => notFound(res),
-          logger,
         })) {
           return;
         }
 
-        if (await handleProjectSkillInstanceRoutes({
-          subPath,
+        if (await handleGlobalConfigRoutes({
+          path,
           method,
-          projectPath,
           url,
           json: (data, status = 200) => json(res, data, status),
           parseBody: () => parseBody(req),
-          notFound: () => notFound(res),
+          getProviderHealthSummary,
           logger,
         })) {
           return;
@@ -489,8 +436,6 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
         if (await handleProjectManagementRoutes({
           path,
           method,
-          projectPath,
-          subPath,
           json: (data, status = 200) => json(res, data, status),
           parseBody: () => parseBody(req),
           getProjectsWithStatus,
@@ -503,47 +448,98 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
           return;
         }
 
-        if (await handleProjectSkillRoutes({
-          subPath,
-          method,
-          projectPath,
-          url,
-          json: (data, status = 200) => json(res, data, status),
-          parseBody: () => parseBody(req),
-          notFound: () => notFound(res),
-          logger,
-        })) {
-          return;
+        // ── API: Project routes ──
+        // /api/projects/:encodedPath/...
+        const projectMatch = path.match(/^\/api\/projects\/([^/]+)(\/.*)?$/);
+        if (projectMatch) {
+          const projectPath = decodeURIComponent(projectMatch[1]);
+          const subPath = projectMatch[2] ?? '';
+
+          if (await handleProjectReadRoutes({
+            subPath,
+            method,
+            projectPath,
+            currentLang,
+            json: (data, status = 200) => json(res, data, status),
+            jsonWithEtag: (data, etag, status = 200) => jsonWithEtag(req, res, data, etag, status),
+            respondNotModified: (etag) => respondNotModified(req, res, etag),
+            notFound: () => notFound(res),
+            logger,
+          })) {
+            return;
+          }
+
+          if (await handleProjectSkillInstanceRoutes({
+            subPath,
+            method,
+            projectPath,
+            url,
+            json: (data, status = 200) => json(res, data, status),
+            parseBody: () => parseBody(req),
+            notFound: () => notFound(res),
+            logger,
+          })) {
+            return;
+          }
+
+          if (await handleProjectManagementRoutes({
+            path,
+            method,
+            projectPath,
+            subPath,
+            json: (data, status = 200) => json(res, data, status),
+            parseBody: () => parseBody(req),
+            getProjectsWithStatus,
+            onboardProjectForMonitoring,
+            pickProjectDirectory,
+            setProjectMonitoringState,
+            readGlobalLogs,
+            logger,
+          })) {
+            return;
+          }
+
+          if (await handleProjectSkillRoutes({
+            subPath,
+            method,
+            projectPath,
+            url,
+            json: (data, status = 200) => json(res, data, status),
+            parseBody: () => parseBody(req),
+            notFound: () => notFound(res),
+            logger,
+          })) {
+            return;
+          }
+
+          if (await handleProjectVersionRoutes({
+            subPath,
+            method,
+            projectPath,
+            url,
+            json: (data, status = 200) => json(res, data, status),
+            parseBody: () => parseBody(req),
+            notFound: () => notFound(res),
+            logger,
+          })) {
+            return;
+          }
+
+          if (await handleProjectConfigRoutes({
+            subPath,
+            method,
+            projectPath,
+            json: (data, status = 200) => json(res, data, status),
+            parseBody: () => parseBody(req),
+            getProviderHealthSummary,
+            logger,
+          })) {
+            return;
+          }
         }
 
-        if (await handleProjectVersionRoutes({
-          subPath,
-          method,
-          projectPath,
-          url,
-          json: (data, status = 200) => json(res, data, status),
-          parseBody: () => parseBody(req),
-          notFound: () => notFound(res),
-          logger,
-        })) {
-          return;
-        }
-
-        if (await handleProjectConfigRoutes({
-          subPath,
-          method,
-          projectPath,
-          json: (data, status = 200) => json(res, data, status),
-          parseBody: () => parseBody(req),
-          getProviderHealthSummary,
-          logger,
-        })) {
-          return;
-        }
-      }
-
-      notFound(res);
-    } catch (err) {
+        notFound(res);
+      } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         if (message === 'Invalid JSON' || message === 'Request body too large') {
           json(res, { error: message }, 400);

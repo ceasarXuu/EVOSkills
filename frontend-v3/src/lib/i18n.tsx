@@ -372,10 +372,6 @@ interface I18nContextValue {
 const I18nContext = createContext<I18nContextValue | null>(null)
 const STORAGE_KEY = 'dashboard-v3.lang'
 
-function normalizeLanguage(value: unknown): DashboardLanguage {
-  return value === 'zh' ? 'zh' : 'en'
-}
-
 function detectBrowserLanguage(): DashboardLanguage {
   if (typeof navigator === 'undefined') return 'en'
   const candidates = Array.isArray(navigator.languages) ? navigator.languages : [navigator.language]
@@ -403,24 +399,9 @@ export function I18nProvider({
     window.localStorage.setItem(STORAGE_KEY, lang)
   }, [lang])
 
-  useEffect(() => {
-    if (initialLanguage) {
-      return undefined
-    }
-
-    let cancelled = false
-    fetch('/api/lang')
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload: { lang?: string } | null) => {
-        if (!cancelled && payload?.lang) {
-          setLang(normalizeLanguage(payload.lang))
-        }
-      })
-      .catch(() => undefined)
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  // 初始语言由 loadInitialLanguage() 决定：
+  // 优先 localStorage 中用户已切换过的偏好，否则读取浏览器语言，最终英文兜底。
+  // 不再在初始化时向后端拉取 /api/lang 覆盖，避免后端默认 'en' 覆盖浏览器中文检测。
 
   const value = useMemo<I18nContextValue>(() => {
     const t = (key: TranslationKey) => TRANSLATIONS[lang][key]

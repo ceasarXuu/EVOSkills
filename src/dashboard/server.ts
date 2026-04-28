@@ -23,7 +23,6 @@ import {
   readLogsSince,
   createGlobalLogCursor,
 } from './data-reader.js';
-import { getDashboardAssetBundle } from './ui.js';
 import type { Language } from './i18n.js';
 import { createChildLogger } from '../utils/logger.js';
 import {
@@ -41,11 +40,6 @@ import { handleProjectVersionRoutes } from './routes/project-version-routes.js';
 import { handleSkillFamilyRoutes } from './routes/skill-family-routes.js';
 import { onboardProjectForMonitoring as onboardProjectForMonitoringService } from './services/project-onboarding-service.js';
 import { createDashboardSseHub } from './sse/hub.js';
-import {
-  getDashboardV2DocumentResponse,
-  isDashboardV2DocumentRequest,
-  resolveDashboardV2StaticAsset,
-} from './v2/assets.js';
 import {
   getDashboardV3DocumentResponse,
   isDashboardV3DocumentRequest,
@@ -92,7 +86,6 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
   const buildId = `${Date.now()}`;
   const startedAt = new Date().toISOString();
   const clientErrors: DashboardClientErrorEvent[] = [];
-  const dashboardAssets = getDashboardAssetBundle();
   const sseHub = createDashboardSseHub({
     createGlobalLogCursor,
     readGlobalLogs,
@@ -278,52 +271,6 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
       const method = req.method ?? 'GET';
 
       try {
-        if (isDashboardV2DocumentRequest(path) && (method === 'GET' || method === 'HEAD')) {
-          const document = getDashboardV2DocumentResponse();
-          if (!document.hasBuild) {
-            logger.warn('Dashboard v2 requested before static bundle was built', {
-              path,
-              method,
-            });
-          } else {
-            logger.debug('Serving dashboard v2 document', {
-              path,
-              method,
-            });
-          }
-          res.writeHead(200, {
-            'Content-Type': 'text/html; charset=utf-8',
-            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-            Pragma: 'no-cache',
-            Expires: '0',
-            'X-Dashboard-Build': buildId,
-            'X-Dashboard-V2': document.hasBuild ? 'built' : 'fallback',
-          });
-          if (method === 'HEAD') {
-            res.end();
-            return;
-          }
-          res.end(document.body);
-          return;
-        }
-
-        if (path.startsWith('/v2/') && (method === 'GET' || method === 'HEAD')) {
-          const asset = resolveDashboardV2StaticAsset(path);
-          if (asset) {
-            res.writeHead(200, {
-              'Content-Type': asset.contentType,
-              'Cache-Control': asset.cacheControl,
-              'X-Dashboard-Build': buildId,
-            });
-            if (method === 'HEAD') {
-              res.end();
-              return;
-            }
-            res.end(asset.body);
-            return;
-          }
-        }
-
         if (isDashboardV3DocumentRequest(path) && (method === 'GET' || method === 'HEAD')) {
           const document = getDashboardV3DocumentResponse();
           if (!document.hasBuild) {
@@ -368,28 +315,6 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
             res.end(asset.body);
             return;
           }
-        }
-
-        if (
-          (path === dashboardAssets.styleHref || path === dashboardAssets.scriptHref) &&
-          (method === 'GET' || method === 'HEAD')
-        ) {
-          const isStyleAsset = path === dashboardAssets.styleHref;
-          const body = isStyleAsset ? dashboardAssets.styleCss : dashboardAssets.scriptSource;
-          const contentType = isStyleAsset
-            ? 'text/css; charset=utf-8'
-            : 'application/javascript; charset=utf-8';
-          res.writeHead(200, {
-            'Content-Type': contentType,
-            'Cache-Control': 'public, max-age=31536000, immutable',
-            'X-Dashboard-Build': buildId,
-          });
-          if (method === 'HEAD') {
-            res.end();
-            return;
-          }
-          res.end(body);
-          return;
         }
 
       // ── Dashboard default entry ──
@@ -617,8 +542,8 @@ export function createDashboardServer(port: number, defaultLang: Language = 'en'
         }
       }
 
-        notFound(res);
-      } catch (err) {
+      notFound(res);
+    } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         if (message === 'Invalid JSON' || message === 'Request body too large') {
           json(res, { error: message }, 400);

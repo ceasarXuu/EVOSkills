@@ -1,7 +1,6 @@
-import { LinkCircle02Icon, Search01Icon } from '@hugeicons/core-free-icons'
+import { Search01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useI18n } from '@/lib/i18n'
 import { resolveMarketEntries, type MarketEntry, type MarketEntryGroup } from '@/lib/market-directory'
@@ -12,8 +11,8 @@ const MARKET_GROUPS: Array<{ group: MarketEntryGroup; titleKey: 'marketDirectori
 ]
 
 export function MarketWorkspace() {
-  const { t } = useI18n()
-  const entries = resolveMarketEntries()
+  const { lang, t } = useI18n()
+  const entries = resolveMarketEntries(undefined, lang)
 
   return (
     <div className="space-y-7">
@@ -54,55 +53,44 @@ function MarketEntryCard({ entry }: { entry: MarketEntry }) {
   const { t } = useI18n()
 
   return (
-    <Card className="border-border/70 bg-card/92" size="sm">
-      <div className="relative h-28 overflow-hidden border-b border-border/70 bg-muted/20">
-        {entry.coverUrl ? (
-          <img alt="" className="h-full w-full object-cover" src={entry.coverUrl} />
-        ) : (
-          <div className="flex h-full items-center justify-between bg-[linear-gradient(135deg,color-mix(in_oklab,var(--foreground)_10%,transparent),color-mix(in_oklab,var(--background)_86%,transparent))] px-5">
-            <div className="flex size-14 items-center justify-center rounded-lg border border-border/80 bg-background/75 shadow-sm">
-              <img alt="" className="size-8" src={entry.resolvedIconUrl} />
+    <a className="block focus-visible:outline-none" href={entry.url} rel="noreferrer" target="_blank">
+      <Card className="h-full border-border/70 bg-card/92 transition-colors hover:border-foreground/30 hover:bg-card" size="sm">
+        <CardHeader className="gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-background/75">
+                <img alt="" className="size-6" src={entry.iconUrl || entry.coverUrl || entry.resolvedIconUrl} />
+              </div>
+              <div className="min-w-0">
+                <CardTitle className="truncate">{entry.displayName}</CardTitle>
+                <div className="mt-1 truncate text-xs text-muted-foreground">{entry.displayUrl}</div>
+              </div>
             </div>
-            <div className="text-5xl font-semibold text-foreground/10">{entry.initials}</div>
+            <Badge variant={entry.trust === 'official' ? 'default' : 'outline'}>{trustLabel(entry.trust, t)}</Badge>
           </div>
-        )}
-      </div>
-      <CardHeader className="gap-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <CardTitle className="truncate">{entry.displayName}</CardTitle>
-            <div className="mt-1 truncate text-xs text-muted-foreground">{entry.displayUrl}</div>
+        </CardHeader>
+        <CardContent className="flex flex-1 flex-col gap-4">
+          <p className="text-sm leading-6 text-muted-foreground">{entry.displayDescription}</p>
+          <div className="flex flex-wrap gap-2">
+            {entry.hosts?.map((host) => (
+              <Badge key={host} variant="secondary">
+                {host}
+              </Badge>
+            ))}
+            {entry.displayTags.map((tag) => (
+              <Badge key={tag} variant="outline">
+                {tag}
+              </Badge>
+            ))}
           </div>
-          <Badge variant={entry.trust === 'official' ? 'default' : 'outline'}>{trustLabel(entry.trust, t)}</Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-4">
-        <p className="min-h-12 text-sm leading-6 text-muted-foreground">{entry.description}</p>
-        <div className="flex flex-wrap gap-2">
-          {entry.hosts?.map((host) => (
-            <Badge key={host} variant="secondary">
-              {host}
-            </Badge>
-          ))}
-          {entry.tags?.map((tag) => (
-            <Badge key={tag} variant="outline">
-              {tag}
-            </Badge>
-          ))}
-        </div>
-        <Button asChild className="mt-auto w-fit" size="sm" variant="outline">
-          <a href={entry.url} rel="noreferrer" target="_blank">
-            <HugeiconsIcon icon={LinkCircle02Icon} size={15} strokeWidth={1.8} />
-            {t('openExternal')}
-          </a>
-        </Button>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </a>
   )
 }
 
 function trustLabel(trust: MarketEntry['trust'], t: ReturnType<typeof useI18n>['t']) {
   if (trust === 'official') return t('marketTrustOfficial')
-  if (trust === 'reference') return t('marketTrustReference')
+  if (trust === 'index') return t('marketTrustIndex')
   return t('marketTrustCommunity')
 }

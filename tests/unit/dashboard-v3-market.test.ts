@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
 
 import {
   MARKET_ENTRY_CONFIGS,
@@ -6,6 +7,11 @@ import {
   resolveMarketEntry,
   resolveMarketEntries,
 } from '../../frontend-v3/src/lib/market-directory.ts'
+
+const marketWorkspaceSource = readFileSync(
+  new URL('../../frontend-v3/src/components/market-workspace.tsx', import.meta.url),
+  'utf8',
+)
 
 describe('dashboard v3 market directory', () => {
   it('keeps market entries data-driven for cheap expansion', () => {
@@ -15,6 +21,28 @@ describe('dashboard v3 market directory', () => {
     expect(entries.some((entry) => entry.group === 'directory')).toBe(true)
     expect(entries.some((entry) => entry.group === 'repository')).toBe(true)
     expect(entries.every((entry) => entry.url.startsWith('https://'))).toBe(true)
+    expect(entries.every((entry) => entry.trust !== 'reference')).toBe(true)
+  })
+
+  it('resolves localized descriptions and tags for the market UI', () => {
+    const [entry] = resolveMarketEntries(
+      [
+        {
+          id: 'localized',
+          url: 'https://example.com/skills',
+          group: 'directory',
+          description: {
+            en: 'English description.',
+            zh: '中文说明。',
+          },
+          tags: ['Directory', 'Discovery'],
+        },
+      ],
+      'zh',
+    )
+
+    expect(entry.displayDescription).toBe('中文说明。')
+    expect(entry.displayTags).toEqual(['目录', '发现'])
   })
 
   it('initializes mainstream directories and repository sources', () => {
@@ -66,5 +94,12 @@ describe('dashboard v3 market directory', () => {
   it('derives readable names from common non-GitHub hosts', () => {
     expect(inferNameFromUrl(new URL('https://skills.sh/'))).toBe('Skills')
     expect(MARKET_ENTRY_CONFIGS.find((entry) => entry.id === 'skills-sh')?.name).toBeUndefined()
+  })
+
+  it('keeps market cards compact and directly clickable', () => {
+    expect(marketWorkspaceSource).toContain('<a className="block')
+    expect(marketWorkspaceSource).not.toContain("from '@/components/ui/button'")
+    expect(marketWorkspaceSource).not.toContain('entry.initials')
+    expect(marketWorkspaceSource).not.toContain("t('openExternal')")
   })
 })

@@ -57,7 +57,7 @@ type TranslationKey = CostTranslationKey
   | 'marketTitle'
   | 'marketTrustCommunity'
   | 'marketTrustOfficial'
-  | 'marketTrustReference'
+  | 'marketTrustIndex'
   | 'model'
   | 'navLabel'
   | 'noMatchedProjects'
@@ -70,7 +70,6 @@ type TranslationKey = CostTranslationKey
   | 'noSkillFamilySelected'
   | 'noSkillInstance'
   | 'noVersions'
-  | 'openExternal'
   | 'previewPropagation'
   | 'project'
   | 'projectCount'
@@ -177,7 +176,7 @@ const TRANSLATIONS: Record<DashboardLanguage, Record<TranslationKey, string>> = 
     marketTitle: '外部 Skills 入口',
     marketTrustCommunity: '社区',
     marketTrustOfficial: '官方',
-    marketTrustReference: '参考',
+    marketTrustIndex: '索引',
     model: '模型',
     navLabel: '主导航',
     noMatchedProjects: '当前没有匹配的项目。',
@@ -190,7 +189,6 @@ const TRANSLATIONS: Record<DashboardLanguage, Record<TranslationKey, string>> = 
     noSkillFamilySelected: '先从左侧选择一个 skill family。',
     noSkillInstance: '暂无实例',
     noVersions: '当前没有版本记录。',
-    openExternal: '打开',
     previewPropagation: '预览传播',
     project: '项目',
     projectCount: '个项目',
@@ -296,7 +294,7 @@ const TRANSLATIONS: Record<DashboardLanguage, Record<TranslationKey, string>> = 
     marketTitle: 'External Skills entrypoints',
     marketTrustCommunity: 'Community',
     marketTrustOfficial: 'Official',
-    marketTrustReference: 'Reference',
+    marketTrustIndex: 'Index',
     model: 'Model',
     navLabel: 'Primary navigation',
     noMatchedProjects: 'No matching projects.',
@@ -309,7 +307,6 @@ const TRANSLATIONS: Record<DashboardLanguage, Record<TranslationKey, string>> = 
     noSkillFamilySelected: 'Select a skill family from the left rail.',
     noSkillInstance: 'No instance',
     noVersions: 'No version records yet.',
-    openExternal: 'Open',
     previewPropagation: 'Preview propagation',
     project: 'Project',
     projectCount: 'projects',

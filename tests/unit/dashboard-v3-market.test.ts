@@ -11,10 +11,28 @@ describe('dashboard v3 market directory', () => {
   it('keeps market entries data-driven for cheap expansion', () => {
     const entries = resolveMarketEntries()
 
-    expect(entries.length).toBeGreaterThanOrEqual(6)
+    expect(entries.length).toBeGreaterThanOrEqual(18)
     expect(entries.some((entry) => entry.group === 'directory')).toBe(true)
     expect(entries.some((entry) => entry.group === 'repository')).toBe(true)
     expect(entries.every((entry) => entry.url.startsWith('https://'))).toBe(true)
+  })
+
+  it('initializes mainstream directories and repository sources', () => {
+    const ids = MARKET_ENTRY_CONFIGS.map((entry) => entry.id)
+
+    expect(ids).toEqual(
+      expect.arrayContaining([
+        'skills-sh',
+        'skillsmp',
+        'agent-skill-sh',
+        'openai-skills',
+        'anthropic-skills',
+        'anthropic-claude-plugins-official',
+        'vercel-labs-agent-skills',
+        'firebase-agent-skills',
+        'awesome-agent-skills',
+      ]),
+    )
   })
 
   it('auto-resolves display names and favicons when config stays minimal', () => {
@@ -24,7 +42,7 @@ describe('dashboard v3 market directory', () => {
       group: 'repository',
     })
 
-    expect(entry.displayName).toBe('Example Awesome-skills')
+    expect(entry.displayName).toBe('Example Awesome Skills')
     expect(entry.displayHost).toBe('github.com')
     expect(entry.resolvedIconUrl).toContain('domain_url=https%3A%2F%2Fgithub.com')
     expect(entry.initials).toBe('EA')
